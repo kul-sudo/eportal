@@ -1,6 +1,4 @@
 use std::{
-    borrow::BorrowMut,
-    cmp::Ordering,
     collections::HashMap,
     thread::sleep,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -8,7 +6,6 @@ use std::{
 
 use macroquad::{
     color::{Color, GREEN, WHITE},
-    experimental::scene::clear,
     math::Vec2,
     miniquad::window::set_fullscreen,
     rand::gen_range,
@@ -18,10 +15,11 @@ use macroquad::{
 };
 use rand::{rngs::ThreadRng, seq::SliceRandom, thread_rng, Rng};
 
-static BODIES_N: usize = 40;
+static BODIES_N: usize = 100;
 static PLANTS_N: usize = 100;
-static MAX_HP: u8 = 100;
-static PLANT_HP: u8 = 25;
+static MAX_HP: f32 = 100.0;
+static PLANT_HP: f32 = 10.0;
+static ENERGY_FOR_WALKING: f32 = 0.1;
 
 static BODY_RADIUS: f32 = 10.0;
 static PLANT_RADIUS: f32 = 10.0;
@@ -42,7 +40,7 @@ enum Preference {
 struct Body<'a> {
     x: f32,
     y: f32,
-    hp: u8,
+    energy: f32,
     nearest_plant: Option<(f32, Plant)>,
     speed: f32,
     color: Color,
@@ -57,12 +55,10 @@ struct Plant {
 
 macro_rules! id {
     () => {{
-        let full = SystemTime::now()
+        SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos()
-            .to_string();
-        full[full.len() - 6..].to_string()
     }};
 }
 
@@ -98,7 +94,7 @@ fn draw_plant(x: f32, y: f32) {
     );
 }
 
-fn update_nearest_plants(body: &mut Body, plants: HashMap<String, Plant>) {
+fn update_nearest_plants(body: &mut Body, plants: HashMap<u128, Plant>) {
     body.nearest_plant = match body.nearest_plant {
         Some((current_distance, plant)) => Some((
             distance(vec![plant.x, plant.y], vec![body.x, body.y]).min(current_distance),
@@ -117,8 +113,8 @@ fn update_nearest_plants(body: &mut Body, plants: HashMap<String, Plant>) {
     };
 }
 
-fn randomly_place_plant(
-    plants: &mut HashMap<String, Plant>,
+fn randomly_spawn_plant(
+    plants: &mut HashMap<u128, Plant>,
     rng: &mut ThreadRng,
     area_size: (f32, f32),
 ) {
@@ -141,11 +137,12 @@ fn randomly_place_plant(
     plants.insert(id!(), Plant { x, y });
 }
 
-fn randomly_place_body(
-    bodies: &mut HashMap<String, Body>,
-    plants: &mut HashMap<String, Plant>,
+fn randomly_spawn_body(
+    bodies: &mut HashMap<usize, Body>,
+    plants: &mut HashMap<u128, Plant>,
     rng: &mut ThreadRng,
     area_size: (f32, f32),
+    id: usize,
 ) {
     let integer_area_size = (area_size.0 as u16, area_size.1 as u16);
     let (mut x, mut y) = (
@@ -190,13 +187,13 @@ fn randomly_place_body(
     }
 
     bodies.insert(
-        id!(),
+        id,
         Body {
             x,
             y,
-            hp: 100,
+            energy: 100.0,
             nearest_plant: None,
-            speed: 0.1,
+            speed: 1.0,
             color,
             preference: [&Preference::Bodies, &Preference::Plants]
                 .choose(rng)
@@ -215,48 +212,54 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    // Make the window fullscreen
     set_fullscreen(true);
     sleep(Duration::from_secs(2));
     next_frame().await;
-    let area_size = (screen_width(), screen_height());
 
-    let mut bodies: HashMap<String, Body> = HashMap::with_capacity(BODIES_N);
-    let mut plants: HashMap<String, Plant> = HashMap::with_capacity(PLANTS_N);
+    let area_size = (screen_width(), screen_height());
+    let mut bodies: HashMap<usize, Body> = HashMap::with_capacity(BODIES_N);
+    let mut plants: HashMap<u128, Plant> = HashMap::with_capacity(PLANTS_N);
 
     let rng = &mut thread_rng();
 
+    // Spawn the plants
     for _ in 0..PLANTS_N {
-        randomly_place_plant(&mut plants, rng, area_size)
+        randomly_spawn_plant(&mut plants, rng, area_size)
     }
 
-    for _ in 0..BODIES_N {
-        randomly_place_body(&mut bodies, &mut plants, rng, area_size)
+    // Spawn the bodies
+    for id in 0..BODIES_N {
+        randomly_spawn_body(&mut bodies, &mut plants, rng, area_size, id)
     }
 
-    // for plant in plants.clone().values() {
-    //     draw_plant(plant.x, plant.y)
-    // }
-
+    // Get the nearest plant for each spawned body
     for body in bodies.values_mut() {
         update_nearest_plants(body, plants.clone())
     }
 
-    // loop {}
     loop {
+        bodies.retain(|_, body| body.energy > 0.0);
+        if rng.gen_range(0.0..1.0) > 0.9 {
+            randomly_spawn_plant(&mut plants, rng, area_size)
+        }
         for (body_id, body) in bodies.iter_mut() {
-            match body.x.total_cmp(&area_size.0) {
-                Ordering::Less => body.x = area_size.0 - BODY_RADIUS,
-                Ordering::Greater => body.x = BODY_RADIUS,
-                _ => (),
-            }
-            match body.y.total_cmp(&area_size.1) {
-                Ordering::Less => body.y = area_size.0 - BODY_RADIUS,
-                Ordering::Greater => body.y = BODY_RADIUS,
-                _ => (),
-            }
+            // match body.x.total_cmp(&area_size.0) {
+            //     Ordering::Less => body.x = area_size.0 - BODY_RADIUS,
+            //     Ordering::Greater => body.x = BODY_RADIUS,
+            //     _ => (),
+            // }
+            // match body.y.total_cmp(&area_size.1) {
+            //     Ordering::Less => body.y = area_size.0 - BODY_RADIUS,
+            //     Ordering::Greater => body.y = BODY_RADIUS,
+            //     _ => (),
+            // }
 
             match body.preference {
                 Preference::Plants => {
+                    body.energy -= ENERGY_FOR_WALKING;
+
+                    // Move towards the nearest plant
                     let (distance_to_plant, plant) = body.nearest_plant.unwrap();
                     let (dx, dy) = (plant.x - body.x, plant.y - body.y);
                     let coeff = body.speed / distance_to_plant;
@@ -266,9 +269,14 @@ async fn main() {
 
                     draw_line(body.x, body.y, plant.x, plant.y, 5.0, WHITE);
 
-                    plants.retain(|_, plant| {
-                        distance(vec![body.x, body.y], vec![plant.x, plant.y]) >= BODY_RADIUS
-                    });
+                    // If there's been a contact between the body and a plant, handle it
+                    for (plant_id, plant) in plants.clone().iter() {
+                        if distance(vec![body.x, body.y], vec![plant.x, plant.y]) <= BODY_RADIUS {
+                            body.energy += PLANT_HP;
+                            plants.remove(plant_id);
+                            body.nearest_plant = None;
+                        };
+                    }
 
                     update_nearest_plants(body, plants.clone())
                 }
@@ -303,7 +311,7 @@ async fn main() {
             }
 
             draw_text(
-                &body_id.to_string(),
+                &body.energy.to_string(),
                 body.x - measure_text(&body_id.to_string(), None, FONT_SIZE, 1.0).width / 2.0,
                 body.y - BODY_RADIUS - MIN_GAP,
                 FONT_SIZE as f32,
