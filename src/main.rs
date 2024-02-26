@@ -277,8 +277,6 @@ async fn main() {
                             body.nearest_plant = None;
                         };
                     }
-
-                    update_nearest_plants(body, plants.clone())
                 }
                 Preference::Bodies => {
                     //     for (enemy_id, mut enemy_body) in bodies.clone().into_iter() {
