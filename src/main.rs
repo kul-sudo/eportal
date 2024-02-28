@@ -30,7 +30,7 @@ struct Body<'a> {
     x: f32,
     y: f32,
     energy: f32,
-    nearest_plant: Option<(f32, Plant)>,
+    nearest_plant: Option<(f32, (u128, Plant))>,
     speed: f32,
     color: Color,
     preference: &'a Preference,
@@ -85,28 +85,28 @@ fn draw_plant(x: f32, y: f32) {
 
 fn get_closest_plant_for_body(
     plants: &HashMap<u128, Plant>,
-    body: &mut Body,
-) -> Option<(f32, Plant)> {
-    let closest = *plants
-        .values()
-        .min_by_key(|plant| distance(vec![plant.x, plant.y], vec![body.x, body.y]) as isize)
+    body: &Body,
+) -> Option<(f32, (u128, Plant))> {
+    let (plant_id, plant) = plants
+        .iter()
+        .min_by_key(|(_, plant)| distance(vec![plant.x, plant.y], vec![body.x, body.y]) as isize)
         .unwrap();
     Some((
-        distance(vec![closest.x, closest.y], vec![body.x, body.y]),
-        closest,
+        distance(vec![plant.x, plant.y], vec![body.x, body.y]),
+        (*plant_id, *plant),
     ))
 }
 
 fn update_nearest_plants(body: &mut Body, plants: HashMap<u128, Plant>) {
     body.nearest_plant = match body.nearest_plant {
-        Some((current_distance, plant)) => {
-            if !plants.values().collect::<Vec<_>>().contains(&&plant) {
+        Some((current_distance, (plant_id, plant))) => {
+            if !plants.contains_key(&plant_id) {
                 body.nearest_plant = None;
                 get_closest_plant_for_body(&plants, body)
             } else {
                 Some((
                     distance(vec![plant.x, plant.y], vec![body.x, body.y]).min(current_distance),
-                    plant,
+                    (plant_id, plant),
                 ))
             }
         }
@@ -121,6 +121,9 @@ fn randomly_spawn_plant(
     area_size: (f32, f32),
 ) {
     let integer_area_size = (area_size.0 as u16, area_size.1 as u16);
+    let mut bodies_values = bodies.values();
+    let mut plants_values = plants.values();
+
     let (mut x, mut y) = (
         rng.gen_range(0..integer_area_size.0) as f32,
         rng.gen_range(0..integer_area_size.1) as f32,
@@ -128,10 +131,10 @@ fn randomly_spawn_plant(
 
     while (x <= PLANT_RADIUS + MIN_GAP || x >= area_size.0 - PLANT_RADIUS - MIN_GAP)
         || (y <= PLANT_RADIUS + MIN_GAP || y >= area_size.1 - PLANT_RADIUS - MIN_GAP)
-        || bodies.values().any(|body| {
+        || bodies_values.any(|body| {
             distance(vec![body.x, body.y], vec![x, y]) < BODY_RADIUS + PLANT_RADIUS + MIN_GAP
         })
-        || plants.values().any(|plant| {
+        || plants_values.any(|plant| {
             distance(vec![plant.x, plant.y], vec![x, y]) < PLANT_RADIUS * 2.0 + MIN_GAP
         })
     {
@@ -150,6 +153,9 @@ fn randomly_spawn_body(
     id: usize,
 ) {
     let integer_area_size = (area_size.0 as u16, area_size.1 as u16);
+    let mut bodies_values = bodies.values();
+    let mut plants_values = plants.values();
+
     let (mut x, mut y) = (
         rng.gen_range(0..integer_area_size.0) as f32,
         rng.gen_range(0..integer_area_size.1) as f32,
@@ -157,10 +163,10 @@ fn randomly_spawn_body(
 
     while (x <= BODY_RADIUS + MIN_GAP || x >= area_size.0 - BODY_RADIUS - MIN_GAP)
         || (y <= BODY_RADIUS + MIN_GAP || y >= area_size.1 - BODY_RADIUS - MIN_GAP)
-        || bodies.values().any(|body| {
+        || bodies_values.any(|body| {
             distance(vec![body.x, body.y], vec![x, y]) < BODY_RADIUS + PLANT_RADIUS + MIN_GAP
         })
-        || plants.values().any(|plant| {
+        || plants_values.any(|plant| {
             distance(vec![plant.x, plant.y], vec![x, y]) < BODY_RADIUS + PLANT_RADIUS + MIN_GAP
         })
     {
@@ -219,7 +225,7 @@ fn window_conf() -> Conf {
 async fn main() {
     // Make the window fullscreen
     set_fullscreen(true);
-    sleep(Duration::from_secs(2));
+    sleep(Duration::from_secs(1));
     next_frame().await;
 
     let area_size = (screen_width(), screen_height());
@@ -245,7 +251,7 @@ async fn main() {
 
     loop {
         bodies.retain(|_, body| body.energy > 0.0);
-        if rng.gen_range(0.0..1.0) > 0.95 {
+        if rng.gen_range(0.0..1.0) > 1.0 - PLANT_SPAWN_CHANCE {
             randomly_spawn_plant(&mut bodies, &mut plants, rng, area_size)
         }
         for (body_id, body) in bodies.iter_mut() {
@@ -256,22 +262,23 @@ async fn main() {
                     body.energy -= ENERGY_FOR_WALKING;
 
                     // Move towards the nearest plant
-                    let (distance_to_plant, plant) = body.nearest_plant.unwrap();
-                    let (dx, dy) = (plant.x - body.x, plant.y - body.y);
+                    let (distance_to_plant, (plant_id, nearest_plant)) =
+                        body.nearest_plant.unwrap();
+                    let (dx, dy) = (nearest_plant.x - body.x, nearest_plant.y - body.y);
                     let coeff = body.speed / distance_to_plant;
 
                     body.x += coeff * dx;
                     body.y += coeff * dy;
 
-                    draw_line(body.x, body.y, plant.x, plant.y, 5.0, WHITE);
+                    draw_line(body.x, body.y, nearest_plant.x, nearest_plant.y, 5.0, WHITE);
 
                     // If there's been a contact between the body and a plant, handle it
-                    for (plant_id, plant) in plants.clone().iter() {
-                        if distance(vec![body.x, body.y], vec![plant.x, plant.y]) <= BODY_RADIUS {
-                            body.energy += PLANT_HP;
-                            plants.remove(plant_id);
-                            body.nearest_plant = None;
-                        };
+                    if distance(vec![body.x, body.y], vec![nearest_plant.x, nearest_plant.y])
+                        <= BODY_RADIUS
+                    {
+                        body.energy += PLANT_HP;
+                        plants.remove(&plant_id);
+                        body.nearest_plant = None;
                     }
                 }
                 Preference::Bodies => {
