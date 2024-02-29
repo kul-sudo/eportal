@@ -1,4 +1,4 @@
-pub static BODIES_N: usize = 5;
+pub static BODIES_N: usize = 150;
 pub static PLANTS_N: usize = 100;
 pub static PLANT_HP: f32 = 15.0;
 pub static ENERGY_FOR_WALKING: f32 = 0.1;

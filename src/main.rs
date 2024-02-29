@@ -19,10 +19,19 @@ use macroquad::{
 };
 use rand::{rngs::ThreadRng, seq::SliceRandom, thread_rng, Rng};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 enum Preference {
     Bodies,
     Plants,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Status<'a> {
+    FollowedBy(&'a Body<'a>),
+    FollowingBody(&'a Body<'a>),
+    FollowingPlant(Plant),
+    EscapingBody(&'a Body<'a>),
+    Sleeping,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -31,9 +40,11 @@ struct Body<'a> {
     y: f32,
     energy: f32,
     nearest_plant: Option<(f32, (u128, Plant))>,
+    nearest_body: Option<(f32, usize)>,
     speed: f32,
     color: Color,
-    preference: &'a Preference,
+    preference: Preference,
+    status: Status<'a>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -83,37 +94,31 @@ fn draw_plant(x: f32, y: f32) {
     );
 }
 
-fn get_closest_plant_for_body(
+fn get_nearest_plant_for_body(
     plants: &HashMap<u128, Plant>,
     body: &Body,
 ) -> Option<(f32, (u128, Plant))> {
     let (plant_id, plant) = plants
         .iter()
-        .min_by_key(|(_, plant)| distance(vec![plant.x, plant.y], vec![body.x, body.y]) as isize)
-        .unwrap();
+        .min_by_key(|(_, plant)| distance(vec![plant.x, plant.y], vec![body.x, body.y]) as isize)?;
     Some((
         distance(vec![plant.x, plant.y], vec![body.x, body.y]),
         (*plant_id, *plant),
     ))
 }
 
-fn update_nearest_plants(body: &mut Body, plants: HashMap<u128, Plant>) {
-    body.nearest_plant = match body.nearest_plant {
-        Some((current_distance, (plant_id, plant))) => {
-            if !plants.contains_key(&plant_id) {
-                body.nearest_plant = None;
-                get_closest_plant_for_body(&plants, body)
-            } else {
-                Some((
-                    distance(vec![plant.x, plant.y], vec![body.x, body.y]).min(current_distance),
-                    (plant_id, plant),
-                ))
-            }
-        }
-        None => get_closest_plant_for_body(&plants, body),
-    };
+fn get_nearest_body_for_body<'a>(
+    bodies: &HashMap<usize, Body<'a>>,
+    body: &Body,
+) -> Option<(f32, usize)> {
+    let (body_id, closest_body) = bodies.into_iter().min_by_key(|(_, enemy_body)| {
+        distance(vec![enemy_body.x, enemy_body.y], vec![body.x, body.y]) as isize
+    })?;
+    Some((
+        distance(vec![closest_body.x, closest_body.y], vec![body.x, body.y]),
+        *body_id,
+    ))
 }
-
 fn randomly_spawn_plant(
     bodies: &mut HashMap<usize, Body>,
     plants: &mut HashMap<u128, Plant>,
@@ -204,11 +209,13 @@ fn randomly_spawn_body(
             y,
             energy: 100.0,
             nearest_plant: None,
-            speed: 1.0,
+            nearest_body: None,
+            speed: rng.gen_range(0.1..5.5),
             color,
-            preference: [&Preference::Plants, &Preference::Bodies]
+            preference: *[Preference::Plants, Preference::Bodies]
                 .choose(rng)
                 .unwrap(),
+            status: Status::Sleeping,
         },
     );
 }
@@ -246,7 +253,7 @@ async fn main() {
 
     // Get the nearest plant for each spawned body
     for body in bodies.values_mut() {
-        update_nearest_plants(body, plants.clone())
+        body.nearest_plant = get_nearest_plant_for_body(&plants, body);
     }
 
     loop {
@@ -254,13 +261,16 @@ async fn main() {
         if rng.gen_range(0.0..1.0) > 1.0 - PLANT_SPAWN_CHANCE {
             randomly_spawn_plant(&mut bodies, &mut plants, rng, area_size)
         }
-        for (body_id, body) in bodies.iter_mut() {
-            update_nearest_plants(body, plants.clone());
 
+        let bodies_clone = bodies.clone();
+        for (body_id, body) in bodies.iter_mut() {
+            body.nearest_plant = get_nearest_plant_for_body(&plants, body);
+            body.nearest_body = get_nearest_body_for_body(&bodies_clone, body);
+            // update_nearest_body(body, &bodies);
+
+            body.energy -= ENERGY_FOR_WALKING;
             match body.preference {
                 Preference::Plants => {
-                    body.energy -= ENERGY_FOR_WALKING;
-
                     // Move towards the nearest plant
                     let (distance_to_plant, (plant_id, nearest_plant)) =
                         body.nearest_plant.unwrap();
@@ -269,6 +279,7 @@ async fn main() {
 
                     body.x += coeff * dx;
                     body.y += coeff * dy;
+                    body.status = Status::FollowingPlant(nearest_plant);
 
                     draw_line(body.x, body.y, nearest_plant.x, nearest_plant.y, 5.0, WHITE);
 
@@ -279,6 +290,7 @@ async fn main() {
                         body.energy += PLANT_HP;
                         plants.remove(&plant_id);
                         body.nearest_plant = None;
+                        body.status = Status::Sleeping
                     }
                 }
                 Preference::Bodies => {
