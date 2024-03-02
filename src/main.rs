@@ -186,7 +186,7 @@ fn randomly_spawn_body(bodies: &mut Vec<Body>, rng: &mut ThreadRng, area_size: (
             })
     } {}
 
-    let real_color_gap = COLOR_GAP / (BODIES_N as f32).powf(1.0 / 3.0);
+    let real_color_gap = COLOR_GAP / ((BODIES_N + 1) as f32).powf(1.0 / 3.0);
 
     let mut color = Color::from_rgba(
         gen_range(50, 250),
@@ -196,10 +196,10 @@ fn randomly_spawn_body(bodies: &mut Vec<Body>, rng: &mut ThreadRng, area_size: (
     );
 
     while bodies.iter().any(|body| {
-        distance(
-            vec![body.color.r, body.color.g, body.color.b],
-            vec![color.r, color.g, color.b],
-        ) < real_color_gap
+        let current_body_rgb = vec![body.color.r, body.color.g, body.color.b];
+        let green_rgb = vec![GREEN.r, GREEN.g, GREEN.b];
+        distance(current_body_rgb.clone(), vec![color.r, color.g, color.b]) < real_color_gap
+            || distance(current_body_rgb, green_rgb) < real_color_gap
     }) {
         color = Color::from_rgba(
             gen_range(50, 250),
