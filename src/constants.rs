@@ -3,6 +3,9 @@ pub static PLANTS_N: usize = 1000;
 pub static PLANT_HP: f32 = 15.0;
 pub static ENERGY_FOR_WALKING: f32 = 0.1;
 
+pub static MAX_ZOOM: f32 = 15.0;
+pub static MIN_ZOOM: f32 = 1.0;
+
 pub static OBJECT_RADIUS: f32 = 10.0;
 pub static MIN_GAP: f32 = 3.0;
 pub static COLOR_GAP: f32 = 0.7;

@@ -3,6 +3,7 @@ mod constants;
 use constants::*;
 
 use std::{
+    ops::Index,
     thread::sleep,
     time::{Duration, Instant},
 };
@@ -10,8 +11,9 @@ use std::{
 use macroquad::{
     camera::{set_camera, Camera2D},
     color::{Color, BLACK, GREEN, WHITE},
+    input::{get_keys_pressed, is_key_down, is_key_pressed, is_key_released},
     math::{vec2, Rect, Vec2},
-    miniquad::window::set_fullscreen,
+    miniquad::{window::set_fullscreen, KeyCode},
     rand::gen_range,
     shapes::{draw_circle, draw_line, draw_triangle},
     text::{draw_text, measure_text},
@@ -25,7 +27,7 @@ enum Preference {
     Plants,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum Status<'a> {
     FollowedBy(&'a Body<'a>),
     FollowingBody(&'a Body<'a>),
@@ -44,7 +46,7 @@ enum IQStage {
     Six,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 struct Body<'a> {
     id: usize,
     x: f32,
@@ -253,16 +255,45 @@ async fn main() {
 
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.0, area_size.1));
     let mut zoom = 1.0;
+    let mut body_to_inspect: Option<usize> = None;
 
     loop {
         clear_background(BLACK);
+
+        if is_key_down(KeyCode::Q) && zoom < MAX_ZOOM {
+            zoom += 1.0
+        } else if is_key_down(KeyCode::L) && zoom > MIN_ZOOM {
+            zoom -= 1.0
+        } else if is_key_pressed(KeyCode::Left) {
+            match body_to_inspect {
+                Some(index) => {
+                    if bodies.get(index - 1).is_some() {
+                        body_to_inspect = Some(index - 1)
+                    }
+                }
+                None => body_to_inspect = Some(0),
+            }
+        } else if is_key_pressed(KeyCode::Right) {
+            match body_to_inspect {
+                Some(index) => {
+                    if bodies.get(index + 1).is_some() {
+                        body_to_inspect = Some(index + 1)
+                    }
+                }
+                None => body_to_inspect = Some(bodies.len() - 1),
+            }
+        }
+
         {
-            camera.target = vec2(area_size.0 / 2.0, area_size.1 / 2.0);
-            // println!("{:?}", camera.zoom);
-            // println!("a = {:?}", 1.0 / area_size.0);
-            camera.zoom = vec2(zoom * 2.0 / area_size.0, zoom * 2.0 / area_size.1);
-            // camera.zoom = vec2(1.0 / area_size.0 * zoom, -1.0 / area_size.1 * zoom);
-            set_camera(&camera);
+            if body_to_inspect.is_some() {
+                let body = bodies[body_to_inspect.unwrap()];
+                camera.target = vec2(body.x, body.y);
+                // println!("{:?}", camera.zoom);
+                // println!("a = {:?}", 1.0 / area_size.0);
+                camera.zoom = vec2(zoom * 2.0 / area_size.0, zoom * 2.0 / area_size.1);
+                // camera.zoom = vec2(1.0 / area_size.0 * zoom, -1.0 / area_size.1 * zoom);
+                set_camera(&camera);
+            }
         }
 
         // bodies.shuffle(rng);
@@ -289,7 +320,7 @@ async fn main() {
                     body.y += coeff * dy;
                     body.status = Status::FollowingPlant(nearest_plant);
 
-                    // draw_line(body.x, body.y, nearest_plant.x, nearest_plant.y, 5.0, WHITE);
+                    draw_line(body.x, body.y, nearest_plant.x, nearest_plant.y, 5.0, WHITE);
 
                     // If there's been a contact between the body and a plant, handle it
                     if distance(vec![body.x, body.y], vec![nearest_plant.x, nearest_plant.y])
@@ -331,14 +362,14 @@ async fn main() {
                 }
             }
 
-            // draw_text(
-            //     &body.id.to_string(),
-            //     body.x - measure_text(&body.id.to_string(), None, FONT_SIZE, 1.0).width / 2.0,
-            //     body.y - OBJECT_RADIUS - MIN_GAP,
-            //     FONT_SIZE as f32,
-            //     WHITE,
-            // );
-            //
+            draw_text(
+                &body.id.to_string(),
+                body.x - measure_text(&body.id.to_string(), None, FONT_SIZE, 1.0).width / 2.0,
+                body.y - OBJECT_RADIUS - MIN_GAP,
+                FONT_SIZE as f32,
+                WHITE,
+            );
+
             draw_body(body.x, body.y, body.color);
             for plant in plants.iter() {
                 draw_plant(plant.x, plant.y)
