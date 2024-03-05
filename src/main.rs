@@ -3,15 +3,15 @@ mod constants;
 use constants::*;
 
 use std::{
-    ops::Index,
+    collections::HashMap,
     thread::sleep,
     time::{Duration, Instant},
 };
 
 use macroquad::{
-    camera::{set_camera, Camera2D},
+    camera::{set_camera, set_default_camera, Camera2D},
     color::{Color, BLACK, GREEN, WHITE},
-    input::{get_keys_pressed, is_key_down, is_key_pressed, is_key_released},
+    input::{is_key_down, is_key_pressed},
     math::{vec2, Rect, Vec2},
     miniquad::{window::set_fullscreen, KeyCode},
     rand::gen_range,
@@ -48,7 +48,6 @@ enum IQStage {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Body<'a> {
-    id: usize,
     x: f32,
     y: f32,
     energy: f32,
@@ -66,15 +65,27 @@ struct Plant {
     y: f32,
 }
 
-fn distance(components1: Vec<f32>, components2: Vec<f32>) -> f32 {
-    f32::sqrt(
-        components1
-            .iter()
-            .enumerate()
-            .map(|(index, component)| (component - components2[index]).powf(2.0))
-            .sum(),
-    )
+macro_rules! distance {
+    ($components1:expr, $components2:expr) => {
+        f32::sqrt(
+            $components1
+                .iter()
+                .enumerate()
+                .map(|(index, component)| (component - $components2[index]).powf(2.0))
+                .sum(),
+        )
+    };
 }
+
+// fn distance(components1: Vec<f32>, components2: Vec<f32>) -> f32 {
+//     f32::sqrt(
+//         components1
+//             .iter()
+//             .enumerate()
+//             .map(|(index, component)| (component - components2[index]).powf(2.0))
+//             .sum(),
+//     )
+// }
 
 fn draw_body(x: f32, y: f32, color: Color) {
     draw_circle(x, y, OBJECT_RADIUS, color);
@@ -102,9 +113,9 @@ fn get_nearest_plant_for_body(plants: &[Plant], body: &Body) -> Option<(f32, (us
     let (plant_id, plant) = plants
         .iter()
         .enumerate()
-        .min_by_key(|(_, plant)| distance(vec![plant.x, plant.y], vec![body.x, body.y]) as isize)?;
+        .min_by_key(|(_, plant)| distance!([plant.x, plant.y], [body.x, body.y]) as isize)?;
     Some((
-        distance(vec![plant.x, plant.y], vec![body.x, body.y]),
+        distance!([plant.x, plant.y], [body.x, body.y]),
         (plant_id, *plant),
     ))
 }
@@ -122,13 +133,11 @@ fn get_nearest_plant_for_body(plants: &[Plant], body: &Body) -> Option<(f32, (us
 //     ))
 // }
 fn randomly_spawn_plant(
-    bodies: &mut [Body],
+    bodies: &mut HashMap<usize, Body>,
     plants: &mut Vec<Plant>,
     rng: &mut ThreadRng,
     area_size: (f32, f32),
 ) {
-    let integer_area_size = (area_size.0 as u16, area_size.1 as u16);
-
     let starting_point = Instant::now();
 
     let mut x;
@@ -140,52 +149,62 @@ fn randomly_spawn_plant(
         {
             return;
         }
-        x = rng.gen_range(0..integer_area_size.0) as f32;
-        y = rng.gen_range(0..integer_area_size.1) as f32;
+        x = rng.gen_range(0.0..area_size.0);
+        y = rng.gen_range(0.0..area_size.1);
         (x <= OBJECT_RADIUS + MIN_GAP || x >= area_size.0 - OBJECT_RADIUS - MIN_GAP)
             || (y <= OBJECT_RADIUS + MIN_GAP || y >= area_size.1 - OBJECT_RADIUS - MIN_GAP)
-            || bodies.iter().any(|body| {
-                distance(vec![body.x, body.y], vec![x, y]) <= OBJECT_RADIUS * 2.0 + MIN_GAP
+            || bodies.values().any(|body| {
+                distance!(vec![body.x, body.y], vec![x, y]) <= OBJECT_RADIUS * 2.0 + MIN_GAP
             })
             || plants.iter().any(|plant| {
-                distance(vec![plant.x, plant.y], vec![x, y]) <= OBJECT_RADIUS * 2.0 + MIN_GAP
+                distance!(vec![plant.x, plant.y], vec![x, y]) <= OBJECT_RADIUS * 2.0 + MIN_GAP
             })
     } {}
 
     plants.push(Plant { x, y });
 }
 
-fn spawn_body(bodies: &mut Vec<Body>, x: f32, y: f32, rng: &mut ThreadRng, color: Color) {
-    bodies.push(Body {
-        id: bodies.len() + 1,
-        x,
-        y,
-        energy: 100.0,
-        nearest_plant: None,
-        // nearest_body: None,
-        speed: rng.gen_range(0.1..5.5),
-        color,
-        preference: *[Preference::Plants, Preference::Bodies]
-            .choose(rng)
-            .unwrap(),
-        status: Status::Sleeping,
-    });
+fn spawn_body(
+    bodies: &mut HashMap<usize, Body>,
+    x: f32,
+    y: f32,
+    rng: &mut ThreadRng,
+    color: Color,
+) {
+    bodies.insert(
+        bodies.len() + 1,
+        Body {
+            x,
+            y,
+            energy: 100.0,
+            nearest_plant: None,
+            // nearest_body: None,
+            speed: rng.gen_range(0.1..5.5),
+            color,
+            preference: *[Preference::Plants, Preference::Bodies]
+                .choose(rng)
+                .unwrap(),
+            status: Status::Sleeping,
+        },
+    );
 }
 
-fn randomly_spawn_body(bodies: &mut Vec<Body>, rng: &mut ThreadRng, area_size: (f32, f32)) {
-    let integer_area_size = (area_size.0 as u16, area_size.1 as u16);
-
+fn randomly_spawn_body(
+    bodies: &mut HashMap<usize, Body>,
+    rng: &mut ThreadRng,
+    area_size: (f32, f32),
+) {
     let mut x;
     let mut y;
 
     while {
-        x = rng.gen_range(0..integer_area_size.0) as f32;
-        y = rng.gen_range(0..integer_area_size.1) as f32;
+        x = rng.gen_range(0.0..area_size.0);
+        y = rng.gen_range(0.0..area_size.1);
         (x <= OBJECT_RADIUS + MIN_GAP || x >= area_size.0 - OBJECT_RADIUS - MIN_GAP)
             || (y <= OBJECT_RADIUS + MIN_GAP || y >= area_size.1 - OBJECT_RADIUS - MIN_GAP)
-            || bodies.iter().any(|body| {
-                distance(vec![body.x, body.y], vec![x, y]) < OBJECT_RADIUS * 2.0 + MIN_GAP
-            })
+            || bodies
+                .values()
+                .any(|body| distance!([body.x, body.y], [x, y]) < OBJECT_RADIUS * 2.0 + MIN_GAP)
     } {}
 
     let real_color_gap = COLOR_GAP / ((BODIES_N + 1) as f32).powf(1.0 / 3.0);
@@ -197,11 +216,11 @@ fn randomly_spawn_body(bodies: &mut Vec<Body>, rng: &mut ThreadRng, area_size: (
         255,
     );
 
-    while bodies.iter().any(|body| {
-        let current_body_rgb = vec![body.color.r, body.color.g, body.color.b];
-        let green_rgb = vec![GREEN.r, GREEN.g, GREEN.b];
-        distance(current_body_rgb.clone(), vec![color.r, color.g, color.b]) < real_color_gap
-            || distance(current_body_rgb, green_rgb) < real_color_gap
+    while bodies.values().any(|body| {
+        let current_body_rgb = [body.color.r, body.color.g, body.color.b];
+        let green_rgb = [GREEN.r, GREEN.g, GREEN.b];
+        distance!(current_body_rgb.clone(), vec![color.r, color.g, color.b]) < real_color_gap
+            || distance!(current_body_rgb, green_rgb) < real_color_gap
     }) {
         color = Color::from_rgba(
             gen_range(50, 250),
@@ -230,9 +249,9 @@ async fn main() {
     next_frame().await;
 
     let screen_size = (screen_width(), screen_height());
-    let area_size = (screen_size.0 * OBJECT_RADIUS, screen_size.1 * OBJECT_RADIUS);
+    let area_size = (screen_size.0, screen_size.1);
 
-    let mut bodies: Vec<Body> = Vec::with_capacity(BODIES_N);
+    let mut bodies: HashMap<usize, Body> = HashMap::with_capacity(BODIES_N);
     let mut plants: Vec<Plant> = Vec::with_capacity(PLANTS_N);
 
     let rng = &mut thread_rng();
@@ -248,61 +267,80 @@ async fn main() {
     }
 
     // Get the nearest plant for each spawned body
-    for body in bodies.iter_mut() {
+    for body in bodies.values_mut() {
         body.nearest_plant = get_nearest_plant_for_body(&plants, body);
         // body.nearest_body = get_nearest_body_for_body(&bodies, body)
     }
 
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.0, area_size.1));
-    let mut zoom = 1.0;
+    let mut zoom = MIN_ZOOM;
+    let mut zoom_mode = false;
     let mut body_to_inspect: Option<usize> = None;
+    let mut last_left_right_sleep = Instant::now();
 
     loop {
-        clear_background(BLACK);
-
-        if is_key_down(KeyCode::Q) && zoom < MAX_ZOOM {
-            zoom += 1.0
-        } else if is_key_down(KeyCode::L) && zoom > MIN_ZOOM {
-            zoom -= 1.0
-        } else if is_key_pressed(KeyCode::Left) {
-            match body_to_inspect {
-                Some(index) => {
-                    if bodies.get(index - 1).is_some() {
-                        body_to_inspect = Some(index - 1)
-                    }
-                }
-                None => body_to_inspect = Some(0),
-            }
-        } else if is_key_pressed(KeyCode::Right) {
-            match body_to_inspect {
-                Some(index) => {
-                    if bodies.get(index + 1).is_some() {
-                        body_to_inspect = Some(index + 1)
-                    }
-                }
-                None => body_to_inspect = Some(bodies.len() - 1),
-            }
+        if is_key_pressed(KeyCode::Down) {
+            zoom_mode = !zoom_mode
         }
 
-        {
-            if body_to_inspect.is_some() {
-                let body = bodies[body_to_inspect.unwrap()];
-                camera.target = vec2(body.x, body.y);
-                // println!("{:?}", camera.zoom);
-                // println!("a = {:?}", 1.0 / area_size.0);
-                camera.zoom = vec2(zoom * 2.0 / area_size.0, zoom * 2.0 / area_size.1);
-                // camera.zoom = vec2(1.0 / area_size.0 * zoom, -1.0 / area_size.1 * zoom);
-                set_camera(&camera);
+        if zoom_mode {
+            if is_key_down(KeyCode::Equal) && zoom < MAX_ZOOM {
+                zoom += 1.0
+            } else if is_key_down(KeyCode::Minus) && zoom > MIN_ZOOM {
+                zoom -= 1.0
             }
-        }
 
-        // bodies.shuffle(rng);
-        bodies.retain(|body| body.energy > 0.0);
+            if last_left_right_sleep.elapsed().as_millis()
+                >= Duration::from_millis(BODY_JUMP_DELAY).as_millis()
+            {
+                if is_key_down(KeyCode::Left) {
+                    match body_to_inspect {
+                        Some(index) => {
+                            if bodies.get(&(index - 1)).is_some() {
+                                body_to_inspect = Some(index - 1)
+                            }
+                        }
+                        None => body_to_inspect = Some(0),
+                    }
+
+                    last_left_right_sleep = Instant::now();
+                } else if is_key_down(KeyCode::Right) {
+                    match body_to_inspect {
+                        Some(index) => {
+                            if bodies.get(&(index + 1)).is_some() {
+                                body_to_inspect = Some(index + 1)
+                            }
+                        }
+                        None => body_to_inspect = Some(bodies.len() - 1),
+                    }
+
+                    last_left_right_sleep = Instant::now();
+                }
+            }
+
+            {
+                if body_to_inspect.is_some() {
+                    let body = bodies.get(&body_to_inspect.unwrap()).unwrap();
+                    camera.target = vec2(body.x, body.y);
+                    // println!("{:?}", camera.zoom);
+                    // println!("a = {:?}", 1.0 / area_size.0);
+                    camera.zoom = vec2(zoom / area_size.0, zoom / area_size.1);
+                    // camera.zoom = vec2(1.0 / area_size.0 * zoom, -1.0 / area_size.1 * zoom);
+                    set_camera(&camera);
+                }
+            }
+        } else {
+            set_default_camera();
+        }
+        bodies.retain(|_, body| body.energy > 0.0);
         if rng.gen_range(0.0..1.0) > 1.0 - PLANT_SPAWN_CHANCE {
             randomly_spawn_plant(&mut bodies, &mut plants, rng, area_size)
         }
 
-        for (body_id_in_vec, body) in bodies.iter_mut().enumerate() {
+        let mut bodies_values = bodies.iter_mut().collect::<Vec<_>>();
+        bodies_values.shuffle(rng);
+
+        for (body_id, body) in bodies_values {
             body.nearest_plant = get_nearest_plant_for_body(&plants, body);
             // body.nearest_body = get_nearest_body_for_body(&mut bodies, body);
             // update_nearest_body(body, &bodies);
@@ -323,7 +361,7 @@ async fn main() {
                     draw_line(body.x, body.y, nearest_plant.x, nearest_plant.y, 5.0, WHITE);
 
                     // If there's been a contact between the body and a plant, handle it
-                    if distance(vec![body.x, body.y], vec![nearest_plant.x, nearest_plant.y])
+                    if distance!([body.x, body.y], [nearest_plant.x, nearest_plant.y])
                         <= OBJECT_RADIUS
                     {
                         body.energy += PLANT_HP;
@@ -363,10 +401,12 @@ async fn main() {
             }
 
             draw_text(
-                &body.id.to_string(),
-                body.x - measure_text(&body.id.to_string(), None, FONT_SIZE, 1.0).width / 2.0,
+                &body_id.to_string(),
+                body.x
+                    - measure_text(&body_id.to_string(), None, BODY_INFO_FONT_SIZE, 1.0).width
+                        / 2.0,
                 body.y - OBJECT_RADIUS - MIN_GAP,
-                FONT_SIZE as f32,
+                BODY_INFO_FONT_SIZE as f32,
                 WHITE,
             );
 
@@ -374,6 +414,7 @@ async fn main() {
             for plant in plants.iter() {
                 draw_plant(plant.x, plant.y)
             }
+            // draw_text(&format!("zoom {}", zoom), 10.0, 20.0, 20.0, WHITE);
         }
         next_frame().await;
     }
