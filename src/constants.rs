@@ -10,7 +10,7 @@ pub static PLANT_SPAWN_CHANCE: f32 = 1.0; // Mid-game
 pub static PLANT_SPAWN_TIME_LIMIT: u64 = 1; // In millis
 
 // Zoom
-pub static MAX_ZOOM: f32 = 20.0;
+pub static MAX_ZOOM: f32 = OBJECT_RADIUS;
 pub static MIN_ZOOM: f32 = 1.0;
 pub static BODY_JUMP_DELAY: u64 = 150; // In millis
 

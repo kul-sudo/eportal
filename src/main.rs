@@ -9,15 +9,15 @@ use std::{
 };
 
 use macroquad::{
-    camera::{set_camera, set_default_camera, Camera2D},
-    color::{Color, BLACK, GREEN, WHITE},
-    input::{is_key_down, is_key_pressed},
+    camera::{set_camera, Camera2D},
+    color::{Color, GREEN, WHITE},
+    input::{is_mouse_button_down, is_mouse_button_pressed, mouse_position, mouse_wheel},
     math::{vec2, Rect, Vec2},
-    miniquad::{window::set_fullscreen, KeyCode},
+    miniquad::{window::set_fullscreen, MouseButton},
     rand::gen_range,
-    shapes::{draw_circle, draw_line, draw_triangle},
+    shapes::{draw_circle, draw_line, draw_rectangle_lines, draw_triangle},
     text::{draw_text, measure_text},
-    window::{clear_background, next_frame, screen_height, screen_width, Conf},
+    window::{next_frame, screen_height, screen_width, Conf},
 };
 use rand::{rngs::ThreadRng, seq::SliceRandom, thread_rng, Rng};
 
@@ -109,6 +109,41 @@ fn draw_plant(x: f32, y: f32) {
     );
 }
 
+fn get_zoom_target(camera: &mut Camera2D, area_size: (f32, f32), zoom: f32) {
+    let mouse_position = mouse_position();
+    let (mut target_x, mut target_y) = (mouse_position.0 * zoom, mouse_position.1 * zoom);
+
+    let left_x_min = area_size.0 / zoom / 2.0;
+    if target_x < left_x_min {
+        target_x = left_x_min
+    }
+
+    let right_x_max = area_size.0 * (1.0 - 1.0 / (2.0 * zoom));
+    if target_x > right_x_max {
+        target_x = right_x_max
+    }
+
+    let top_y_min = area_size.1 / zoom / 2.0;
+    if target_y < top_y_min {
+        target_y = top_y_min
+    }
+
+    let bottom_y_max = area_size.1 * (1.0 - 1.0 / (2.0 * zoom));
+    if target_y > bottom_y_max {
+        target_y = bottom_y_max
+    }
+
+    camera.target = vec2(target_x, target_y);
+    camera.zoom = vec2(zoom / area_size.0 * 2.0, zoom / area_size.1 * 2.0);
+    set_camera(camera);
+}
+
+fn default_camera(camera: &mut Camera2D, area_size: (f32, f32)) {
+    camera.target = vec2(area_size.0 / 2.0, area_size.1 / 2.0);
+    camera.zoom = vec2(MIN_ZOOM / area_size.0 * 2.0, MIN_ZOOM / area_size.1 * 2.0);
+    set_camera(camera);
+}
+
 fn get_nearest_plant_for_body(plants: &[Plant], body: &Body) -> Option<(f32, (usize, Plant))> {
     let (plant_id, plant) = plants
         .iter()
@@ -153,12 +188,12 @@ fn randomly_spawn_plant(
         y = rng.gen_range(0.0..area_size.1);
         (x <= OBJECT_RADIUS + MIN_GAP || x >= area_size.0 - OBJECT_RADIUS - MIN_GAP)
             || (y <= OBJECT_RADIUS + MIN_GAP || y >= area_size.1 - OBJECT_RADIUS - MIN_GAP)
-            || bodies.values().any(|body| {
-                distance!(vec![body.x, body.y], vec![x, y]) <= OBJECT_RADIUS * 2.0 + MIN_GAP
-            })
-            || plants.iter().any(|plant| {
-                distance!(vec![plant.x, plant.y], vec![x, y]) <= OBJECT_RADIUS * 2.0 + MIN_GAP
-            })
+            || bodies
+                .values()
+                .any(|body| distance!([body.x, body.y], [x, y]) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
+            || plants
+                .iter()
+                .any(|plant| distance!([plant.x, plant.y], [x, y]) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
     } {}
 
     plants.push(Plant { x, y });
@@ -249,7 +284,7 @@ async fn main() {
     next_frame().await;
 
     let screen_size = (screen_width(), screen_height());
-    let area_size = (screen_size.0, screen_size.1);
+    let area_size = (screen_size.0 * OBJECT_RADIUS, screen_size.1 * OBJECT_RADIUS);
 
     let mut bodies: HashMap<usize, Body> = HashMap::with_capacity(BODIES_N);
     let mut plants: Vec<Plant> = Vec::with_capacity(PLANTS_N);
@@ -274,64 +309,74 @@ async fn main() {
 
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.0, area_size.1));
     let mut zoom = MIN_ZOOM;
+
+    default_camera(&mut camera, area_size);
+
     let mut zoom_mode = false;
-    let mut body_to_inspect: Option<usize> = None;
-    let mut last_left_right_sleep = Instant::now();
 
     loop {
-        if is_key_pressed(KeyCode::Down) {
+        if is_mouse_button_pressed(MouseButton::Left) {
+            if zoom_mode {
+                default_camera(&mut camera, area_size);
+            } else {
+                get_zoom_target(&mut camera, area_size, zoom);
+            }
+
             zoom_mode = !zoom_mode
         }
 
         if zoom_mode {
-            if is_key_down(KeyCode::Equal) && zoom < MAX_ZOOM {
-                zoom += 1.0
-            } else if is_key_down(KeyCode::Minus) && zoom > MIN_ZOOM {
-                zoom -= 1.0
-            }
-
-            if last_left_right_sleep.elapsed().as_millis()
-                >= Duration::from_millis(BODY_JUMP_DELAY).as_millis()
-            {
-                if is_key_down(KeyCode::Left) {
-                    match body_to_inspect {
-                        Some(index) => {
-                            if bodies.get(&(index - 1)).is_some() {
-                                body_to_inspect = Some(index - 1)
-                            }
-                        }
-                        None => body_to_inspect = Some(0),
-                    }
-
-                    last_left_right_sleep = Instant::now();
-                } else if is_key_down(KeyCode::Right) {
-                    match body_to_inspect {
-                        Some(index) => {
-                            if bodies.get(&(index + 1)).is_some() {
-                                body_to_inspect = Some(index + 1)
-                            }
-                        }
-                        None => body_to_inspect = Some(bodies.len() - 1),
-                    }
-
-                    last_left_right_sleep = Instant::now();
-                }
-            }
-
-            {
-                if body_to_inspect.is_some() {
-                    let body = bodies.get(&body_to_inspect.unwrap()).unwrap();
-                    camera.target = vec2(body.x, body.y);
-                    // println!("{:?}", camera.zoom);
-                    // println!("a = {:?}", 1.0 / area_size.0);
-                    camera.zoom = vec2(zoom / area_size.0, zoom / area_size.1);
-                    // camera.zoom = vec2(1.0 / area_size.0 * zoom, -1.0 / area_size.1 * zoom);
-                    set_camera(&camera);
-                }
-            }
-        } else {
-            set_default_camera();
+            get_zoom_target(&mut camera, area_size, zoom);
         }
+
+        let (_, mouse_wheel_y) = mouse_wheel();
+
+        let new_zoom = zoom + mouse_wheel_y / 10.0;
+        if (MIN_ZOOM..MAX_ZOOM).contains(&new_zoom) {
+            zoom = new_zoom
+        }
+
+        // if last_left_right_sleep.elapsed().as_millis()
+        //     >= Duration::from_millis(BODY_JUMP_DELAY).as_millis()
+        // {
+        //     if is_key_down(KeyCode::Left) {
+        //         match body_to_inspect {
+        //             Some(index) => {
+        //                 if bodies.get(&(index - 1)).is_some() {
+        //                     body_to_inspect = Some(index - 1)
+        //                 }
+        //             }
+        //             None => body_to_inspect = Some(0),
+        //         }
+        //
+        //         last_left_right_sleep = Instant::now();
+        //     } else if is_key_down(KeyCode::Right) {
+        //         match body_to_inspect {
+        //             Some(index) => {
+        //                 if bodies.get(&(index + 1)).is_some() {
+        //                     body_to_inspect = Some(index + 1)
+        //                 }
+        //             }
+        //             None => body_to_inspect = Some(bodies.len() - 1),
+        //         }
+        //
+        //         last_left_right_sleep = Instant::now();
+        //     }
+        // }
+        //
+        // {
+        //     if body_to_inspect.is_some() {
+        //         let body = bodies.get(&body_to_inspect.unwrap()).unwrap();
+        //         camera.target = vec2(body.x, body.y);
+        //         // camera.target = vec2(area_size.0 / 2.0, area_size.1 / 2.0);
+        //         // println!("{:?}", camera.zoom);
+        //         // println!("a = {:?}", 1.0 / area_size.0);
+        //         camera.zoom = vec2(zoom / area_size.0 * 2.0, zoom / area_size.1 * 2.0);
+        //         // camera.zoom = vec2(1.0 / area_size.0 * zoom, -1.0 / area_size.1 * zoom);
+        //         set_camera(&camera);
+        //     }
+        // }
+
         bodies.retain(|_, body| body.energy > 0.0);
         if rng.gen_range(0.0..1.0) > 1.0 - PLANT_SPAWN_CHANCE {
             randomly_spawn_plant(&mut bodies, &mut plants, rng, area_size)
@@ -400,6 +445,7 @@ async fn main() {
                 }
             }
 
+            draw_rectangle_lines(0.0, 0.0, area_size.0, area_size.1, 30.0, WHITE);
             draw_text(
                 &body_id.to_string(),
                 body.x
