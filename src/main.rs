@@ -11,11 +11,11 @@ use std::{
 use macroquad::{
     camera::{set_camera, Camera2D},
     color::{Color, GREEN, WHITE},
-    input::{is_mouse_button_down, is_mouse_button_pressed, mouse_position, mouse_wheel},
+    input::{is_mouse_button_pressed, mouse_position},
     math::{vec2, Rect, Vec2},
     miniquad::{window::set_fullscreen, MouseButton},
     rand::gen_range,
-    shapes::{draw_circle, draw_line, draw_rectangle_lines, draw_triangle},
+    shapes::{draw_circle, draw_line, draw_triangle},
     text::{draw_text, measure_text},
     window::{next_frame, screen_height, screen_width, Conf},
 };
@@ -109,32 +109,32 @@ fn draw_plant(x: f32, y: f32) {
     );
 }
 
-fn get_zoom_target(camera: &mut Camera2D, area_size: (f32, f32), zoom: f32) {
+fn get_zoom_target(camera: &mut Camera2D, area_size: (f32, f32)) {
     let mouse_position = mouse_position();
-    let (mut target_x, mut target_y) = (mouse_position.0 * zoom, mouse_position.1 * zoom);
+    let (mut target_x, mut target_y) = (mouse_position.0 * MAX_ZOOM, mouse_position.1 * MAX_ZOOM);
 
-    let left_x_min = area_size.0 / zoom / 2.0;
+    let left_x_min = area_size.0 / MAX_ZOOM / 2.0;
     if target_x < left_x_min {
         target_x = left_x_min
     }
 
-    let right_x_max = area_size.0 * (1.0 - 1.0 / (2.0 * zoom));
+    let right_x_max = area_size.0 * (1.0 - 1.0 / (2.0 * MAX_ZOOM));
     if target_x > right_x_max {
         target_x = right_x_max
     }
 
-    let top_y_min = area_size.1 / zoom / 2.0;
+    let top_y_min = area_size.1 / MAX_ZOOM / 2.0;
     if target_y < top_y_min {
         target_y = top_y_min
     }
 
-    let bottom_y_max = area_size.1 * (1.0 - 1.0 / (2.0 * zoom));
+    let bottom_y_max = area_size.1 * (1.0 - 1.0 / (2.0 * MAX_ZOOM));
     if target_y > bottom_y_max {
         target_y = bottom_y_max
     }
 
     camera.target = vec2(target_x, target_y);
-    camera.zoom = vec2(zoom / area_size.0 * 2.0, zoom / area_size.1 * 2.0);
+    camera.zoom = vec2(MAX_ZOOM / area_size.0 * 2.0, MAX_ZOOM / area_size.1 * 2.0);
     set_camera(camera);
 }
 
@@ -308,32 +308,26 @@ async fn main() {
     }
 
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.0, area_size.1));
-    let mut zoom = MIN_ZOOM;
 
     default_camera(&mut camera, area_size);
 
     let mut zoom_mode = false;
+
+    let mut last_updated = Instant::now();
 
     loop {
         if is_mouse_button_pressed(MouseButton::Left) {
             if zoom_mode {
                 default_camera(&mut camera, area_size);
             } else {
-                get_zoom_target(&mut camera, area_size, zoom);
+                get_zoom_target(&mut camera, area_size);
             }
 
             zoom_mode = !zoom_mode
         }
 
         if zoom_mode {
-            get_zoom_target(&mut camera, area_size, zoom);
-        }
-
-        let (_, mouse_wheel_y) = mouse_wheel();
-
-        let new_zoom = zoom + mouse_wheel_y / 10.0;
-        if (MIN_ZOOM..MAX_ZOOM).contains(&new_zoom) {
-            zoom = new_zoom
+            get_zoom_target(&mut camera, area_size);
         }
 
         // if last_left_right_sleep.elapsed().as_millis()
@@ -385,6 +379,9 @@ async fn main() {
         let mut bodies_values = bodies.iter_mut().collect::<Vec<_>>();
         bodies_values.shuffle(rng);
 
+        let is_draw_mode =
+            last_updated.elapsed().as_millis() >= Duration::from_secs(1 / FPS).as_millis();
+
         for (body_id, body) in bodies_values {
             body.nearest_plant = get_nearest_plant_for_body(&plants, body);
             // body.nearest_body = get_nearest_body_for_body(&mut bodies, body);
@@ -403,7 +400,9 @@ async fn main() {
                     body.y += coeff * dy;
                     body.status = Status::FollowingPlant(nearest_plant);
 
-                    draw_line(body.x, body.y, nearest_plant.x, nearest_plant.y, 5.0, WHITE);
+                    if zoom_mode && is_draw_mode {
+                        draw_line(body.x, body.y, nearest_plant.x, nearest_plant.y, 5.0, WHITE);
+                    }
 
                     // If there's been a contact between the body and a plant, handle it
                     if distance!([body.x, body.y], [nearest_plant.x, nearest_plant.y])
@@ -445,23 +444,29 @@ async fn main() {
                 }
             }
 
-            draw_rectangle_lines(0.0, 0.0, area_size.0, area_size.1, 30.0, WHITE);
-            draw_text(
-                &body_id.to_string(),
-                body.x
-                    - measure_text(&body_id.to_string(), None, BODY_INFO_FONT_SIZE, 1.0).width
-                        / 2.0,
-                body.y - OBJECT_RADIUS - MIN_GAP,
-                BODY_INFO_FONT_SIZE as f32,
-                WHITE,
-            );
+            if is_draw_mode {
+                // draw_rectangle_lines(0.0, 0.0, area_size.0, area_size.1, 30.0, WHITE);
+                draw_text(
+                    &body_id.to_string(),
+                    body.x
+                        - measure_text(&body_id.to_string(), None, BODY_INFO_FONT_SIZE, 1.0).width
+                            / 2.0,
+                    body.y - OBJECT_RADIUS - MIN_GAP,
+                    BODY_INFO_FONT_SIZE as f32,
+                    WHITE,
+                );
 
-            draw_body(body.x, body.y, body.color);
-            for plant in plants.iter() {
-                draw_plant(plant.x, plant.y)
+                draw_body(body.x, body.y, body.color);
+                for plant in plants.iter() {
+                    draw_plant(plant.x, plant.y)
+                }
+                // draw_text(&format!("zoom {}", zoom), 10.0, 20.0, 20.0, WHITE);
             }
-            // draw_text(&format!("zoom {}", zoom), 10.0, 20.0, 20.0, WHITE);
         }
-        next_frame().await;
+
+        if is_draw_mode {
+            last_updated = Instant::now();
+            next_frame().await;
+        }
     }
 }
