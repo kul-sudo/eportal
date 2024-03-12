@@ -12,14 +12,14 @@ use std::{
 };
 
 use macroquad::{
-    camera::{set_camera, Camera2D},
+    camera::{set_camera, Camera, Camera2D},
     color::{Color, GREEN, WHITE},
     input::{is_mouse_button_pressed, mouse_position},
-    math::{vec2, Rect, Vec2},
+    math::{vec2, Rect, Vec2, Vec3},
     miniquad::{window::set_fullscreen, MouseButton},
     rand::gen_range,
     shapes::{draw_circle, draw_line, draw_rectangle_lines, draw_triangle},
-    text::{draw_text, measure_text},
+    text::{draw_text, draw_text_ex, measure_text},
     window::{next_frame, screen_height, screen_width, Conf},
 };
 use rand::{rngs::ThreadRng, seq::SliceRandom, thread_rng, Rng};
@@ -51,13 +51,12 @@ enum EatingStrategy {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Body<'a> {
-    x: f32,
-    y: f32,
+    pos: Vec2,
     energy: f32,
     speed: f32,
     vision_distance: f32,
     eating_strategy: EatingStrategy,
-    divison_threshold: f32,
+    division_threshold: f32,
     mass: f32,
     iq: IQStage,
     color: Color,
@@ -66,65 +65,56 @@ struct Body<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Plant {
-    x: f32,
-    y: f32,
+    pos: Vec2,
 }
 
-macro_rules! distance {
-    ($components1:expr, $components2:expr) => {
-        f32::sqrt(
-            $components1
-                .iter()
-                .enumerate()
-                .map(|(index, component)| (component - $components2[index]).powf(2.0))
-                .sum(),
+macro_rules! adjusted_coordinates {
+    ($pos:expr, $area_size:expr) => {{
+        (
+            ($pos.x * MAX_ZOOM)
+                .max($area_size.0 / MAX_ZOOM / 2.0)
+                .min($area_size.0 * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
+            ($pos.y * MAX_ZOOM)
+                .max($area_size.1 / MAX_ZOOM / 2.0)
+                .min($area_size.1 * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
         )
+    }};
+}
+
+macro_rules! draw_body {
+    ($pos:expr, $color:expr) => {
+        draw_circle($pos.x, $pos.y, OBJECT_RADIUS, $color);
     };
 }
 
-// fn distance(components1: Vec<f32>, components2: Vec<f32>) -> f32 {
-//     f32::sqrt(
-//         components1
-//             .iter()
-//             .enumerate()
-//             .map(|(index, component)| (component - components2[index]).powf(2.0))
-//             .sum(),
-//     )
-// }
-
-fn draw_body(x: f32, y: f32, color: Color) {
-    draw_circle(x, y, OBJECT_RADIUS, color);
-}
-
-fn draw_plant(plant: &Plant) {
-    draw_triangle(
-        Vec2 {
-            x: plant.x,
-            y: plant.y - OBJECT_RADIUS,
-        },
-        Vec2 {
-            x: plant.x + OBJECT_RADIUS * (COSINE_OF_30_DEGREES),
-            y: plant.y + OBJECT_RADIUS / 2.0,
-        },
-        Vec2 {
-            x: plant.x - OBJECT_RADIUS * (COSINE_OF_30_DEGREES),
-            y: plant.y + OBJECT_RADIUS / 2.0,
-        },
-        GREEN,
-    );
+macro_rules! draw_plant {
+    ($plant:expr) => {
+        draw_triangle(
+            Vec2 {
+                x: $plant.pos.x,
+                y: $plant.pos.y - OBJECT_RADIUS,
+            },
+            Vec2 {
+                x: $plant.pos.x + OBJECT_RADIUS * (COSINE_OF_30_DEGREES),
+                y: $plant.pos.y + OBJECT_RADIUS / 2.0,
+            },
+            Vec2 {
+                x: $plant.pos.x - OBJECT_RADIUS * (COSINE_OF_30_DEGREES),
+                y: $plant.pos.y + OBJECT_RADIUS / 2.0,
+            },
+            GREEN,
+        );
+    };
 }
 
 fn get_zoom_target(camera: &mut Camera2D, area_size: (f32, f32)) {
     let mouse_position = mouse_position();
-    let (mut target_x, mut target_y) = (mouse_position.0 * MAX_ZOOM, mouse_position.1 * MAX_ZOOM);
-
-    (target_x, target_y) = (
-        target_x
-            .max(area_size.0 / MAX_ZOOM / 2.0)
-            .min(area_size.0 * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
-        target_y
-            .max(area_size.1 / MAX_ZOOM / 2.0)
-            .min(area_size.1 * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
+    let (target_x, target_y) = adjusted_coordinates!(
+        Vec2 {
+            x: mouse_position.0,
+            y: mouse_position.1
+        },
+        area_size
     );
 
     camera.target = vec2(target_x, target_y);
@@ -142,11 +132,8 @@ fn get_nearest_plant_for_body(plants: &[Plant], body: &Body) -> Option<(f32, (us
     let (plant_id, plant) = plants
         .iter()
         .enumerate()
-        .min_by_key(|(_, plant)| distance!([plant.x, plant.y], [body.x, body.y]) as isize)?;
-    Some((
-        distance!([plant.x, plant.y], [body.x, body.y]),
-        (plant_id, *plant),
-    ))
+        .min_by_key(|(_, plant)| plant.pos.distance(body.pos) as isize)?;
+    Some((plant.pos.distance(body.pos), (plant_id, *plant)))
 }
 
 fn get_with_deviation(value: f32, rng: &mut ThreadRng) -> f32 {
@@ -189,20 +176,18 @@ fn randomly_spawn_plant(
             || (y <= OBJECT_RADIUS + MIN_GAP || y >= area_size.1 - OBJECT_RADIUS - MIN_GAP)
             || bodies
                 .values()
-                .any(|body| distance!([body.x, body.y], [x, y]) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
+                .any(|body| body.pos.distance(Vec2 { x, y }) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
             || plants
                 .iter()
-                .any(|plant| distance!([plant.x, plant.y], [x, y]) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
+                .any(|plant| plant.pos.distance(Vec2 { x, y }) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
     } {}
 
-    plants.push(Plant { x, y });
+    plants.push(Plant { pos: Vec2 { x, y } });
 }
 
 fn spawn_body(
     bodies: &mut HashMap<usize, Body>,
-    x: f32,
-    y: f32,
-    rng: &mut ThreadRng,
+    pos: Vec2,
     energy: f32,
     speed: f32,
     vision_distance: f32,
@@ -215,15 +200,14 @@ fn spawn_body(
     bodies.insert(
         bodies.len() + 1,
         Body {
-            x,
-            y,
-            energy: get_with_deviation(AVERAGE_ENERGY, rng),
-            speed: get_with_deviation(AVERAGE_SPEED, rng),
-            vision_distance: get_with_deviation(AVERAGE_VISION_DISTANCE, rng),
+            pos,
+            energy,
+            speed,
+            vision_distance,
             eating_strategy,
-            divison_threshold: get_with_deviation(AVERAGE_DIVISION_THRESHOLD, rng),
-            mass: get_with_deviation(AVERAGE_MASS, rng),
-            iq: IQStage::Zero,
+            division_threshold,
+            mass,
+            iq,
             color,
             status: Status::Sleeping,
         },
@@ -233,13 +217,7 @@ fn spawn_body(
 fn randomly_spawn_body(
     bodies: &mut HashMap<usize, Body>,
     area_size: (f32, f32),
-    energy: f32,
-    speed: f32,
-    vision_distance: f32,
     eating_strategy: EatingStrategy,
-    division_threshold: f32,
-    mass: f32,
-    iq: IQStage,
 ) {
     let rng = &mut thread_rng();
 
@@ -253,7 +231,7 @@ fn randomly_spawn_body(
             || (y <= OBJECT_RADIUS + MIN_GAP || y >= area_size.1 - OBJECT_RADIUS - MIN_GAP)
             || bodies
                 .values()
-                .any(|body| distance!([body.x, body.y], [x, y]) < OBJECT_RADIUS * 2.0 + MIN_GAP)
+                .any(|body| body.pos.distance(Vec2 { x, y }) < OBJECT_RADIUS * 2.0 + MIN_GAP)
     } {}
 
     let real_color_gap = COLOR_GAP / ((BODIES_N + 1) as f32).powf(1.0 / 3.0);
@@ -266,10 +244,22 @@ fn randomly_spawn_body(
     );
 
     while bodies.values().any(|body| {
-        let current_body_rgb = [body.color.r, body.color.g, body.color.b];
-        let green_rgb = [GREEN.r, GREEN.g, GREEN.b];
-        distance!(current_body_rgb.clone(), vec![color.r, color.g, color.b]) < real_color_gap
-            || distance!(current_body_rgb, green_rgb) < real_color_gap
+        let current_body_rgb = Vec3 {
+            x: body.color.r,
+            y: body.color.g,
+            z: body.color.b,
+        };
+        let green_rgb = Vec3 {
+            x: GREEN.r,
+            y: GREEN.g,
+            z: GREEN.b,
+        };
+        current_body_rgb.distance(Vec3 {
+            x: color.r,
+            y: color.g,
+            z: color.b,
+        }) < real_color_gap
+            || current_body_rgb.distance(green_rgb) < real_color_gap
     }) {
         color = Color::from_rgba(
             gen_range(50, 250),
@@ -281,23 +271,21 @@ fn randomly_spawn_body(
 
     spawn_body(
         bodies,
-        x,
-        y,
-        rng,
-        energy,
-        speed,
-        vision_distance,
+        Vec2 { x, y },
+        get_with_deviation(AVERAGE_ENERGY, rng),
+        get_with_deviation(AVERAGE_SPEED, rng),
+        get_with_deviation(AVERAGE_VISION_DISTANCE, rng),
         eating_strategy,
-        division_threshold,
-        mass,
-        iq,
+        get_with_deviation(AVERAGE_DIVISION_THRESHOLD, rng),
+        get_with_deviation(AVERAGE_MASS, rng),
+        IQStage::Zero,
         color,
     );
 }
 
 fn window_conf() -> Conf {
     Conf {
-        window_title: "My game".to_owned(),
+        window_title: "eportal".to_owned(),
         fullscreen: true,
         ..Default::default()
     }
@@ -306,9 +294,11 @@ fn window_conf() -> Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
     // Make the window fullscreen for Linux
+    // if OS == "linux" {
     set_fullscreen(true);
     sleep(Duration::from_secs(1));
     next_frame().await;
+    // }
 
     let screen_size = (screen_width(), screen_height());
     let area_size = (screen_size.0 * OBJECT_RADIUS, screen_size.1 * OBJECT_RADIUS);
@@ -325,17 +315,7 @@ async fn main() {
             EatingStrategy::Bodies
         };
 
-        randomly_spawn_body(
-            &mut bodies,
-            area_size,
-            get_with_deviation(AVERAGE_ENERGY, rng),
-            get_with_deviation(AVERAGE_SPEED, rng),
-            get_with_deviation(AVERAGE_VISION_DISTANCE, rng),
-            eating_strategy,
-            get_with_deviation(AVERAGE_DIVISION_THRESHOLD, rng),
-            get_with_deviation(AVERAGE_MASS, rng),
-            IQStage::Zero,
-        );
+        randomly_spawn_body(&mut bodies, area_size, eating_strategy);
     }
 
     // Spawn the plants
@@ -350,7 +330,6 @@ async fn main() {
     // }
 
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.0, area_size.1));
-
     default_camera(&mut camera, area_size);
 
     let mut zoom_mode = false;
@@ -371,47 +350,6 @@ async fn main() {
         if zoom_mode {
             get_zoom_target(&mut camera, area_size);
         }
-
-        // if last_left_right_sleep.elapsed().as_millis()
-        //     >= Duration::from_millis(BODY_JUMP_DELAY).as_millis()
-        // {
-        //     if is_key_down(KeyCode::Left) {
-        //         match body_to_inspect {
-        //             Some(index) => {
-        //                 if bodies.get(&(index - 1)).is_some() {
-        //                     body_to_inspect = Some(index - 1)
-        //                 }
-        //             }
-        //             None => body_to_inspect = Some(0),
-        //         }
-        //
-        //         last_left_right_sleep = Instant::now();
-        //     } else if is_key_down(KeyCode::Right) {
-        //         match body_to_inspect {
-        //             Some(index) => {
-        //                 if bodies.get(&(index + 1)).is_some() {
-        //                     body_to_inspect = Some(index + 1)
-        //                 }
-        //             }
-        //             None => body_to_inspect = Some(bodies.len() - 1),
-        //         }
-        //
-        //         last_left_right_sleep = Instant::now();
-        //     }
-        // }
-        //
-        // {
-        //     if body_to_inspect.is_some() {
-        //         let body = bodies.get(&body_to_inspect.unwrap()).unwrap();
-        //         camera.target = vec2(body.x, body.y);
-        //         // camera.target = vec2(area_size.0 / 2.0, area_size.1 / 2.0);
-        //         // println!("{:?}", camera.zoom);
-        //         // println!("a = {:?}", 1.0 / area_size.0);
-        //         camera.zoom = vec2(zoom / area_size.0 * 2.0, zoom / area_size.1 * 2.0);
-        //         // camera.zoom = vec2(1.0 / area_size.0 * zoom, -1.0 / area_size.1 * zoom);
-        //         set_camera(&camera);
-        //     }
-        // }
 
         if unlikely(rng.gen_range(0.0..1.0) > 1.0 - PLANT_SPAWN_CHANCE) {
             randomly_spawn_plant(&mut bodies, &mut plants, rng, area_size)
@@ -488,22 +426,34 @@ async fn main() {
             if is_draw_mode {
                 draw_text(
                     &body_id.to_string(),
-                    body.x
+                    body.pos.x
                         - measure_text(&body_id.to_string(), None, BODY_INFO_FONT_SIZE, 1.0).width
                             / 2.0,
-                    body.y - OBJECT_RADIUS - MIN_GAP,
+                    body.pos.y - OBJECT_RADIUS - MIN_GAP,
                     BODY_INFO_FONT_SIZE as f32,
                     WHITE,
                 );
 
-                draw_body(body.x, body.y, body.color);
+                draw_body!(body.pos, body.color);
                 // draw_text(&format!("zoom {}", zoom), 10.0, 20.0, 20.0, WHITE);
             }
         }
 
         if is_draw_mode {
             draw_rectangle_lines(0.0, 0.0, area_size.0, area_size.1, 30.0, WHITE);
-            plants.iter().for_each(draw_plant);
+            for plant in &plants {
+                draw_plant!(plant)
+            }
+
+            // if zoom_mode {
+            //     let mouse_position = mouse_position();
+            //     let (x, y) = adjusted_coordinates!(
+            //         mouse_position.0 + 25.0,
+            //         mouse_position.1 - 25.0,
+            //         area_size
+            //     );
+            //     draw_text("zoomed in", x, y, 10.0 * MAX_ZOOM, WHITE)
+            // }
         }
 
         if is_draw_mode {
