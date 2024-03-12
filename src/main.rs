@@ -1,9 +1,12 @@
+#![feature(core_intrinsics)]
+
 mod constants;
 
 use constants::*;
 
 use std::{
     collections::HashMap,
+    intrinsics::unlikely,
     thread::sleep,
     time::{Duration, Instant},
 };
@@ -15,27 +18,21 @@ use macroquad::{
     math::{vec2, Rect, Vec2},
     miniquad::{window::set_fullscreen, MouseButton},
     rand::gen_range,
-    shapes::{draw_circle, draw_line, draw_triangle},
+    shapes::{draw_circle, draw_line, draw_rectangle_lines, draw_triangle},
     text::{draw_text, measure_text},
     window::{next_frame, screen_height, screen_width, Conf},
 };
 use rand::{rngs::ThreadRng, seq::SliceRandom, thread_rng, Rng};
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-enum Preference {
-    Bodies,
-    Plants,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Status<'a> {
-    FollowedBy(&'a Body<'a>),
     FollowingBody(&'a Body<'a>),
-    FollowingPlant(Plant),
+    FollowingPlant(&'a Plant),
     EscapingBody(&'a Body<'a>),
     Sleeping,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum IQStage {
     Zero,
     One,
@@ -46,16 +43,24 @@ enum IQStage {
     Six,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum EatingStrategy {
+    Bodies,
+    Plants,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Body<'a> {
     x: f32,
     y: f32,
     energy: f32,
-    nearest_plant: Option<(f32, (usize, Plant))>,
-    // nearest_body: Option<(f32, (usize, &'a Body<'a>))>,
     speed: f32,
+    vision_distance: f32,
+    eating_strategy: EatingStrategy,
+    divison_threshold: f32,
+    mass: f32,
+    iq: IQStage,
     color: Color,
-    preference: Preference,
     status: Status<'a>,
 }
 
@@ -91,19 +96,19 @@ fn draw_body(x: f32, y: f32, color: Color) {
     draw_circle(x, y, OBJECT_RADIUS, color);
 }
 
-fn draw_plant(x: f32, y: f32) {
+fn draw_plant(plant: &Plant) {
     draw_triangle(
         Vec2 {
-            x,
-            y: y - OBJECT_RADIUS,
+            x: plant.x,
+            y: plant.y - OBJECT_RADIUS,
         },
         Vec2 {
-            x: x + OBJECT_RADIUS * (ROOT_OF_3_DIVIDED_BY_2),
-            y: y + OBJECT_RADIUS / 2.0,
+            x: plant.x + OBJECT_RADIUS * (COSINE_OF_30_DEGREES),
+            y: plant.y + OBJECT_RADIUS / 2.0,
         },
         Vec2 {
-            x: x - OBJECT_RADIUS * (ROOT_OF_3_DIVIDED_BY_2),
-            y: y + OBJECT_RADIUS / 2.0,
+            x: plant.x - OBJECT_RADIUS * (COSINE_OF_30_DEGREES),
+            y: plant.y + OBJECT_RADIUS / 2.0,
         },
         GREEN,
     );
@@ -113,25 +118,14 @@ fn get_zoom_target(camera: &mut Camera2D, area_size: (f32, f32)) {
     let mouse_position = mouse_position();
     let (mut target_x, mut target_y) = (mouse_position.0 * MAX_ZOOM, mouse_position.1 * MAX_ZOOM);
 
-    let left_x_min = area_size.0 / MAX_ZOOM / 2.0;
-    if target_x < left_x_min {
-        target_x = left_x_min
-    }
-
-    let right_x_max = area_size.0 * (1.0 - 1.0 / (2.0 * MAX_ZOOM));
-    if target_x > right_x_max {
-        target_x = right_x_max
-    }
-
-    let top_y_min = area_size.1 / MAX_ZOOM / 2.0;
-    if target_y < top_y_min {
-        target_y = top_y_min
-    }
-
-    let bottom_y_max = area_size.1 * (1.0 - 1.0 / (2.0 * MAX_ZOOM));
-    if target_y > bottom_y_max {
-        target_y = bottom_y_max
-    }
+    (target_x, target_y) = (
+        target_x
+            .max(area_size.0 / MAX_ZOOM / 2.0)
+            .min(area_size.0 * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
+        target_y
+            .max(area_size.1 / MAX_ZOOM / 2.0)
+            .min(area_size.1 * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
+    );
 
     camera.target = vec2(target_x, target_y);
     camera.zoom = vec2(MAX_ZOOM / area_size.0 * 2.0, MAX_ZOOM / area_size.1 * 2.0);
@@ -153,6 +147,11 @@ fn get_nearest_plant_for_body(plants: &[Plant], body: &Body) -> Option<(f32, (us
         distance!([plant.x, plant.y], [body.x, body.y]),
         (plant_id, *plant),
     ))
+}
+
+fn get_with_deviation(value: f32, rng: &mut ThreadRng) -> f32 {
+    let part = value * DEVIATION;
+    rng.gen_range(value - part..value + part)
 }
 
 // fn get_nearest_body_for_body<'a>(
@@ -204,6 +203,13 @@ fn spawn_body(
     x: f32,
     y: f32,
     rng: &mut ThreadRng,
+    energy: f32,
+    speed: f32,
+    vision_distance: f32,
+    eating_strategy: EatingStrategy,
+    division_threshold: f32,
+    mass: f32,
+    iq: IQStage,
     color: Color,
 ) {
     bodies.insert(
@@ -211,14 +217,14 @@ fn spawn_body(
         Body {
             x,
             y,
-            energy: 100.0,
-            nearest_plant: None,
-            // nearest_body: None,
-            speed: rng.gen_range(0.1..5.5),
+            energy: get_with_deviation(AVERAGE_ENERGY, rng),
+            speed: get_with_deviation(AVERAGE_SPEED, rng),
+            vision_distance: get_with_deviation(AVERAGE_VISION_DISTANCE, rng),
+            eating_strategy,
+            divison_threshold: get_with_deviation(AVERAGE_DIVISION_THRESHOLD, rng),
+            mass: get_with_deviation(AVERAGE_MASS, rng),
+            iq: IQStage::Zero,
             color,
-            preference: *[Preference::Plants, Preference::Bodies]
-                .choose(rng)
-                .unwrap(),
             status: Status::Sleeping,
         },
     );
@@ -226,9 +232,17 @@ fn spawn_body(
 
 fn randomly_spawn_body(
     bodies: &mut HashMap<usize, Body>,
-    rng: &mut ThreadRng,
     area_size: (f32, f32),
+    energy: f32,
+    speed: f32,
+    vision_distance: f32,
+    eating_strategy: EatingStrategy,
+    division_threshold: f32,
+    mass: f32,
+    iq: IQStage,
 ) {
+    let rng = &mut thread_rng();
+
     let mut x;
     let mut y;
 
@@ -265,7 +279,20 @@ fn randomly_spawn_body(
         )
     }
 
-    spawn_body(bodies, x, y, rng, color);
+    spawn_body(
+        bodies,
+        x,
+        y,
+        rng,
+        energy,
+        speed,
+        vision_distance,
+        eating_strategy,
+        division_threshold,
+        mass,
+        iq,
+        color,
+    );
 }
 
 fn window_conf() -> Conf {
@@ -278,7 +305,7 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    // Make the window fullscreen
+    // Make the window fullscreen for Linux
     set_fullscreen(true);
     sleep(Duration::from_secs(1));
     next_frame().await;
@@ -291,9 +318,24 @@ async fn main() {
 
     let rng = &mut thread_rng();
 
-    // Spawn the bodies
-    for _ in 0..BODIES_N {
-        randomly_spawn_body(&mut bodies, rng, area_size)
+    for i in 1..BODIES_N {
+        let eating_strategy = if i >= BODY_EATERS_N {
+            EatingStrategy::Plants
+        } else {
+            EatingStrategy::Bodies
+        };
+
+        randomly_spawn_body(
+            &mut bodies,
+            area_size,
+            get_with_deviation(AVERAGE_ENERGY, rng),
+            get_with_deviation(AVERAGE_SPEED, rng),
+            get_with_deviation(AVERAGE_VISION_DISTANCE, rng),
+            eating_strategy,
+            get_with_deviation(AVERAGE_DIVISION_THRESHOLD, rng),
+            get_with_deviation(AVERAGE_MASS, rng),
+            IQStage::Zero,
+        );
     }
 
     // Spawn the plants
@@ -301,11 +343,11 @@ async fn main() {
         randomly_spawn_plant(&mut bodies, &mut plants, rng, area_size)
     }
 
-    // Get the nearest plant for each spawned body
-    for body in bodies.values_mut() {
-        body.nearest_plant = get_nearest_plant_for_body(&plants, body);
-        // body.nearest_body = get_nearest_body_for_body(&bodies, body)
-    }
+    // // Get the nearest plant for each spawned body
+    // for body in bodies.values_mut() {
+    //     body.nearest_plant = get_nearest_plant_for_body(&plants, body);
+    //     // body.nearest_body = get_nearest_body_for_body(&bodies, body)
+    // }
 
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.0, area_size.1));
 
@@ -371,81 +413,79 @@ async fn main() {
         //     }
         // }
 
-        bodies.retain(|_, body| body.energy > 0.0);
-        if rng.gen_range(0.0..1.0) > 1.0 - PLANT_SPAWN_CHANCE {
+        if unlikely(rng.gen_range(0.0..1.0) > 1.0 - PLANT_SPAWN_CHANCE) {
             randomly_spawn_plant(&mut bodies, &mut plants, rng, area_size)
         }
 
-        let mut bodies_values = bodies.iter_mut().collect::<Vec<_>>();
-        bodies_values.shuffle(rng);
+        let mut bodies_to_iter = bodies.iter_mut().collect::<Vec<_>>();
+        bodies_to_iter.shuffle(rng);
 
         let is_draw_mode =
             last_updated.elapsed().as_millis() >= Duration::from_secs(1 / FPS).as_millis();
 
-        for (body_id, body) in bodies_values {
-            body.nearest_plant = get_nearest_plant_for_body(&plants, body);
+        for (body_id, body) in bodies_to_iter {
+            // body.nearest_plant = get_nearest_plant_for_body(&plants, body);
             // body.nearest_body = get_nearest_body_for_body(&mut bodies, body);
             // update_nearest_body(body, &bodies);
 
             // body.energy -= ENERGY_FOR_WALKING;
-            match body.preference {
-                Preference::Plants => {
-                    // Move towards the nearest plant
-                    let (distance_to_plant, (plant_id, nearest_plant)) =
-                        body.nearest_plant.unwrap();
-                    let (dx, dy) = (nearest_plant.x - body.x, nearest_plant.y - body.y);
-                    let coeff = body.speed / distance_to_plant;
-
-                    body.x += coeff * dx;
-                    body.y += coeff * dy;
-                    body.status = Status::FollowingPlant(nearest_plant);
-
-                    if zoom_mode && is_draw_mode {
-                        draw_line(body.x, body.y, nearest_plant.x, nearest_plant.y, 5.0, WHITE);
-                    }
-
-                    // If there's been a contact between the body and a plant, handle it
-                    if distance!([body.x, body.y], [nearest_plant.x, nearest_plant.y])
-                        <= OBJECT_RADIUS
-                    {
-                        body.energy += PLANT_HP;
-                        plants.remove(plant_id);
-                        body.nearest_plant = None;
-                        body.status = Status::Sleeping
-                    }
-                }
-                Preference::Bodies => {
-                    //     for (enemy_id, mut enemy_body) in bodies.clone().into_iter() {
-                    //         if (enemy_body.x, enemy_body.y) == (body.x, body.y) {
-                    //             bodies.remove(match body.hp.cmp(&enemy_body.hp) {
-                    //                 Ordering::Less => {
-                    //                     enemy_body.hp += body.hp.min(MAX_HP - enemy_body.hp);
-                    //                     body_id
-                    //                 }
-                    //                 Ordering::Equal => {
-                    //                     let options = [body_id, &enemy_id];
-                    //                     let chosen = options.choose(rng).unwrap();
-                    //
-                    //                     if *chosen == body_id {
-                    //                         enemy_body.hp += body.hp.min(MAX_HP - enemy_body.hp);
-                    //                     } else {
-                    //                         body.hp += enemy_body.hp.min(MAX_HP - body.hp);
-                    //                     }
-                    //
-                    //                     chosen
-                    //                 }
-                    //                 Ordering::Greater => {
-                    //                     enemy_body.hp += body.hp.min(MAX_HP - enemy_body.hp);
-                    //                     &enemy_id
-                    //                 }
-                    //             });
-                    //         }
-                    //     }
-                }
-            }
-
+            // match body.preference {
+            //     Preference::Plants => {
+            //         // Move towards the nearest plant
+            //         let (distance_to_plant, (plant_id, nearest_plant)) =
+            //             body.nearest_plant.unwrap();
+            //         let (dx, dy) = (nearest_plant.x - body.x, nearest_plant.y - body.y);
+            //         let coeff = body.speed / distance_to_plant;
+            //
+            //         body.x += coeff * dx;
+            //         body.y += coeff * dy;
+            //         body.status = Status::FollowingPlant(nearest_plant);
+            //
+            //         if zoom_mode && is_draw_mode {
+            //             draw_line(body.x, body.y, nearest_plant.x, nearest_plant.y, 5.0, WHITE);
+            //         }
+            //
+            //         // If there's been a contact between the body and a plant, handle it
+            //         if distance!([body.x, body.y], [nearest_plant.x, nearest_plant.y])
+            //             <= OBJECT_RADIUS
+            //         {
+            //             body.energy += PLANT_HP;
+            //             plants.remove(plant_id);
+            //             body.nearest_plant = None;
+            //             body.status = Status::Sleeping
+            //         }
+            //     }
+            //     Preference::Bodies => {
+            //         //     for (enemy_id, mut enemy_body) in bodies.clone().into_iter() {
+            //         //         if (enemy_body.x, enemy_body.y) == (body.x, body.y) {
+            //         //             bodies.remove(match body.hp.cmp(&enemy_body.hp) {
+            //         //                 Ordering::Less => {
+            //         //                     enemy_body.hp += body.hp.min(MAX_HP - enemy_body.hp);
+            //         //                     body_id
+            //         //                 }
+            //         //                 Ordering::Equal => {
+            //         //                     let options = [body_id, &enemy_id];
+            //         //                     let chosen = options.choose(rng).unwrap();
+            //         //
+            //         //                     if *chosen == body_id {
+            //         //                         enemy_body.hp += body.hp.min(MAX_HP - enemy_body.hp);
+            //         //                     } else {
+            //         //                         body.hp += enemy_body.hp.min(MAX_HP - body.hp);
+            //         //                     }
+            //         //
+            //         //                     chosen
+            //         //                 }
+            //         //                 Ordering::Greater => {
+            //         //                     enemy_body.hp += body.hp.min(MAX_HP - enemy_body.hp);
+            //         //                     &enemy_id
+            //         //                 }
+            //         //             });
+            //         //         }
+            //         //     }
+            //     }
+            // }
+            //
             if is_draw_mode {
-                // draw_rectangle_lines(0.0, 0.0, area_size.0, area_size.1, 30.0, WHITE);
                 draw_text(
                     &body_id.to_string(),
                     body.x
@@ -457,11 +497,13 @@ async fn main() {
                 );
 
                 draw_body(body.x, body.y, body.color);
-                for plant in plants.iter() {
-                    draw_plant(plant.x, plant.y)
-                }
                 // draw_text(&format!("zoom {}", zoom), 10.0, 20.0, 20.0, WHITE);
             }
+        }
+
+        if is_draw_mode {
+            draw_rectangle_lines(0.0, 0.0, area_size.0, area_size.1, 30.0, WHITE);
+            plants.iter().for_each(draw_plant);
         }
 
         if is_draw_mode {
