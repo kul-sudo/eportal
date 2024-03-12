@@ -6,20 +6,21 @@ use constants::*;
 
 use std::{
     collections::HashMap,
+    env::consts::OS,
     intrinsics::unlikely,
     thread::sleep,
     time::{Duration, Instant},
 };
 
 use macroquad::{
-    camera::{set_camera, Camera, Camera2D},
+    camera::{set_camera, Camera2D},
     color::{Color, GREEN, WHITE},
     input::{is_mouse_button_pressed, mouse_position},
     math::{vec2, Rect, Vec2, Vec3},
     miniquad::{window::set_fullscreen, MouseButton},
     rand::gen_range,
-    shapes::{draw_circle, draw_line, draw_rectangle_lines, draw_triangle},
-    text::{draw_text, draw_text_ex, measure_text},
+    shapes::{draw_circle, draw_rectangle_lines, draw_triangle},
+    text::{draw_text, measure_text},
     window::{next_frame, screen_height, screen_width, Conf},
 };
 use rand::{rngs::ThreadRng, seq::SliceRandom, thread_rng, Rng};
@@ -72,11 +73,11 @@ macro_rules! adjusted_coordinates {
     ($pos:expr, $area_size:expr) => {{
         (
             ($pos.x * MAX_ZOOM)
-                .max($area_size.0 / MAX_ZOOM / 2.0)
-                .min($area_size.0 * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
+                .max($area_size.x / MAX_ZOOM / 2.0)
+                .min($area_size.x * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
             ($pos.y * MAX_ZOOM)
-                .max($area_size.1 / MAX_ZOOM / 2.0)
-                .min($area_size.1 * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
+                .max($area_size.y / MAX_ZOOM / 2.0)
+                .min($area_size.y * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
         )
     }};
 }
@@ -107,7 +108,7 @@ macro_rules! draw_plant {
     };
 }
 
-fn get_zoom_target(camera: &mut Camera2D, area_size: (f32, f32)) {
+fn get_zoom_target(camera: &mut Camera2D, area_size: Vec2) {
     let mouse_position = mouse_position();
     let (target_x, target_y) = adjusted_coordinates!(
         Vec2 {
@@ -118,13 +119,13 @@ fn get_zoom_target(camera: &mut Camera2D, area_size: (f32, f32)) {
     );
 
     camera.target = vec2(target_x, target_y);
-    camera.zoom = vec2(MAX_ZOOM / area_size.0 * 2.0, MAX_ZOOM / area_size.1 * 2.0);
+    camera.zoom = vec2(MAX_ZOOM / area_size.x * 2.0, MAX_ZOOM / area_size.y * 2.0);
     set_camera(camera);
 }
 
-fn default_camera(camera: &mut Camera2D, area_size: (f32, f32)) {
-    camera.target = vec2(area_size.0 / 2.0, area_size.1 / 2.0);
-    camera.zoom = vec2(MIN_ZOOM / area_size.0 * 2.0, MIN_ZOOM / area_size.1 * 2.0);
+fn default_camera(camera: &mut Camera2D, area_size: Vec2) {
+    camera.target = vec2(area_size.x / 2.0, area_size.y / 2.0);
+    camera.zoom = vec2(MIN_ZOOM / area_size.x * 2.0, MIN_ZOOM / area_size.y * 2.0);
     set_camera(camera);
 }
 
@@ -157,7 +158,7 @@ fn randomly_spawn_plant(
     bodies: &mut HashMap<usize, Body>,
     plants: &mut Vec<Plant>,
     rng: &mut ThreadRng,
-    area_size: (f32, f32),
+    area_size: Vec2,
 ) {
     let starting_point = Instant::now();
 
@@ -170,10 +171,10 @@ fn randomly_spawn_plant(
         {
             return;
         }
-        x = rng.gen_range(0.0..area_size.0);
-        y = rng.gen_range(0.0..area_size.1);
-        (x <= OBJECT_RADIUS + MIN_GAP || x >= area_size.0 - OBJECT_RADIUS - MIN_GAP)
-            || (y <= OBJECT_RADIUS + MIN_GAP || y >= area_size.1 - OBJECT_RADIUS - MIN_GAP)
+        x = rng.gen_range(0.0..area_size.x);
+        y = rng.gen_range(0.0..area_size.y);
+        (x <= OBJECT_RADIUS + MIN_GAP || x >= area_size.x - OBJECT_RADIUS - MIN_GAP)
+            || (y <= OBJECT_RADIUS + MIN_GAP || y >= area_size.y - OBJECT_RADIUS - MIN_GAP)
             || bodies
                 .values()
                 .any(|body| body.pos.distance(Vec2 { x, y }) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
@@ -216,7 +217,7 @@ fn spawn_body(
 
 fn randomly_spawn_body(
     bodies: &mut HashMap<usize, Body>,
-    area_size: (f32, f32),
+    area_size: Vec2,
     eating_strategy: EatingStrategy,
 ) {
     let rng = &mut thread_rng();
@@ -225,10 +226,10 @@ fn randomly_spawn_body(
     let mut y;
 
     while {
-        x = rng.gen_range(0.0..area_size.0);
-        y = rng.gen_range(0.0..area_size.1);
-        (x <= OBJECT_RADIUS + MIN_GAP || x >= area_size.0 - OBJECT_RADIUS - MIN_GAP)
-            || (y <= OBJECT_RADIUS + MIN_GAP || y >= area_size.1 - OBJECT_RADIUS - MIN_GAP)
+        x = rng.gen_range(0.0..area_size.x);
+        y = rng.gen_range(0.0..area_size.y);
+        (x <= OBJECT_RADIUS + MIN_GAP || x >= area_size.x - OBJECT_RADIUS - MIN_GAP)
+            || (y <= OBJECT_RADIUS + MIN_GAP || y >= area_size.y - OBJECT_RADIUS - MIN_GAP)
             || bodies
                 .values()
                 .any(|body| body.pos.distance(Vec2 { x, y }) < OBJECT_RADIUS * 2.0 + MIN_GAP)
@@ -243,16 +244,17 @@ fn randomly_spawn_body(
         255,
     );
 
+    let green_rgb = Vec3 {
+        x: GREEN.r,
+        y: GREEN.g,
+        z: GREEN.b,
+    };
+
     while bodies.values().any(|body| {
         let current_body_rgb = Vec3 {
             x: body.color.r,
             y: body.color.g,
             z: body.color.b,
-        };
-        let green_rgb = Vec3 {
-            x: GREEN.r,
-            y: GREEN.g,
-            z: GREEN.b,
         };
         current_body_rgb.distance(Vec3 {
             x: color.r,
@@ -293,15 +295,17 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    // Make the window fullscreen for Linux
-    // if OS == "linux" {
-    set_fullscreen(true);
-    sleep(Duration::from_secs(1));
-    next_frame().await;
-    // }
+    // Make the window fullscreen on Linux
+    if OS == "linux" {
+        set_fullscreen(true);
+        sleep(Duration::from_secs(1));
+        next_frame().await;
+    }
 
-    let screen_size = (screen_width(), screen_height());
-    let area_size = (screen_size.0 * OBJECT_RADIUS, screen_size.1 * OBJECT_RADIUS);
+    let area_size = Vec2 {
+        x: screen_width() * OBJECT_RADIUS,
+        y: screen_height() * OBJECT_RADIUS,
+    };
 
     let mut bodies: HashMap<usize, Body> = HashMap::with_capacity(BODIES_N);
     let mut plants: Vec<Plant> = Vec::with_capacity(PLANTS_N);
@@ -329,11 +333,10 @@ async fn main() {
     //     // body.nearest_body = get_nearest_body_for_body(&bodies, body)
     // }
 
-    let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.0, area_size.1));
+    let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.x, area_size.y));
     default_camera(&mut camera, area_size);
 
     let mut zoom_mode = false;
-
     let mut last_updated = Instant::now();
 
     loop {
@@ -440,9 +443,9 @@ async fn main() {
         }
 
         if is_draw_mode {
-            draw_rectangle_lines(0.0, 0.0, area_size.0, area_size.1, 30.0, WHITE);
+            // draw_rectangle_lines(0.0, 0.0, area_size.x, area_size.y, 30.0, WHITE);
             for plant in &plants {
-                draw_plant!(plant)
+                draw_plant!(plant);
             }
 
             // if zoom_mode {
