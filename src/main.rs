@@ -204,7 +204,6 @@ async fn main() {
             match body.eating_strategy {
                 EatingStrategy::Bodies => {}
                 EatingStrategy::Plants => {
-                    let mut distance_to_closest_plant = 0.0;
                     let closest_plant = plants
                         .iter()
                         .enumerate()
@@ -213,14 +212,14 @@ async fn main() {
                                 && !eaten_plants.contains(plant)
                         })
                         .min_by(|(_, x), (_, y)| {
-                            distance_to_closest_plant = body.pos.distance(y.pos);
                             body.pos
                                 .distance(x.pos)
-                                .partial_cmp(&distance_to_closest_plant)
+                                .partial_cmp(&body.pos.distance(y.pos))
                                 .unwrap()
                         });
 
                     if let Some((closest_plant_id, closest_plant)) = closest_plant {
+                        let distance_to_closest_plant = body.pos.distance(closest_plant.pos);
                         body.pos = Vec2 {
                             x: body.pos.x
                                 + ((closest_plant.pos.x - body.pos.x) * body.speed)
