@@ -5,17 +5,14 @@ use macroquad::{
     math::{Vec2, Vec3},
     rand::gen_range,
 };
-use rand::{thread_rng, Rng};
+use rand::{rngs::ThreadRng, thread_rng, Rng};
 
-use crate::{
-    get_with_deviation, plant::Plant, AVERAGE_DIVISION_THRESHOLD, AVERAGE_ENERGY, AVERAGE_SPEED,
-    AVERAGE_VISION_DISTANCE, BODIES_N, COLOR_GAP, MIN_GAP, OBJECT_RADIUS,
-};
+use crate::{constants::*, get_with_deviation, plant::Plant};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Status<'a> {
     FollowingBody(&'a Body<'a>),
-    FollowingPlant(&'a Plant),
+    FollowingPlant(Plant),
     EscapingBody(&'a Body<'a>),
     Sleeping,
 }
@@ -33,10 +30,12 @@ pub struct Body<'a> {
     pub speed: f32,
     pub vision_distance: f32,
     pub eating_strategy: EatingStrategy,
+    /// The body procreates after a specific level of energy has been reached.
     pub division_threshold: f32,
     pub iq: f32,
     pub color: Color,
     pub status: Status<'a>,
+    /// When the body died due to a lack of energy if it did die in the first place.
     pub death_time: Option<Instant>,
 }
 
@@ -51,18 +50,23 @@ impl Body<'_> {
         division_threshold: f32,
         iq: f32,
         color: Color,
-        status: Status<'static>,
+        is_first_generation: bool,
+        rng: &mut ThreadRng,
     ) -> Self {
         Body {
             pos,
-            energy,
-            speed,
-            vision_distance,
+            energy: if is_first_generation {
+                get_with_deviation!(energy, rng)
+            } else {
+                energy / 2.0
+            },
+            speed: get_with_deviation!(speed, rng),
+            vision_distance: get_with_deviation!(vision_distance, rng),
             eating_strategy,
-            division_threshold,
+            division_threshold: get_with_deviation!(division_threshold, rng),
             iq,
             color,
-            status,
+            status: Status::Sleeping,
             death_time: None,
         }
     }
@@ -72,15 +76,16 @@ pub fn spawn_body<'a>(bodies: &mut HashMap<usize, Body<'a>>, body: Body<'a>) {
     bodies.insert(bodies.len() + 1, body);
 }
 
+/// Generate a random position until it fits certain creteria.
 pub fn randomly_spawn_body(
     bodies: &mut HashMap<usize, Body>,
     area_size: Vec2,
     eating_strategy: EatingStrategy,
+    rng: &mut ThreadRng,
 ) {
-    let rng = &mut thread_rng();
-
     let mut pos = Vec2::default();
 
+    // Make sure the position is far enough from the rest of the bodies and the borders of the area
     while {
         pos.x = rng.gen_range(0.0..area_size.x);
         pos.y = rng.gen_range(0.0..area_size.y);
@@ -91,12 +96,13 @@ pub fn randomly_spawn_body(
                 .any(|body| body.pos.distance(pos) < OBJECT_RADIUS * 2.0 + MIN_GAP)
     } {}
 
+    // Make sure the color is different enough
     let real_color_gap = COLOR_GAP / ((BODIES_N + 2) as f32).powf(1.0 / 3.0);
 
     let mut color = Color::from_rgba(
-        gen_range(50, 250),
-        gen_range(50, 250),
-        gen_range(50, 250),
+        gen_range(COLOR_MIN, COLOR_MAX),
+        gen_range(COLOR_MIN, COLOR_MAX),
+        gen_range(COLOR_MIN, COLOR_MAX),
         255,
     );
 
@@ -127,9 +133,9 @@ pub fn randomly_spawn_body(
             }) < real_color_gap
     }) {
         color = Color::from_rgba(
-            gen_range(50, 250),
-            gen_range(50, 250),
-            gen_range(50, 250),
+            gen_range(COLOR_MIN, COLOR_MAX),
+            gen_range(COLOR_MIN, COLOR_MAX),
+            gen_range(COLOR_MIN, COLOR_MAX),
             255,
         )
     }
@@ -138,14 +144,15 @@ pub fn randomly_spawn_body(
         bodies,
         Body::new(
             pos,
-            get_with_deviation(AVERAGE_ENERGY, rng),
-            get_with_deviation(AVERAGE_SPEED, rng),
-            get_with_deviation(AVERAGE_VISION_DISTANCE, rng),
+            AVERAGE_ENERGY,
+            AVERAGE_SPEED,
+            AVERAGE_VISION_DISTANCE,
             eating_strategy,
-            get_with_deviation(AVERAGE_DIVISION_THRESHOLD, rng),
+            AVERAGE_DIVISION_THRESHOLD,
             0.0,
             color,
-            Status::Sleeping,
+            true,
+            rng,
         ),
     );
 }

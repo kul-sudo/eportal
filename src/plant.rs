@@ -8,13 +8,13 @@ use rand::{rngs::ThreadRng, Rng};
 
 use crate::{Body, MIN_GAP, OBJECT_RADIUS, PLANT_SPAWN_TIME_LIMIT};
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Plant {
     pub pos: Vec2,
 }
 
 pub fn randomly_spawn_plant(
-    bodies: &mut HashMap<usize, Body>,
+    bodies: &HashMap<usize, Body>,
     plants: &mut Vec<Plant>,
     rng: &mut ThreadRng,
     area_size: Vec2,
@@ -23,7 +23,9 @@ pub fn randomly_spawn_plant(
 
     let mut pos = Vec2::default();
 
+    // Make sure the position is far enough from the rest of the plants and bodies and the borders of the area
     while {
+        // Make sure finding a suitable position doesn't exceed a specific time limit
         if starting_point.elapsed().as_nanos()
             >= Duration::from_millis(PLANT_SPAWN_TIME_LIMIT).as_nanos()
         {
