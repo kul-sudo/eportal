@@ -1,4 +1,7 @@
-use std::{collections::HashMap, time::Instant};
+use std::{
+    collections::HashMap,
+    time::{Instant, SystemTime, UNIX_EPOCH},
+};
 
 use macroquad::{
     color::{Color, GREEN, RED},
@@ -7,14 +10,14 @@ use macroquad::{
 };
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 
-use crate::{constants::*, get_with_deviation, plant::Plant};
+use crate::{constants::*, get_with_deviation, plant::Plant, time_since_unix_epoch};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Status<'a> {
-    FollowingBody(&'a Body<'a>),
-    FollowingPlant(Plant),
+    FollowingTarget,
     EscapingBody(&'a Body<'a>),
     Sleeping,
+    Dead,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -37,6 +40,7 @@ pub struct Body<'a> {
     pub status: Status<'a>,
     /// When the body died due to a lack of energy if it did die in the first place.
     pub death_time: Option<Instant>,
+    pub target: Option<u128>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -68,17 +72,18 @@ impl Body<'_> {
             color,
             status: Status::Sleeping,
             death_time: None,
+            target: None,
         }
     }
 }
 
-pub fn spawn_body<'a>(bodies: &mut HashMap<usize, Body<'a>>, body: Body<'a>) {
-    bodies.insert(bodies.len() + 1, body);
+pub fn spawn_body<'a>(bodies: &mut HashMap<u128, Body<'a>>, body: Body<'a>) {
+    bodies.insert(time_since_unix_epoch!(), body);
 }
 
 /// Generate a random position until it fits certain creteria.
 pub fn randomly_spawn_body(
-    bodies: &mut HashMap<usize, Body>,
+    bodies: &mut HashMap<u128, Body>,
     area_size: Vec2,
     eating_strategy: EatingStrategy,
     rng: &mut ThreadRng,

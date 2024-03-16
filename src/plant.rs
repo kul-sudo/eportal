@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use macroquad::math::Vec2;
@@ -14,8 +14,8 @@ pub struct Plant {
 }
 
 pub fn randomly_spawn_plant(
-    bodies: &HashMap<usize, Body>,
-    plants: &mut Vec<Plant>,
+    bodies: &HashMap<u128, Body>,
+    plants: &mut HashMap<u128, Plant>,
     rng: &mut ThreadRng,
     area_size: Vec2,
 ) {
@@ -39,11 +39,17 @@ pub fn randomly_spawn_plant(
                 .values()
                 .any(|body| body.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
             || plants
-                .iter()
+                .values()
                 .any(|plant| plant.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
     } {}
 
-    plants.push(Plant { pos });
+    plants.insert(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        Plant { pos },
+    );
 }
 
 #[macro_export]

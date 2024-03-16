@@ -15,7 +15,7 @@ use std::{
     f32::consts::SQRT_2,
     intrinsics::unlikely,
     thread::sleep,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use macroquad::{
@@ -51,6 +51,16 @@ macro_rules! get_with_deviation {
         let part = $value * DEVIATION;
         $rng.gen_range($value - part..$value + part)
     }};
+}
+
+#[macro_export]
+macro_rules! time_since_unix_epoch {
+    () => {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    };
 }
 
 /// Set the camera zoom to where the mouse cursor is.
@@ -114,13 +124,13 @@ async fn main() {
         y: screen_height() * OBJECT_RADIUS,
     };
 
-    let mut bodies: HashMap<usize, Body> = HashMap::with_capacity(BODIES_N);
-    let mut plants: Vec<Plant> = Vec::with_capacity(PLANTS_N);
+    let mut bodies: HashMap<u128, Body> = HashMap::with_capacity(BODIES_N);
+    let mut plants: HashMap<u128, Plant> = HashMap::new();
 
     let rng = &mut thread_rng();
 
     // Spawn the bodies
-    for i in 1..BODIES_N {
+    for i in 0..BODIES_N {
         randomly_spawn_body(
             &mut bodies,
             area_size,
@@ -135,7 +145,7 @@ async fn main() {
 
     // Spawn the plants
     for _ in 0..PLANTS_N {
-        randomly_spawn_plant(&mut bodies, &mut plants, rng, area_size)
+        randomly_spawn_plant(&bodies, &mut plants, rng, area_size)
     }
 
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.x, area_size.y));
@@ -163,8 +173,8 @@ async fn main() {
         }
 
         // Spawn a plant in a random place with a specific chance
-        if unlikely(rng.gen_range(0.0..1.0) > 1.0 - PLANT_SPAWN_CHANCE) {
-            randomly_spawn_plant(&mut bodies, &mut plants, rng, area_size)
+        if rng.gen_range(0.0..1.0) < PLANT_SPAWN_CHANCE {
+            randomly_spawn_plant(&bodies, &mut plants, rng, area_size)
         }
 
         let mut bodies_to_iter = bodies.iter_mut().collect::<Vec<_>>();
@@ -174,42 +184,51 @@ async fn main() {
         let is_draw_mode =
             last_updated.elapsed().as_millis() >= Duration::from_secs(1 / FPS).as_millis();
 
-        // Due to certain borrowing rules, it's impossible to modify the `bodies` hashmap during the loop,
+        // Due to certain borrowing rules, it's impossible to modify these during the loop,
         // so it'll be done after it
-        let mut bodies_to_delete: HashSet<usize> = HashSet::with_capacity(bodies_to_iter.len());
-        let mut eaten_plants: Vec<Plant> = Vec::with_capacity(plants.len());
+        let mut bodies_to_delete: HashSet<u128> = HashSet::with_capacity(bodies_to_iter.len());
+        let mut eaten_plants: HashSet<u128> = HashSet::with_capacity(plants.len());
 
         for (body_id, body) in bodies_to_iter {
-            if body.energy.is_sign_negative() {
-                match body.death_time {
-                    Some(timestamp) => {
-                        if timestamp.elapsed().as_secs() >= CROSS_LIFESPAN {
-                            bodies_to_delete.insert(*body_id);
-                        }
-                    }
-                    None => {
-                        body.death_time = Some(Instant::now());
-                    }
+            // Handle the dead
+            if body.status == Status::Dead {
+                // If body.status == Status::Dead, body.death_time is definitely Some
+                if body.death_time.unwrap().elapsed().as_secs() >= CROSS_LIFESPAN {
+                    bodies_to_delete.insert(*body_id);
                 }
+
                 continue;
             }
 
+            // Check if the body should be dead
+            if body.energy.is_sign_negative() {
+                body.death_time = Some(Instant::now());
+                body.status = Status::Dead;
+
+                continue;
+            }
+
+            // Handle the energy
             // The mass is proportional to the energy; to keep the mass up, energy is spent
             body.energy -= ENERGY_SPEND_CONST_FOR_MASS * body.energy
                 + ENERGY_SPEND_CONST_FOR_IQ * body.iq
                 + ENERGY_SPEND_CONST_FOR_VISION * body.vision_distance;
+            if body.status != Status::Sleeping {
+                body.energy -= ENERGY_SPEND_CONST_FOR_MOVEMENT * body.speed * body.energy
+            }
 
             body.status = Status::Sleeping;
+            body.target = None;
 
+            // Find food according to body.eating_strategy
             match body.eating_strategy {
                 EatingStrategy::Bodies => {}
                 EatingStrategy::Plants => {
                     let closest_plant = plants
                         .iter()
-                        .enumerate()
-                        .filter(|(_, plant)| {
-                            body.pos.distance(plant.pos) <= body.vision_distance
-                                && !eaten_plants.contains(plant)
+                        .filter(|(plant_index, plant)| {
+                            !eaten_plants.contains(plant_index)
+                                && body.pos.distance(plant.pos) <= body.vision_distance
                         })
                         .min_by(|(_, x), (_, y)| {
                             body.pos
@@ -218,7 +237,7 @@ async fn main() {
                                 .unwrap()
                         });
 
-                    if let Some((closest_plant_id, closest_plant)) = closest_plant {
+                    if let Some((closest_plant_index, closest_plant)) = closest_plant {
                         let distance_to_closest_plant = body.pos.distance(closest_plant.pos);
                         body.pos = Vec2 {
                             x: body.pos.x
@@ -230,46 +249,77 @@ async fn main() {
                         };
 
                         if body.pos.distance(closest_plant.pos) <= body.speed {
-                            eaten_plants.push(*closest_plant);
+                            eaten_plants.insert(*closest_plant_index);
                             body.energy += PLANT_HP;
+                        } else {
+                            body.status = Status::FollowingTarget;
+                            body.target = Some(*closest_plant_index);
                         }
-                        body.status = Status::FollowingPlant(*closest_plant);
                     }
                 }
             }
         }
 
-        for body in &bodies_to_delete {
-            bodies.remove(body);
+        for plant_index in &eaten_plants {
+            plants.remove(plant_index);
         }
-        bodies_to_delete.clear();
 
-        plants.retain(|plant| !eaten_plants.contains(plant));
+        for body_index in &bodies_to_delete {
+            bodies.remove(body_index);
+        }
 
         if is_draw_mode {
-            for plant in &plants {
+            for plant in plants.values() {
                 draw_plant!(plant);
             }
 
             for (body_id, body) in &bodies {
-                draw_circle_lines(
-                    body.pos.x,
-                    body.pos.y,
-                    body.vision_distance,
-                    2.0,
-                    body.color,
-                );
-                let to_display = body.energy;
-                draw_text(
-                    &to_display.to_string(),
-                    body.pos.x
-                        - measure_text(&to_display.to_string(), None, BODY_INFO_FONT_SIZE, 1.0)
-                            .width
-                            / 2.0,
-                    body.pos.y - OBJECT_RADIUS - MIN_GAP,
-                    BODY_INFO_FONT_SIZE as f32,
-                    WHITE,
-                );
+                if zoom_mode {
+                    if let Some(target) = body.target {
+                        let mut target_from_hashmap: Option<Vec2> = None;
+                        match body.eating_strategy {
+                            EatingStrategy::Bodies => {
+                                if let Some(body) = bodies.get(&target) {
+                                    target_from_hashmap = Some(body.pos)
+                                }
+                            }
+                            EatingStrategy::Plants => {
+                                if let Some(plant) = plants.get(&target) {
+                                    target_from_hashmap = Some(plant.pos)
+                                }
+                            }
+                        };
+
+                        if let Some(target_pos) = target_from_hashmap {
+                            draw_line(
+                                body.pos.x,
+                                body.pos.y,
+                                target_pos.x,
+                                target_pos.y,
+                                2.0,
+                                WHITE,
+                            );
+                        }
+                    }
+                    draw_circle_lines(
+                        body.pos.x,
+                        body.pos.y,
+                        body.vision_distance,
+                        4.0,
+                        body.color,
+                    );
+                    let to_display = body.energy;
+                    draw_text(
+                        &to_display.to_string(),
+                        body.pos.x
+                            - measure_text(&to_display.to_string(), None, BODY_INFO_FONT_SIZE, 1.0)
+                                .width
+                                / 2.0,
+                        body.pos.y - OBJECT_RADIUS - MIN_GAP,
+                        BODY_INFO_FONT_SIZE as f32,
+                        WHITE,
+                    );
+                }
 
                 draw_body!(body);
             }
