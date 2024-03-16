@@ -13,9 +13,9 @@ use rand::{rngs::ThreadRng, thread_rng, Rng};
 use crate::{constants::*, get_with_deviation, plant::Plant, time_since_unix_epoch};
 
 #[derive(Clone, Copy, PartialEq)]
-pub enum Status<'a> {
+pub enum Status {
     FollowingTarget,
-    EscapingBody(&'a Body<'a>),
+    EscapingBody,
     Sleeping,
     Dead,
 }
@@ -27,7 +27,7 @@ pub enum EatingStrategy {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-pub struct Body<'a> {
+pub struct Body {
     pub pos: Vec2,
     pub energy: f32,
     pub speed: f32,
@@ -37,14 +37,15 @@ pub struct Body<'a> {
     pub division_threshold: f32,
     pub iq: f32,
     pub color: Color,
-    pub status: Status<'a>,
+    pub status: Status,
     /// When the body died due to a lack of energy if it did die in the first place.
     pub death_time: Option<Instant>,
     pub target: Option<u128>,
+    pub just_wrapped: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
-impl Body<'_> {
+impl Body {
     pub fn new(
         pos: Vec2,
         energy: f32,
@@ -73,11 +74,12 @@ impl Body<'_> {
             status: Status::Sleeping,
             death_time: None,
             target: None,
+            just_wrapped: false,
         }
     }
 }
 
-pub fn spawn_body<'a>(bodies: &mut HashMap<u128, Body<'a>>, body: Body<'a>) {
+pub fn spawn_body<'a>(bodies: &mut HashMap<u128, Body>, body: Body) {
     bodies.insert(time_since_unix_epoch!(), body);
 }
 

@@ -10,6 +10,7 @@ use constants::*;
 use plant::{randomly_spawn_plant, Plant};
 
 use std::{
+    cmp::Ordering,
     collections::{HashMap, HashSet},
     env::consts::OS,
     f32::consts::SQRT_2,
@@ -177,25 +178,25 @@ async fn main() {
             randomly_spawn_plant(&bodies, &mut plants, rng, area_size)
         }
 
-        let mut bodies_to_iter = bodies.iter_mut().collect::<Vec<_>>();
-        bodies_to_iter.shuffle(rng);
-
         // Whether enough time has passed to draw a new frame
         let is_draw_mode =
             last_updated.elapsed().as_millis() >= Duration::from_secs(1 / FPS).as_millis();
 
+        let bodies_clone = bodies.clone();
+        let plants_clone = plants.clone();
+
         // Due to certain borrowing rules, it's impossible to modify these during the loop,
         // so it'll be done after it
-        let mut bodies_to_delete: HashSet<u128> = HashSet::with_capacity(bodies_to_iter.len());
-        let mut eaten_plants: HashSet<u128> = HashSet::with_capacity(plants.len());
+        let mut bodies_to_remove: HashSet<u128> = HashSet::with_capacity(bodies.len());
 
-        for (body_id, body) in bodies_to_iter {
-            // Handle the dead
+        for (body_id, body) in &mut bodies {
+            // Handle if dead
             if body.status == Status::Dead {
                 // If body.status == Status::Dead, body.death_time is definitely Some
                 if body.death_time.unwrap().elapsed().as_secs() >= CROSS_LIFESPAN {
-                    bodies_to_delete.insert(*body_id);
+                    bodies_to_remove.insert(*body_id);
                 }
+                body.target = None;
 
                 continue;
             }
@@ -220,24 +221,97 @@ async fn main() {
             body.status = Status::Sleeping;
             body.target = None;
 
+            // Escape
+            body.just_wrapped = false;
+            let bodies_within_vision_distance = bodies_clone
+                .iter()
+                .filter(|(_, other_body)| body.pos.distance(other_body.pos) <= body.vision_distance)
+                .collect::<Vec<_>>();
+
+            for (other_body_id, other_body) in bodies_within_vision_distance
+                .iter()
+                .filter(|(_, other_body)| {
+                    other_body.target.is_some() && other_body.target.unwrap() == *body_id
+                })
+                .collect::<Vec<_>>()
+            {
+                body.status = Status::EscapingBody;
+                let distance_to_pefect_body = body.pos.distance(other_body.pos);
+                body.pos = Vec2 {
+                    x: body.pos.x
+                        - ((other_body.pos.x - body.pos.x) * body.speed) / distance_to_pefect_body,
+                    y: body.pos.y
+                        - ((other_body.pos.y - body.pos.y) * body.speed) / distance_to_pefect_body,
+                };
+
+                // Wrap
+                if body.pos.x > area_size.x {
+                    body.pos.x = MIN_GAP;
+                    body.just_wrapped = true
+                } else if body.pos.x < 0.0 {
+                    body.pos.x = area_size.x - MIN_GAP;
+                    body.just_wrapped = true
+                }
+
+                if body.pos.y > area_size.y {
+                    body.pos.y = MIN_GAP;
+                    body.just_wrapped = true
+                } else if body.pos.y < 0.0 {
+                    body.pos.y = area_size.y - MIN_GAP;
+                    body.just_wrapped = true
+                }
+
+                continue;
+            }
+
             // Find food according to body.eating_strategy
             match body.eating_strategy {
-                EatingStrategy::Bodies => {}
-                EatingStrategy::Plants => {
-                    let closest_plant = plants
-                        .iter()
-                        .filter(|(plant_index, plant)| {
-                            !eaten_plants.contains(plant_index)
-                                && body.pos.distance(plant.pos) <= body.vision_distance
-                        })
-                        .min_by(|(_, x), (_, y)| {
-                            body.pos
-                                .distance(x.pos)
-                                .partial_cmp(&body.pos.distance(y.pos))
-                                .unwrap()
-                        });
+                EatingStrategy::Bodies => {
+                    if let Some((perfect_body_to_follow_index, perfect_body_to_follow)) =
+                        bodies_within_vision_distance
+                            .iter()
+                            .filter(|(_, other_body)| {
+                                body.energy > other_body.energy
+                                    && other_body.status != Status::Dead
+                                    && body.color != other_body.color
+                            })
+                            .min_by(|(_, a), (_, b)| {
+                                body.pos
+                                    .distance(a.pos)
+                                    .partial_cmp(&body.pos.distance(b.pos))
+                                    .unwrap()
+                            })
+                    {
+                        let distance_to_pefect_body = body.pos.distance(perfect_body_to_follow.pos);
+                        body.pos = Vec2 {
+                            x: body.pos.x
+                                + ((perfect_body_to_follow.pos.x - body.pos.x) * body.speed)
+                                    / distance_to_pefect_body,
+                            y: body.pos.y
+                                + ((perfect_body_to_follow.pos.y - body.pos.y) * body.speed)
+                                    / distance_to_pefect_body,
+                        };
 
-                    if let Some((closest_plant_index, closest_plant)) = closest_plant {
+                        if body.pos.distance(perfect_body_to_follow.pos) <= body.speed {
+                            bodies_to_remove.insert(**perfect_body_to_follow_index);
+                            body.energy += perfect_body_to_follow.energy;
+                        } else {
+                            body.status = Status::FollowingTarget;
+                            body.target = Some(**perfect_body_to_follow_index);
+                        }
+                    }
+                }
+                EatingStrategy::Plants => {
+                    if let Some((closest_plant_index, closest_plant)) = plants_clone
+                        .iter()
+                        .filter(|(_, plant)| body.pos.distance(plant.pos) <= body.vision_distance)
+                        .min_by(|(_, a), (_, b)| {
+                            body.pos
+                                .distance(a.pos)
+                                .partial_cmp(&body.pos.distance(b.pos))
+                                .unwrap()
+                        })
+                    {
                         let distance_to_closest_plant = body.pos.distance(closest_plant.pos);
                         body.pos = Vec2 {
                             x: body.pos.x
@@ -249,7 +323,7 @@ async fn main() {
                         };
 
                         if body.pos.distance(closest_plant.pos) <= body.speed {
-                            eaten_plants.insert(*closest_plant_index);
+                            plants.remove(closest_plant_index);
                             body.energy += PLANT_HP;
                         } else {
                             body.status = Status::FollowingTarget;
@@ -260,14 +334,6 @@ async fn main() {
             }
         }
 
-        for plant_index in &eaten_plants {
-            plants.remove(plant_index);
-        }
-
-        for body_index in &bodies_to_delete {
-            bodies.remove(body_index);
-        }
-
         if is_draw_mode {
             for plant in plants.values() {
                 draw_plant!(plant);
@@ -276,30 +342,24 @@ async fn main() {
             for (body_id, body) in &bodies {
                 if zoom_mode {
                     if let Some(target) = body.target {
-                        let mut target_from_hashmap: Option<Vec2> = None;
-                        match body.eating_strategy {
+                        let target_from_hashmap = match body.eating_strategy {
                             EatingStrategy::Bodies => {
-                                if let Some(body) = bodies.get(&target) {
-                                    target_from_hashmap = Some(body.pos)
+                                if body.just_wrapped {
+                                    continue;
                                 }
+                                bodies.get(&target).unwrap().pos
                             }
-                            EatingStrategy::Plants => {
-                                if let Some(plant) = plants.get(&target) {
-                                    target_from_hashmap = Some(plant.pos)
-                                }
-                            }
+                            EatingStrategy::Plants => plants_clone.get(&target).unwrap().pos,
                         };
 
-                        if let Some(target_pos) = target_from_hashmap {
-                            draw_line(
-                                body.pos.x,
-                                body.pos.y,
-                                target_pos.x,
-                                target_pos.y,
-                                2.0,
-                                WHITE,
-                            );
-                        }
+                        draw_line(
+                            body.pos.x,
+                            body.pos.y,
+                            target_from_hashmap.x,
+                            target_from_hashmap.y,
+                            2.0,
+                            WHITE,
+                        );
                     }
                     draw_circle_lines(
                         body.pos.x,
@@ -334,11 +394,13 @@ async fn main() {
             //     );
             //     draw_text("zoomed in", x, y, 10.0 * MAX_ZOOM, WHITE)
             // }
-        }
 
-        if is_draw_mode {
             last_updated = Instant::now();
             next_frame().await;
+        }
+
+        for body_index in &bodies_to_remove {
+            bodies.remove(body_index);
         }
     }
 }
