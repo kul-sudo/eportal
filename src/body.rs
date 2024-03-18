@@ -8,9 +8,9 @@ use macroquad::{
     math::{Vec2, Vec3},
     rand::gen_range,
 };
-use rand::{rngs::ThreadRng, thread_rng, Rng};
+use rand::{rngs::StdRng, Rng};
 
-use crate::{constants::*, get_with_deviation, plant::Plant, time_since_unix_epoch};
+use crate::{constants::*, get_with_deviation, time_since_unix_epoch};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Status {
@@ -56,7 +56,7 @@ impl Body {
         iq: f32,
         color: Color,
         is_first_generation: bool,
-        rng: &mut ThreadRng,
+        rng: &mut StdRng,
     ) -> Self {
         Body {
             pos,
@@ -79,7 +79,7 @@ impl Body {
     }
 }
 
-pub fn spawn_body<'a>(bodies: &mut HashMap<u128, Body>, body: Body) {
+pub fn spawn_body(bodies: &mut HashMap<u128, Body>, body: Body) {
     bodies.insert(time_since_unix_epoch!(), body);
 }
 
@@ -88,7 +88,7 @@ pub fn randomly_spawn_body(
     bodies: &mut HashMap<u128, Body>,
     area_size: Vec2,
     eating_strategy: EatingStrategy,
-    rng: &mut ThreadRng,
+    rng: &mut StdRng,
 ) {
     let mut pos = Vec2::default();
 

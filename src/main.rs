@@ -1,3 +1,4 @@
+#![allow(internal_features)]
 #![feature(core_intrinsics)]
 #![feature(more_float_constants)]
 
@@ -10,13 +11,12 @@ use constants::*;
 use plant::{randomly_spawn_plant, Plant};
 
 use std::{
-    cmp::Ordering,
     collections::{HashMap, HashSet},
     env::consts::OS,
     f32::consts::SQRT_2,
     intrinsics::unlikely,
     thread::sleep,
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant},
 };
 
 use macroquad::{
@@ -29,7 +29,7 @@ use macroquad::{
     text::{draw_text, measure_text},
     window::{next_frame, screen_height, screen_width, Conf},
 };
-use rand::{rngs::ThreadRng, seq::SliceRandom, thread_rng, Rng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 /// Adjust the coordinates according to the borders.
 macro_rules! adjusted_coordinates {
@@ -128,7 +128,7 @@ async fn main() {
     let mut bodies: HashMap<u128, Body> = HashMap::with_capacity(BODIES_N);
     let mut plants: HashMap<u128, Plant> = HashMap::new();
 
-    let rng = &mut thread_rng();
+    let rng = &mut StdRng::from_entropy();
 
     // Spawn the bodies
     for i in 0..BODIES_N {
@@ -228,7 +228,7 @@ async fn main() {
                 .filter(|(_, other_body)| body.pos.distance(other_body.pos) <= body.vision_distance)
                 .collect::<Vec<_>>();
 
-            for (other_body_id, other_body) in bodies_within_vision_distance
+            for (_, other_body) in bodies_within_vision_distance
                 .iter()
                 .filter(|(_, other_body)| {
                     other_body.target.is_some() && other_body.target.unwrap() == *body_id
@@ -245,19 +245,20 @@ async fn main() {
                 };
 
                 // Wrap
+                let old_pos = body.pos;
                 if body.pos.x > area_size.x {
                     body.pos.x = MIN_GAP;
-                    body.just_wrapped = true
                 } else if body.pos.x < 0.0 {
                     body.pos.x = area_size.x - MIN_GAP;
-                    body.just_wrapped = true
                 }
 
                 if body.pos.y > area_size.y {
                     body.pos.y = MIN_GAP;
-                    body.just_wrapped = true
                 } else if body.pos.y < 0.0 {
                     body.pos.y = area_size.y - MIN_GAP;
+                }
+
+                if old_pos != body.pos {
                     body.just_wrapped = true
                 }
 
@@ -342,24 +343,27 @@ async fn main() {
             for (body_id, body) in &bodies {
                 if zoom_mode {
                     if let Some(target) = body.target {
-                        let target_from_hashmap = match body.eating_strategy {
+                        let target_pos_from_hashmap = match body.eating_strategy {
                             EatingStrategy::Bodies => {
-                                if body.just_wrapped {
-                                    continue;
+                                let target = bodies.get(&target).unwrap();
+                                match target.just_wrapped {
+                                    true => None,
+                                    false => Some(target.pos),
                                 }
-                                bodies.get(&target).unwrap().pos
                             }
-                            EatingStrategy::Plants => plants_clone.get(&target).unwrap().pos,
+                            EatingStrategy::Plants => Some(plants_clone.get(&target).unwrap().pos),
                         };
 
-                        draw_line(
-                            body.pos.x,
-                            body.pos.y,
-                            target_from_hashmap.x,
-                            target_from_hashmap.y,
-                            2.0,
-                            WHITE,
-                        );
+                        if let Some(target_pos) = target_pos_from_hashmap {
+                            draw_line(
+                                body.pos.x,
+                                body.pos.y,
+                                target_pos.x,
+                                target_pos.y,
+                                2.0,
+                                WHITE,
+                            );
+                        }
                     }
                     draw_circle_lines(
                         body.pos.x,
@@ -368,7 +372,7 @@ async fn main() {
                         4.0,
                         body.color,
                     );
-                    let to_display = body.energy;
+                    let to_display = body_id;
                     draw_text(
                         &to_display.to_string(),
                         body.pos.x

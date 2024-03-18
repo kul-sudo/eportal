@@ -4,7 +4,7 @@ use std::{
 };
 
 use macroquad::math::Vec2;
-use rand::{rngs::ThreadRng, Rng};
+use rand::{rngs::StdRng, Rng};
 
 use crate::{Body, MIN_GAP, OBJECT_RADIUS, PLANT_SPAWN_TIME_LIMIT};
 
@@ -16,7 +16,7 @@ pub struct Plant {
 pub fn randomly_spawn_plant(
     bodies: &HashMap<u128, Body>,
     plants: &mut HashMap<u128, Plant>,
-    rng: &mut ThreadRng,
+    rng: &mut StdRng,
     area_size: Vec2,
 ) {
     let starting_point = Instant::now();

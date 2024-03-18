@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 macroquad = "0.4.5"
-rand = "0.8.5"
+rand = { version = "0.8.5", features = ["std_rng"] }
 
 [profile.release]
 opt-level = 3
