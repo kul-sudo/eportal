@@ -6,7 +6,7 @@ use std::{
 use macroquad::math::Vec2;
 use rand::{rngs::StdRng, Rng};
 
-use crate::{Body, MIN_GAP, OBJECT_RADIUS, PLANT_SPAWN_TIME_LIMIT};
+use crate::{time_since_unix_epoch, Body, MIN_GAP, OBJECT_RADIUS, PLANT_SPAWN_TIME_LIMIT};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Plant {
@@ -43,13 +43,7 @@ pub fn randomly_spawn_plant(
                 .any(|plant| plant.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
     } {}
 
-    plants.insert(
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos(),
-        Plant { pos },
-    );
+    plants.insert(time_since_unix_epoch!(), Plant { pos });
 }
 
 #[macro_export]

@@ -15,13 +15,14 @@ use std::{
     env::consts::OS,
     f32::consts::SQRT_2,
     intrinsics::unlikely,
+    process::exit,
     thread::sleep,
     time::{Duration, Instant},
 };
 
 use macroquad::{
     camera::{set_camera, Camera2D},
-    color::{GREEN, RED, WHITE},
+    color::{Color, GREEN, RED, WHITE},
     input::{is_mouse_button_pressed, mouse_position},
     math::{vec2, Rect, Vec2},
     miniquad::{window::set_fullscreen, MouseButton},
@@ -124,157 +125,196 @@ async fn main() {
         x: screen_width() * OBJECT_RADIUS,
         y: screen_height() * OBJECT_RADIUS,
     };
-
-    let mut bodies: HashMap<u128, Body> = HashMap::with_capacity(BODIES_N);
-    let mut plants: HashMap<u128, Plant> = HashMap::new();
-
-    let rng = &mut StdRng::from_entropy();
-
-    // Spawn the bodies
-    for i in 0..BODIES_N {
-        randomly_spawn_body(
-            &mut bodies,
-            area_size,
-            if i >= BODY_EATERS_N {
-                EatingStrategy::Plants
-            } else {
-                EatingStrategy::Bodies
-            },
-            rng,
-        );
-    }
-
-    // Spawn the plants
-    for _ in 0..PLANTS_N {
-        randomly_spawn_plant(&bodies, &mut plants, rng, area_size)
-    }
-
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.x, area_size.y));
     default_camera(&mut camera, area_size);
 
+    let rng = &mut StdRng::from_entropy();
+
     let mut zoom_mode = false;
 
-    // The timer needed for the FPS
-    let mut last_updated = Instant::now();
+    'main_evolution_loop: loop {
+        let mut bodies: HashMap<u128, Body> = HashMap::with_capacity(BODIES_N);
+        let mut plants: HashMap<u128, Plant> = HashMap::new();
 
-    loop {
-        // Handle the left mouse button click for zooming in/out
-        if unlikely(is_mouse_button_pressed(MouseButton::Left)) {
-            if zoom_mode {
-                default_camera(&mut camera, area_size);
-            } else {
-                get_zoom_target(&mut camera, area_size);
-            }
-
-            zoom_mode = !zoom_mode
+        // Spawn the bodies
+        for i in 0..BODIES_N {
+            randomly_spawn_body(
+                &mut bodies,
+                area_size,
+                if i >= BODY_EATERS_N {
+                    EatingStrategy::Plants
+                } else {
+                    EatingStrategy::Bodies
+                },
+                rng,
+            );
         }
 
-        if zoom_mode {
-            get_zoom_target(&mut camera, area_size);
-        }
-
-        // Spawn a plant in a random place with a specific chance
-        if rng.gen_range(0.0..1.0) < PLANT_SPAWN_CHANCE {
+        // Spawn the plants
+        for _ in 0..PLANTS_N {
             randomly_spawn_plant(&bodies, &mut plants, rng, area_size)
         }
 
-        // Whether enough time has passed to draw a new frame
-        let is_draw_mode =
-            last_updated.elapsed().as_millis() >= Duration::from_secs(1 / FPS).as_millis();
+        // The timer needed for the FPS
+        let mut last_updated = Instant::now();
 
-        let bodies_clone = bodies.clone();
-        let plants_clone = plants.clone();
-
-        // Due to certain borrowing rules, it's impossible to modify these during the loop,
-        // so it'll be done after it
-        let mut bodies_to_remove: HashSet<u128> = HashSet::with_capacity(bodies.len());
-
-        for (body_id, body) in &mut bodies {
-            // Handle if dead
-            if body.status == Status::Dead {
-                // If body.status == Status::Dead, body.death_time is definitely Some
-                if body.death_time.unwrap().elapsed().as_secs() >= CROSS_LIFESPAN {
-                    bodies_to_remove.insert(*body_id);
+        loop {
+            // Handle the left mouse button click for zooming in/out
+            if unlikely(is_mouse_button_pressed(MouseButton::Left)) {
+                if zoom_mode {
+                    default_camera(&mut camera, area_size);
+                } else {
+                    get_zoom_target(&mut camera, area_size);
                 }
+
+                zoom_mode = !zoom_mode
+            }
+
+            if zoom_mode {
+                get_zoom_target(&mut camera, area_size);
+            }
+
+            // Spawn a plant in a random place with a specific chance
+            if rng.gen_range(0.0..1.0) < PLANT_SPAWN_CHANCE {
+                randomly_spawn_plant(&bodies, &mut plants, rng, area_size)
+            }
+
+            // Whether enough time has passed to draw a new frame
+            let is_draw_mode =
+                last_updated.elapsed().as_millis() >= Duration::from_secs(1 / FPS).as_millis();
+
+            let bodies_clone = bodies.clone();
+            let plants_clone = plants.clone();
+
+            // Due to certain borrowing rules, it's impossible to modify these during the loop,
+            // so it'll be done after it
+            let mut bodies_to_remove: HashSet<u128> = HashSet::with_capacity(bodies.len());
+            let mut bodies_to_spawn: Vec<Body> = Vec::with_capacity(bodies.len());
+            let mut body_colors: Vec<Color> = Vec::with_capacity(bodies.len());
+
+            for (body_id, body) in &mut bodies {
+                // Handle if dead
+                if body.status == Status::Dead {
+                    // If body.status == Status::Dead, body.death_time is definitely Some
+                    if body.death_time.unwrap().elapsed().as_secs() >= CROSS_LIFESPAN {
+                        bodies_to_remove.insert(*body_id);
+                    }
+                    body.target = None;
+
+                    continue;
+                }
+
+                // Check if the body should be dead
+                if body.energy.is_sign_negative() {
+                    body.death_time = Some(Instant::now());
+                    body.status = Status::Dead;
+
+                    continue;
+                }
+
+                // Handle the energy
+                // The mass is proportional to the energy; to keep the mass up, energy is spent
+                body.energy -= ENERGY_SPEND_CONST_FOR_MASS * body.energy
+                    + ENERGY_SPEND_CONST_FOR_IQ * body.iq
+                    + ENERGY_SPEND_CONST_FOR_VISION * body.vision_distance;
+                if body.status != Status::Sleeping {
+                    body.energy -= ENERGY_SPEND_CONST_FOR_MOVEMENT * body.speed * body.energy
+                }
+
+                body.status = Status::Sleeping;
                 body.target = None;
 
-                continue;
-            }
+                // Escape
+                body.just_wrapped = false;
+                let bodies_within_vision_distance = bodies_clone
+                    .iter()
+                    .filter(|(_, other_body)| {
+                        body.pos.distance(other_body.pos) <= body.vision_distance
+                    })
+                    .collect::<Vec<_>>();
 
-            // Check if the body should be dead
-            if body.energy.is_sign_negative() {
-                body.death_time = Some(Instant::now());
-                body.status = Status::Dead;
+                for (_, other_body) in bodies_within_vision_distance
+                    .iter()
+                    .filter(|(_, other_body)| {
+                        other_body.target.is_some() && other_body.target.unwrap() == *body_id
+                    })
+                    .collect::<Vec<_>>()
+                {
+                    body.status = Status::EscapingBody;
+                    let distance_to_pefect_body = body.pos.distance(other_body.pos);
+                    body.pos = Vec2 {
+                        x: body.pos.x
+                            - ((other_body.pos.x - body.pos.x) * body.speed)
+                                / distance_to_pefect_body,
+                        y: body.pos.y
+                            - ((other_body.pos.y - body.pos.y) * body.speed)
+                                / distance_to_pefect_body,
+                    };
 
-                continue;
-            }
+                    // Wrap
+                    let old_pos = body.pos;
+                    if body.pos.x > area_size.x {
+                        body.pos.x = MIN_GAP;
+                    } else if body.pos.x < 0.0 {
+                        body.pos.x = area_size.x - MIN_GAP;
+                    }
 
-            // Handle the energy
-            // The mass is proportional to the energy; to keep the mass up, energy is spent
-            body.energy -= ENERGY_SPEND_CONST_FOR_MASS * body.energy
-                + ENERGY_SPEND_CONST_FOR_IQ * body.iq
-                + ENERGY_SPEND_CONST_FOR_VISION * body.vision_distance;
-            if body.status != Status::Sleeping {
-                body.energy -= ENERGY_SPEND_CONST_FOR_MOVEMENT * body.speed * body.energy
-            }
+                    if body.pos.y > area_size.y {
+                        body.pos.y = MIN_GAP;
+                    } else if body.pos.y < 0.0 {
+                        body.pos.y = area_size.y - MIN_GAP;
+                    }
 
-            body.status = Status::Sleeping;
-            body.target = None;
+                    if old_pos != body.pos {
+                        body.just_wrapped = true
+                    }
 
-            // Escape
-            body.just_wrapped = false;
-            let bodies_within_vision_distance = bodies_clone
-                .iter()
-                .filter(|(_, other_body)| body.pos.distance(other_body.pos) <= body.vision_distance)
-                .collect::<Vec<_>>();
-
-            for (_, other_body) in bodies_within_vision_distance
-                .iter()
-                .filter(|(_, other_body)| {
-                    other_body.target.is_some() && other_body.target.unwrap() == *body_id
-                })
-                .collect::<Vec<_>>()
-            {
-                body.status = Status::EscapingBody;
-                let distance_to_pefect_body = body.pos.distance(other_body.pos);
-                body.pos = Vec2 {
-                    x: body.pos.x
-                        - ((other_body.pos.x - body.pos.x) * body.speed) / distance_to_pefect_body,
-                    y: body.pos.y
-                        - ((other_body.pos.y - body.pos.y) * body.speed) / distance_to_pefect_body,
-                };
-
-                // Wrap
-                let old_pos = body.pos;
-                if body.pos.x > area_size.x {
-                    body.pos.x = MIN_GAP;
-                } else if body.pos.x < 0.0 {
-                    body.pos.x = area_size.x - MIN_GAP;
+                    continue;
                 }
 
-                if body.pos.y > area_size.y {
-                    body.pos.y = MIN_GAP;
-                } else if body.pos.y < 0.0 {
-                    body.pos.y = area_size.y - MIN_GAP;
-                }
+                // Find food according to body.eating_strategy
+                match body.eating_strategy {
+                    EatingStrategy::Bodies => {
+                        if let Some((perfect_body_to_follow_index, perfect_body_to_follow)) =
+                            bodies_within_vision_distance
+                                .iter()
+                                .filter(|(_, other_body)| {
+                                    body.energy > other_body.energy
+                                        && other_body.status != Status::Dead
+                                        && body.color != other_body.color
+                                })
+                                .min_by(|(_, a), (_, b)| {
+                                    body.pos
+                                        .distance(a.pos)
+                                        .partial_cmp(&body.pos.distance(b.pos))
+                                        .unwrap()
+                                })
+                        {
+                            let distance_to_pefect_body =
+                                body.pos.distance(perfect_body_to_follow.pos);
+                            body.pos = Vec2 {
+                                x: body.pos.x
+                                    + ((perfect_body_to_follow.pos.x - body.pos.x) * body.speed)
+                                        / distance_to_pefect_body,
+                                y: body.pos.y
+                                    + ((perfect_body_to_follow.pos.y - body.pos.y) * body.speed)
+                                        / distance_to_pefect_body,
+                            };
 
-                if old_pos != body.pos {
-                    body.just_wrapped = true
-                }
-
-                continue;
-            }
-
-            // Find food according to body.eating_strategy
-            match body.eating_strategy {
-                EatingStrategy::Bodies => {
-                    if let Some((perfect_body_to_follow_index, perfect_body_to_follow)) =
-                        bodies_within_vision_distance
+                            if body.pos.distance(perfect_body_to_follow.pos) <= body.speed {
+                                bodies_to_remove.insert(**perfect_body_to_follow_index);
+                                body.energy += perfect_body_to_follow.energy;
+                            } else {
+                                body.status = Status::FollowingTarget;
+                                body.target = Some(**perfect_body_to_follow_index);
+                            }
+                        }
+                    }
+                    EatingStrategy::Plants => {
+                        if let Some((closest_plant_index, closest_plant)) = plants_clone
                             .iter()
-                            .filter(|(_, other_body)| {
-                                body.energy > other_body.energy
-                                    && other_body.status != Status::Dead
-                                    && body.color != other_body.color
+                            .filter(|(_, plant)| {
+                                body.pos.distance(plant.pos) <= body.vision_distance
                             })
                             .min_by(|(_, a), (_, b)| {
                                 body.pos
@@ -282,129 +322,144 @@ async fn main() {
                                     .partial_cmp(&body.pos.distance(b.pos))
                                     .unwrap()
                             })
-                    {
-                        let distance_to_pefect_body = body.pos.distance(perfect_body_to_follow.pos);
-                        body.pos = Vec2 {
-                            x: body.pos.x
-                                + ((perfect_body_to_follow.pos.x - body.pos.x) * body.speed)
-                                    / distance_to_pefect_body,
-                            y: body.pos.y
-                                + ((perfect_body_to_follow.pos.y - body.pos.y) * body.speed)
-                                    / distance_to_pefect_body,
-                        };
+                        {
+                            let distance_to_closest_plant = body.pos.distance(closest_plant.pos);
+                            body.pos = Vec2 {
+                                x: body.pos.x
+                                    + ((closest_plant.pos.x - body.pos.x) * body.speed)
+                                        / distance_to_closest_plant,
+                                y: body.pos.y
+                                    + ((closest_plant.pos.y - body.pos.y) * body.speed)
+                                        / distance_to_closest_plant,
+                            };
 
-                        if body.pos.distance(perfect_body_to_follow.pos) <= body.speed {
-                            bodies_to_remove.insert(**perfect_body_to_follow_index);
-                            body.energy += perfect_body_to_follow.energy;
-                        } else {
-                            body.status = Status::FollowingTarget;
-                            body.target = Some(**perfect_body_to_follow_index);
-                        }
-                    }
-                }
-                EatingStrategy::Plants => {
-                    if let Some((closest_plant_index, closest_plant)) = plants_clone
-                        .iter()
-                        .filter(|(_, plant)| body.pos.distance(plant.pos) <= body.vision_distance)
-                        .min_by(|(_, a), (_, b)| {
-                            body.pos
-                                .distance(a.pos)
-                                .partial_cmp(&body.pos.distance(b.pos))
-                                .unwrap()
-                        })
-                    {
-                        let distance_to_closest_plant = body.pos.distance(closest_plant.pos);
-                        body.pos = Vec2 {
-                            x: body.pos.x
-                                + ((closest_plant.pos.x - body.pos.x) * body.speed)
-                                    / distance_to_closest_plant,
-                            y: body.pos.y
-                                + ((closest_plant.pos.y - body.pos.y) * body.speed)
-                                    / distance_to_closest_plant,
-                        };
-
-                        if body.pos.distance(closest_plant.pos) <= body.speed {
-                            plants.remove(closest_plant_index);
-                            body.energy += PLANT_HP;
-                        } else {
-                            body.status = Status::FollowingTarget;
-                            body.target = Some(*closest_plant_index);
-                        }
-                    }
-                }
-            }
-        }
-
-        if is_draw_mode {
-            for plant in plants.values() {
-                draw_plant!(plant);
-            }
-
-            for (body_id, body) in &bodies {
-                if zoom_mode {
-                    if let Some(target) = body.target {
-                        let target_pos_from_hashmap = match body.eating_strategy {
-                            EatingStrategy::Bodies => {
-                                let target = bodies.get(&target).unwrap();
-                                match target.just_wrapped {
-                                    true => None,
-                                    false => Some(target.pos),
-                                }
+                            if body.pos.distance(closest_plant.pos) <= body.speed {
+                                plants.remove(closest_plant_index);
+                                body.energy += PLANT_HP;
+                            } else {
+                                body.status = Status::FollowingTarget;
+                                body.target = Some(*closest_plant_index);
                             }
-                            EatingStrategy::Plants => Some(plants_clone.get(&target).unwrap().pos),
-                        };
-
-                        if let Some(target_pos) = target_pos_from_hashmap {
-                            draw_line(
-                                body.pos.x,
-                                body.pos.y,
-                                target_pos.x,
-                                target_pos.y,
-                                2.0,
-                                WHITE,
-                            );
                         }
                     }
-                    draw_circle_lines(
-                        body.pos.x,
-                        body.pos.y,
-                        body.vision_distance,
-                        4.0,
-                        body.color,
-                    );
-                    let to_display = body_id;
-                    draw_text(
-                        &to_display.to_string(),
-                        body.pos.x
-                            - measure_text(&to_display.to_string(), None, BODY_INFO_FONT_SIZE, 1.0)
-                                .width
-                                / 2.0,
-                        body.pos.y - OBJECT_RADIUS - MIN_GAP,
-                        BODY_INFO_FONT_SIZE as f32,
-                        WHITE,
-                    );
                 }
 
-                draw_body!(body);
+                body_colors.push(body.color);
+
+                // Procreate
+                if body.energy > body.division_threshold
+                // && bodies_clone
+                //     .values()
+                //     .all(|other_body| body.pos.distance(other_body.pos) > MIN_GAP)
+                {
+                    for min_gap in [MIN_GAP, -MIN_GAP] {
+                        bodies_to_spawn.push(Body::new(
+                            Vec2 {
+                                x: body.pos.x + min_gap,
+                                y: body.pos.y,
+                            },
+                            body.energy,
+                            body.speed,
+                            body.vision_distance,
+                            body.eating_strategy,
+                            body.division_threshold,
+                            body.iq,
+                            body.color,
+                            false,
+                            rng,
+                        ));
+                    }
+                    bodies_to_remove.insert(*body_id);
+                }
             }
-            // draw_text(&format!("zoom {}", zoom), 10.0, 20.0, 20.0, WHITE);
 
-            // if zoom_mode {
-            //     let mouse_position = mouse_position();
-            //     let (x, y) = adjusted_coordinates!(
-            //         mouse_position.0 + 25.0,
-            //         mouse_position.1 - 25.0,
-            //         area_size
-            //     );
-            //     draw_text("zoomed in", x, y, 10.0 * MAX_ZOOM, WHITE)
-            // }
+            body_colors.dedup();
+            if body_colors.len() == 1 {
+                continue 'main_evolution_loop;
+            }
 
-            last_updated = Instant::now();
-            next_frame().await;
-        }
+            if is_draw_mode {
+                for plant in plants.values() {
+                    draw_plant!(plant);
+                }
 
-        for body_index in &bodies_to_remove {
-            bodies.remove(body_index);
+                for (body_id, body) in &bodies {
+                    if zoom_mode && body.status != Status::Dead {
+                        if let Some(target) = body.target {
+                            let target_pos_from_hashmap = match body.eating_strategy {
+                                EatingStrategy::Bodies => {
+                                    let target = bodies.get(&target).unwrap();
+                                    match target.just_wrapped {
+                                        true => None,
+                                        false => Some(target.pos),
+                                    }
+                                }
+                                EatingStrategy::Plants => {
+                                    Some(plants_clone.get(&target).unwrap().pos)
+                                }
+                            };
+
+                            if let Some(target_pos) = target_pos_from_hashmap {
+                                draw_line(
+                                    body.pos.x,
+                                    body.pos.y,
+                                    target_pos.x,
+                                    target_pos.y,
+                                    2.0,
+                                    WHITE,
+                                );
+                            }
+                        }
+                        draw_circle_lines(
+                            body.pos.x,
+                            body.pos.y,
+                            body.vision_distance,
+                            4.0,
+                            body.color,
+                        );
+                        let to_display = format!("{:?} {:?}", body.division_threshold, body.energy);
+                        draw_text(
+                            &to_display.to_string(),
+                            body.pos.x
+                                - measure_text(
+                                    &to_display.to_string(),
+                                    None,
+                                    BODY_INFO_FONT_SIZE,
+                                    1.0,
+                                )
+                                .width
+                                    / 2.0,
+                            body.pos.y - OBJECT_RADIUS - MIN_GAP,
+                            BODY_INFO_FONT_SIZE as f32,
+                            WHITE,
+                        );
+                    }
+
+                    draw_body!(body);
+                }
+                // draw_text(&format!("zoom {}", zoom), 10.0, 20.0, 20.0, WHITE);
+
+                // if zoom_mode {
+                //     let mouse_position = mouse_position();
+                //     let (x, y) = adjusted_coordinates!(
+                //         mouse_position.0 + 25.0,
+                //         mouse_position.1 - 25.0,
+                //         area_size
+                //     );
+                //     draw_text("zoomed in", x, y, 10.0 * MAX_ZOOM, WHITE)
+                // }
+
+                last_updated = Instant::now();
+                next_frame().await;
+            }
+
+            for body_index in &bodies_to_remove {
+                bodies.remove(body_index);
+            }
+
+            for body in &bodies_to_spawn {
+                spawn_body(&mut bodies, *body)
+            }
         }
     }
 }
