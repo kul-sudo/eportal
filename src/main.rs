@@ -136,8 +136,9 @@ async fn main() {
 
     'main_evolution_loop: loop {
         let mut bodies: HashMap<u128, Body> = HashMap::with_capacity(BODIES_N);
-        let mut removed_plants: HashSet<u128> = HashSet::new();
         let mut plants: HashMap<u128, Plant> = HashMap::new();
+        let mut removed_plants: HashSet<u128> = HashSet::new();
+        let mut removed_bodies: HashSet<u128> = HashSet::with_capacity(bodies.len());
         let mut n = 0;
 
         // Spawn the bodies
@@ -164,10 +165,18 @@ async fn main() {
 
         loop {
             if n % N_LIMIT == 0 {
+                // Removing by a key takes too long, so it's better to do it once
+                // but more rarely
                 for plant_id in &removed_plants {
                     plants.remove(plant_id);
                 }
+
+                for body_id in &removed_bodies {
+                    bodies.remove(body_id);
+                }
+
                 removed_plants.clear();
+                removed_bodies.clear();
             }
 
             n += 1;
@@ -200,13 +209,12 @@ async fn main() {
             // so it'll be done after it
             let mut body_colors: Vec<Color> = Vec::with_capacity(bodies.len());
             let mut new_bodies: HashMap<u128, Body> = HashMap::with_capacity(bodies.len() * 2);
-            let mut bodies_to_remove: HashSet<u128> = HashSet::with_capacity(bodies.len());
             let bodies_shot = bodies.clone();
             let plants_shot = plants.clone();
 
             for (body_id, body) in &mut bodies {
                 // Handle if the body was eaten earlier
-                if bodies_to_remove.contains(body_id) {
+                if removed_bodies.contains(body_id) {
                     continue;
                 }
 
@@ -214,7 +222,7 @@ async fn main() {
                 if body.status == Status::Dead
                     && body.death_time.unwrap().elapsed().as_secs() >= CROSS_LIFESPAN
                 {
-                    bodies_to_remove.insert(*body_id);
+                    removed_bodies.insert(*body_id);
                     continue;
                 }
 
@@ -242,7 +250,7 @@ async fn main() {
                 let bodies_within_vision_distance = bodies_shot
                     .iter()
                     .filter(|(other_body_id, other_body)| {
-                        !bodies_to_remove.contains(other_body_id)
+                        !removed_bodies.contains(other_body_id)
                             && body.pos.distance(other_body.pos) <= body.vision_distance
                     })
                     .collect::<Vec<_>>();
@@ -314,7 +322,7 @@ async fn main() {
                             if distance_to_prey <= body.speed {
                                 body.energy += prey.energy;
                                 body.pos = prey.pos;
-                                bodies_to_remove.insert(**prey_id);
+                                removed_bodies.insert(**prey_id);
                             } else {
                                 body.status = Status::FollowingTarget;
                                 body.target = Some((**prey_id, prey.pos));
@@ -392,12 +400,8 @@ async fn main() {
                             )
                         );
                     }
-                    bodies_to_remove.insert(*body_id);
+                    removed_bodies.insert(*body_id);
                 }
-            }
-
-            for body_id in bodies_to_remove {
-                bodies.remove(&body_id);
             }
 
             for (new_body_id, new_body) in new_bodies {
@@ -410,48 +414,52 @@ async fn main() {
             }
 
             if is_draw_mode {
-                for plant in plants.values() {
-                    draw_plant!(plant);
+                for (plant_id, plant) in &plants {
+                    if !removed_plants.contains(plant_id) {
+                        draw_plant!(plant);
+                    }
                 }
 
                 for (body_id, body) in &bodies {
-                    if zoom_mode {
-                        if let Some((_, target_pos)) = body.target {
-                            draw_line(
+                    if !removed_bodies.contains(body_id) {
+                        if zoom_mode {
+                            if let Some((_, target_pos)) = body.target {
+                                draw_line(
+                                    body.pos.x,
+                                    body.pos.y,
+                                    target_pos.x,
+                                    target_pos.y,
+                                    2.0,
+                                    WHITE,
+                                );
+                            }
+                            draw_circle_lines(
                                 body.pos.x,
                                 body.pos.y,
-                                target_pos.x,
-                                target_pos.y,
+                                body.vision_distance,
                                 2.0,
+                                body.color,
+                            );
+                            let to_display = body_id.to_string();
+                            draw_text(
+                                &to_display.to_string(),
+                                body.pos.x
+                                    - measure_text(
+                                        &to_display.to_string(),
+                                        None,
+                                        BODY_INFO_FONT_SIZE,
+                                        1.0,
+                                    )
+                                    .width
+                                        / 2.0,
+                                body.pos.y - OBJECT_RADIUS - MIN_GAP,
+                                BODY_INFO_FONT_SIZE as f32,
                                 WHITE,
                             );
                         }
-                        draw_circle_lines(
-                            body.pos.x,
-                            body.pos.y,
-                            body.vision_distance,
-                            2.0,
-                            body.color,
-                        );
-                        let to_display = body_id.to_string();
-                        draw_text(
-                            &to_display.to_string(),
-                            body.pos.x
-                                - measure_text(
-                                    &to_display.to_string(),
-                                    None,
-                                    BODY_INFO_FONT_SIZE,
-                                    1.0,
-                                )
-                                .width
-                                    / 2.0,
-                            body.pos.y - OBJECT_RADIUS - MIN_GAP,
-                            BODY_INFO_FONT_SIZE as f32,
-                            WHITE,
-                        );
-                    }
 
-                    draw_body!(body);
+                        draw_body!(body);
+                    }
                 }
                 // draw_text(&format!("zoom {}", zoom), 10.0, 20.0, 20.0, WHITE);
 
