@@ -40,8 +40,7 @@ pub struct Body {
     pub status: Status,
     /// When the body died due to a lack of energy if it did die in the first place.
     pub death_time: Option<Instant>,
-    pub target: Option<u128>,
-    pub just_wrapped: bool,
+    pub target: Option<(u128, Vec2)>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -74,20 +73,23 @@ impl Body {
             status: Status::Sleeping,
             death_time: None,
             target: None,
-            just_wrapped: false,
         }
     }
 }
 
-pub fn spawn_body(bodies: &mut HashMap<u128, Body>, body: Body) {
+#[macro_export]
+macro_rules! spawn_body {
+    ($bodies:expr, $existing_bodies:expr, $body:expr) => {
+
     let mut key;
 
     // Make sure the position is far enough from the rest of the bodies and the borders of the area
     while {
         key = time_since_unix_epoch!() % 100000;
-        bodies.contains_key(&key)
+        $bodies.contains_key(&key)
     } {}
-    bodies.insert(key, body);
+    $bodies.insert(key, $body);
+    };
 }
 
 /// Generate a random position until it fits certain creteria.
@@ -154,7 +156,8 @@ pub fn randomly_spawn_body(
         )
     }
 
-    spawn_body(
+    spawn_body!(
+        bodies,
         bodies,
         Body::new(
             pos,
@@ -167,7 +170,7 @@ pub fn randomly_spawn_body(
             color,
             true,
             rng,
-        ),
+        )
     );
 }
 

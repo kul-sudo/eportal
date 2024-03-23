@@ -17,7 +17,7 @@ use std::{
     intrinsics::unlikely,
     process::exit,
     thread::sleep,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use macroquad::{
@@ -185,26 +185,40 @@ async fn main() {
             let is_draw_mode =
                 last_updated.elapsed().as_millis() >= Duration::from_secs(1 / FPS).as_millis();
 
-            let bodies_clone = bodies.clone();
-            let plants_clone = plants.clone();
-
             // Due to certain borrowing rules, it's impossible to modify these during the loop,
             // so it'll be done after it
-            let mut bodies_to_remove: HashSet<u128> = HashSet::with_capacity(bodies.len());
-            let mut bodies_to_spawn: Vec<Body> = Vec::with_capacity(bodies.len());
             let mut body_colors: Vec<Color> = Vec::with_capacity(bodies.len());
+            let mut new_bodies: HashMap<u128, Body> = HashMap::with_capacity(bodies.len() * 2);
+            let mut removed_plants: HashSet<u128> = HashSet::with_capacity(plants.len());
+            let mut bodies_to_remove: HashSet<u128> = HashSet::with_capacity(bodies.len());
+            let shot = bodies.clone();
+            let plants_clone = plants.clone();
 
             for (body_id, body) in &mut bodies {
-                // Handle if dead
-                if body.status == Status::Dead {
-                    // If body.status == Status::Dead, body.death_time is definitely Some
-                    if body.death_time.unwrap().elapsed().as_secs() >= CROSS_LIFESPAN {
-                        bodies_to_remove.insert(*body_id);
-                    }
-                    body.target = None;
-
+                // Handle if the body was eaten earlier
+                if bodies_to_remove.contains(body_id) {
                     continue;
                 }
+
+                // Handle if dead
+                if body.status == Status::Dead
+                    && body.death_time.unwrap().elapsed().as_secs() >= CROSS_LIFESPAN
+                {
+                    bodies_to_remove.insert(*body_id);
+                    continue;
+                }
+
+                // Handle the energy
+                // The mass is proportional to the energy; to keep the mass up, energy is spent
+                body.energy -= ENERGY_SPEND_CONST_FOR_MASS * body.energy
+                    + ENERGY_SPEND_CONST_FOR_IQ * body.iq
+                    + ENERGY_SPEND_CONST_FOR_VISION * body.vision_distance;
+                if body.status == Status::FollowingTarget || body.status == Status::EscapingBody {
+                    body.energy -= ENERGY_SPEND_CONST_FOR_MOVEMENT * body.speed * body.energy
+                }
+
+                // If needed, it's changed in the future
+                body.target = None;
 
                 // Check if the body should be dead
                 if body.energy.is_sign_negative() {
@@ -214,113 +228,105 @@ async fn main() {
                     continue;
                 }
 
-                // Handle the energy
-                // The mass is proportional to the energy; to keep the mass up, energy is spent
-                body.energy -= ENERGY_SPEND_CONST_FOR_MASS * body.energy
-                    + ENERGY_SPEND_CONST_FOR_IQ * body.iq
-                    + ENERGY_SPEND_CONST_FOR_VISION * body.vision_distance;
-                if body.status != Status::Sleeping {
-                    body.energy -= ENERGY_SPEND_CONST_FOR_MOVEMENT * body.speed * body.energy
-                }
-
-                body.status = Status::Sleeping;
-                body.target = None;
-
                 // Escape
-                body.just_wrapped = false;
-                let bodies_within_vision_distance = bodies_clone
+                let bodies_within_vision_distance = shot
                     .iter()
-                    .filter(|(_, other_body)| {
-                        body.pos.distance(other_body.pos) <= body.vision_distance
+                    .filter(|(other_body_id, other_body)| {
+                        !bodies_to_remove.contains(other_body_id)
+                            && body.pos.distance(other_body.pos) <= body.vision_distance
                     })
                     .collect::<Vec<_>>();
 
-                for (_, other_body) in bodies_within_vision_distance
-                    .iter()
-                    .filter(|(_, other_body)| {
-                        // if let Some(other_body_target) = other_body.target {
-                        //     other_body_target == *body_id
-                        // } else {
-                        //     false
-                        // }
-                        other_body.target.is_some() && other_body.target.unwrap() == *body_id
-                    })
-                    .collect::<Vec<_>>()
-                {
-                    body.status = Status::EscapingBody;
-                    let distance_to_pefect_body = body.pos.distance(other_body.pos);
-                    body.pos = Vec2 {
-                        x: body.pos.x
-                            - ((other_body.pos.x - body.pos.x) * body.speed)
-                                / distance_to_pefect_body,
-                        y: body.pos.y
-                            - ((other_body.pos.y - body.pos.y) * body.speed)
-                                / distance_to_pefect_body,
-                    };
-
-                    // Wrap
-                    if body.pos.x > area_size.x {
-                        body.pos.x = MIN_GAP;
-                        body.just_wrapped = true
-                    } else if body.pos.x < 0.0 {
-                        body.pos.x = area_size.x - MIN_GAP;
-                        body.just_wrapped = true
-                    }
-
-                    if body.pos.y > area_size.y {
-                        body.pos.y = MIN_GAP;
-                        body.just_wrapped = true
-                    } else if body.pos.y < 0.0 {
-                        body.pos.y = area_size.y - MIN_GAP;
-                        body.just_wrapped = true
-                    }
-
-                    continue;
-                }
+                // if let Some((closest_chasing_body_id, closest_chasing_body)) =
+                //     bodies_within_vision_distance
+                //         .iter()
+                //         .filter(|(_, other_body)| {
+                //             if let Some(other_body_target) = other_body.target {
+                //                 other_body_target.0 == *body_id
+                //             } else {
+                //                 false
+                //             }
+                //         })
+                //         .min_by(|(_, a), (_, b)| {
+                //             body.pos
+                //                 .distance(a.pos)
+                //                 .total_cmp(&body.pos.distance(b.pos))
+                //         })
+                // {
+                //     body.status = Status::EscapingBody;
+                //
+                //     let distance_to_closest_chasing_body =
+                //         body.pos.distance(closest_chasing_body.pos);
+                //     body.pos = Vec2 {
+                //         x: body.pos.x
+                //             - ((closest_chasing_body.pos.x - body.pos.x) * body.speed)
+                //                 / distance_to_closest_chasing_body,
+                //         y: body.pos.y
+                //             - ((closest_chasing_body.pos.y - body.pos.y) * body.speed)
+                //                 / distance_to_closest_chasing_body,
+                //     };
+                //
+                //     // Wrap
+                //     if body.pos.x > area_size.x {
+                //         body.pos.x = MIN_GAP;
+                //     } else if body.pos.x < 0.0 {
+                //         body.pos.x = area_size.x - MIN_GAP;
+                //     }
+                //
+                //     if body.pos.y > area_size.y {
+                //         body.pos.y = MIN_GAP;
+                //     } else if body.pos.y < 0.0 {
+                //         body.pos.y = area_size.y - MIN_GAP;
+                //     }
+                //
+                //     continue;
+                // }
+                //
+                body.status = Status::Sleeping;
 
                 // Find food according to body.eating_strategy
                 match body.eating_strategy {
                     EatingStrategy::Bodies => {
-                        if let Some((perfect_body_to_follow_index, perfect_body_to_follow)) =
-                            bodies_within_vision_distance
-                                .iter()
-                                .filter(|(_, other_body)| {
-                                    body.energy > other_body.energy
-                                        && other_body.status != Status::Dead
-                                        && body.color != other_body.color
-                                })
-                                .min_by(|(_, a), (_, b)| {
-                                    body.pos
-                                        .distance(a.pos)
-                                        .partial_cmp(&body.pos.distance(b.pos))
-                                        .unwrap()
-                                })
+                        if let Some((prey_id, prey)) = bodies_within_vision_distance
+                            .iter()
+                            .filter(|(_, other_body)| {
+                                body.energy > other_body.energy
+                                    && other_body.status != Status::Dead
+                                    && body.color != other_body.color
+                            })
+                            .min_by(|(_, a), (_, b)| {
+                                body.pos
+                                    .distance(a.pos)
+                                    .partial_cmp(&body.pos.distance(b.pos))
+                                    .unwrap()
+                            })
                         {
-                            let distance_to_pefect_body =
-                                body.pos.distance(perfect_body_to_follow.pos);
-                            body.pos = Vec2 {
-                                x: body.pos.x
-                                    + ((perfect_body_to_follow.pos.x - body.pos.x) * body.speed)
-                                        / distance_to_pefect_body,
-                                y: body.pos.y
-                                    + ((perfect_body_to_follow.pos.y - body.pos.y) * body.speed)
-                                        / distance_to_pefect_body,
-                            };
-
-                            if body.pos.distance(perfect_body_to_follow.pos) <= body.speed {
-                                bodies_to_remove.insert(**perfect_body_to_follow_index);
-                                body.energy += perfect_body_to_follow.energy;
+                            let distance_to_prey = body.pos.distance(prey.pos);
+                            if distance_to_prey <= body.speed {
+                                body.energy += prey.energy;
+                                body.pos = prey.pos;
+                                bodies_to_remove.insert(**prey_id);
                             } else {
                                 body.status = Status::FollowingTarget;
-                                body.target = Some(**perfect_body_to_follow_index);
+                                body.target = Some((**prey_id, prey.pos));
+                                body.pos = Vec2 {
+                                    x: body.pos.x
+                                        + ((prey.pos.x - body.pos.x) * body.speed)
+                                            / distance_to_prey,
+                                    y: body.pos.y
+                                        + ((prey.pos.y - body.pos.y) * body.speed)
+                                            / distance_to_prey,
+                                };
+                                continue;
                             }
                         }
                     }
                     EatingStrategy::Plants => {
                         if let Some((closest_plant_index, closest_plant)) = plants_clone
                             .iter()
-                            .filter(|(_, plant)| {
-                                body.pos.distance(plant.pos) <= body.vision_distance
+                            .filter(|(plant_id, plant)| {
+                                !removed_plants.contains(plant_id)
+                                    && body.pos.distance(plant.pos) <= body.vision_distance
                             })
                             .min_by(|(_, a), (_, b)| {
                                 body.pos
@@ -330,21 +336,24 @@ async fn main() {
                             })
                         {
                             let distance_to_closest_plant = body.pos.distance(closest_plant.pos);
-                            body.pos = Vec2 {
-                                x: body.pos.x
-                                    + ((closest_plant.pos.x - body.pos.x) * body.speed)
-                                        / distance_to_closest_plant,
-                                y: body.pos.y
-                                    + ((closest_plant.pos.y - body.pos.y) * body.speed)
-                                        / distance_to_closest_plant,
-                            };
-
-                            if body.pos.distance(closest_plant.pos) <= body.speed {
-                                plants.remove(closest_plant_index);
+                            if distance_to_closest_plant <= body.speed {
                                 body.energy += PLANT_HP;
+                                body.pos = closest_plant.pos;
+                                plants.remove(closest_plant_index);
+                                removed_plants.insert(*closest_plant_index);
                             } else {
                                 body.status = Status::FollowingTarget;
-                                body.target = Some(*closest_plant_index);
+                                body.target = Some((*closest_plant_index, closest_plant.pos));
+                                body.pos = Vec2 {
+                                    x: body.pos.x
+                                        + ((closest_plant.pos.x - body.pos.x) * body.speed)
+                                            / distance_to_closest_plant,
+                                    y: body.pos.y
+                                        + ((closest_plant.pos.y - body.pos.y) * body.speed)
+                                            / distance_to_closest_plant,
+                                };
+
+                                continue;
                             }
                         }
                     }
@@ -355,24 +364,36 @@ async fn main() {
                 // Procreate
                 if body.energy > body.division_threshold {
                     for lambda in [1.0, -1.0] {
-                        bodies_to_spawn.push(Body::new(
-                            Vec2 {
-                                x: body.pos.x + MIN_GAP * lambda,
-                                y: body.pos.y,
-                            },
-                            body.energy,
-                            body.speed,
-                            body.vision_distance,
-                            body.eating_strategy,
-                            body.division_threshold,
-                            body.iq,
-                            body.color,
-                            false,
-                            rng,
-                        ));
+                        spawn_body!(
+                            &mut new_bodies,
+                            &shot,
+                            Body::new(
+                                Vec2 {
+                                    x: body.pos.x + OBJECT_RADIUS * lambda,
+                                    y: body.pos.y,
+                                },
+                                body.energy,
+                                body.speed,
+                                body.vision_distance,
+                                body.eating_strategy,
+                                body.division_threshold,
+                                body.iq,
+                                body.color,
+                                false,
+                                rng,
+                            )
+                        );
                     }
                     bodies_to_remove.insert(*body_id);
                 }
+            }
+
+            for body_id in bodies_to_remove {
+                bodies.remove(&body_id);
+            }
+
+            for (new_body_id, new_body) in new_bodies {
+                bodies.insert(new_body_id, new_body);
             }
 
             body_colors.dedup();
@@ -386,31 +407,16 @@ async fn main() {
                 }
 
                 for (body_id, body) in &bodies {
-                    if zoom_mode && body.status != Status::Dead {
-                        if let Some(target) = body.target {
-                            let target_pos_from_hashmap = match body.eating_strategy {
-                                EatingStrategy::Bodies => {
-                                    let target = bodies.get(&target).unwrap();
-                                    match target.just_wrapped {
-                                        true => None,
-                                        false => Some(target.pos),
-                                    }
-                                }
-                                EatingStrategy::Plants => {
-                                    Some(plants_clone.get(&target).unwrap().pos)
-                                }
-                            };
-
-                            if let Some(target_pos) = target_pos_from_hashmap {
-                                draw_line(
-                                    body.pos.x,
-                                    body.pos.y,
-                                    target_pos.x,
-                                    target_pos.y,
-                                    2.0,
-                                    WHITE,
-                                );
-                            }
+                    if zoom_mode {
+                        if let Some((_, target_pos)) = body.target {
+                            draw_line(
+                                body.pos.x,
+                                body.pos.y,
+                                target_pos.x,
+                                target_pos.y,
+                                2.0,
+                                WHITE,
+                            );
                         }
                         draw_circle_lines(
                             body.pos.x,
@@ -453,14 +459,6 @@ async fn main() {
 
                 last_updated = Instant::now();
                 next_frame().await;
-            }
-
-            for body_index in &bodies_to_remove {
-                bodies.remove(body_index);
-            }
-
-            for body in &bodies_to_spawn {
-                spawn_body(&mut bodies, *body)
             }
         }
     }
