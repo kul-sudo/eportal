@@ -25,8 +25,9 @@ pub static AVERAGE_DIVISION_THRESHOLD: f32 = 1000.0;
 pub static PLANT_HP: f32 = 100.0;
 pub static MIN_GAP: f32 = 3.0;
 pub static COLOR_GAP: f32 = 0.65; // Depends on COLOR_MIN and COLOR_MAX
-pub static PLANTS_N_FOR_ONE_STEP: usize = 10; // Mid-game
+pub static PLANTS_N_FOR_ONE_STEP: usize = 5; // Mid-game
 pub static PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
+pub static N_LIMIT: usize = 12000;
 
 // Spending energy
 pub static ENERGY_SPEND_CONST_FOR_MASS: f32 = 0.0005;

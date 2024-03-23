@@ -136,7 +136,9 @@ async fn main() {
 
     'main_evolution_loop: loop {
         let mut bodies: HashMap<u128, Body> = HashMap::with_capacity(BODIES_N);
+        let mut removed_plants: HashSet<u128> = HashSet::new();
         let mut plants: HashMap<u128, Plant> = HashMap::new();
+        let mut n = 0;
 
         // Spawn the bodies
         for i in 0..BODIES_N {
@@ -161,6 +163,15 @@ async fn main() {
         let mut last_updated = Instant::now();
 
         loop {
+            if n % N_LIMIT == 0 {
+                for plant_id in &removed_plants {
+                    plants.remove(plant_id);
+                }
+                removed_plants.clear();
+            }
+
+            n += 1;
+
             // Handle the left mouse button click for zooming in/out
             if unlikely(is_mouse_button_pressed(MouseButton::Left)) {
                 if zoom_mode {
@@ -189,7 +200,6 @@ async fn main() {
             // so it'll be done after it
             let mut body_colors: Vec<Color> = Vec::with_capacity(bodies.len());
             let mut new_bodies: HashMap<u128, Body> = HashMap::with_capacity(bodies.len() * 2);
-            let mut removed_plants: HashSet<u128> = HashSet::with_capacity(bodies.len());
             let mut bodies_to_remove: HashSet<u128> = HashSet::with_capacity(bodies.len());
             let bodies_shot = bodies.clone();
             let plants_shot = plants.clone();
@@ -338,7 +348,6 @@ async fn main() {
                             if distance_to_closest_plant <= body.speed {
                                 body.energy += PLANT_HP;
                                 body.pos = closest_plant.pos;
-                                plants.remove(closest_plant_index);
                                 removed_plants.insert(*closest_plant_index);
                             } else {
                                 body.status = Status::FollowingTarget;
