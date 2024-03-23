@@ -189,10 +189,10 @@ async fn main() {
             // so it'll be done after it
             let mut body_colors: Vec<Color> = Vec::with_capacity(bodies.len());
             let mut new_bodies: HashMap<u128, Body> = HashMap::with_capacity(bodies.len() * 2);
-            let mut removed_plants: HashSet<u128> = HashSet::with_capacity(plants.len());
+            let mut removed_plants: HashSet<u128> = HashSet::with_capacity(bodies.len());
             let mut bodies_to_remove: HashSet<u128> = HashSet::with_capacity(bodies.len());
-            let shot = bodies.clone();
-            let plants_clone = plants.clone();
+            let bodies_shot = bodies.clone();
+            let plants_shot = plants.clone();
 
             for (body_id, body) in &mut bodies {
                 // Handle if the body was eaten earlier
@@ -229,7 +229,7 @@ async fn main() {
                 }
 
                 // Escape
-                let bodies_within_vision_distance = shot
+                let bodies_within_vision_distance = bodies_shot
                     .iter()
                     .filter(|(other_body_id, other_body)| {
                         !bodies_to_remove.contains(other_body_id)
@@ -237,51 +237,50 @@ async fn main() {
                     })
                     .collect::<Vec<_>>();
 
-                // if let Some((closest_chasing_body_id, closest_chasing_body)) =
-                //     bodies_within_vision_distance
-                //         .iter()
-                //         .filter(|(_, other_body)| {
-                //             if let Some(other_body_target) = other_body.target {
-                //                 other_body_target.0 == *body_id
-                //             } else {
-                //                 false
-                //             }
-                //         })
-                //         .min_by(|(_, a), (_, b)| {
-                //             body.pos
-                //                 .distance(a.pos)
-                //                 .total_cmp(&body.pos.distance(b.pos))
-                //         })
-                // {
-                //     body.status = Status::EscapingBody;
-                //
-                //     let distance_to_closest_chasing_body =
-                //         body.pos.distance(closest_chasing_body.pos);
-                //     body.pos = Vec2 {
-                //         x: body.pos.x
-                //             - ((closest_chasing_body.pos.x - body.pos.x) * body.speed)
-                //                 / distance_to_closest_chasing_body,
-                //         y: body.pos.y
-                //             - ((closest_chasing_body.pos.y - body.pos.y) * body.speed)
-                //                 / distance_to_closest_chasing_body,
-                //     };
-                //
-                //     // Wrap
-                //     if body.pos.x > area_size.x {
-                //         body.pos.x = MIN_GAP;
-                //     } else if body.pos.x < 0.0 {
-                //         body.pos.x = area_size.x - MIN_GAP;
-                //     }
-                //
-                //     if body.pos.y > area_size.y {
-                //         body.pos.y = MIN_GAP;
-                //     } else if body.pos.y < 0.0 {
-                //         body.pos.y = area_size.y - MIN_GAP;
-                //     }
-                //
-                //     continue;
-                // }
-                //
+                if let Some((_, closest_chasing_body)) = bodies_within_vision_distance
+                    .iter()
+                    .filter(|(_, other_body)| {
+                        if let Some(other_body_target) = other_body.target {
+                            other_body_target.0 == *body_id
+                        } else {
+                            false
+                        }
+                    })
+                    .min_by(|(_, a), (_, b)| {
+                        body.pos
+                            .distance(a.pos)
+                            .total_cmp(&body.pos.distance(b.pos))
+                    })
+                {
+                    body.status = Status::EscapingBody;
+
+                    let distance_to_closest_chasing_body =
+                        body.pos.distance(closest_chasing_body.pos);
+                    body.pos = Vec2 {
+                        x: body.pos.x
+                            - ((closest_chasing_body.pos.x - body.pos.x) * body.speed)
+                                / distance_to_closest_chasing_body,
+                        y: body.pos.y
+                            - ((closest_chasing_body.pos.y - body.pos.y) * body.speed)
+                                / distance_to_closest_chasing_body,
+                    };
+
+                    // Wrap
+                    if body.pos.x > area_size.x {
+                        body.pos.x = MIN_GAP;
+                    } else if body.pos.x < 0.0 {
+                        body.pos.x = area_size.x - MIN_GAP;
+                    }
+
+                    if body.pos.y > area_size.y {
+                        body.pos.y = MIN_GAP;
+                    } else if body.pos.y < 0.0 {
+                        body.pos.y = area_size.y - MIN_GAP;
+                    }
+
+                    continue;
+                }
+
                 body.status = Status::Sleeping;
 
                 // Find food according to body.eating_strategy
@@ -322,7 +321,7 @@ async fn main() {
                         }
                     }
                     EatingStrategy::Plants => {
-                        if let Some((closest_plant_index, closest_plant)) = plants_clone
+                        if let Some((closest_plant_index, closest_plant)) = plants_shot
                             .iter()
                             .filter(|(plant_id, plant)| {
                                 !removed_plants.contains(plant_id)
