@@ -80,7 +80,14 @@ impl Body {
 }
 
 pub fn spawn_body(bodies: &mut HashMap<u128, Body>, body: Body) {
-    bodies.insert(time_since_unix_epoch!(), body);
+    let mut key;
+
+    // Make sure the position is far enough from the rest of the bodies and the borders of the area
+    while {
+        key = time_since_unix_epoch!() % 100000;
+        bodies.contains_key(&key)
+    } {}
+    bodies.insert(key, body);
 }
 
 /// Generate a random position until it fits certain creteria.

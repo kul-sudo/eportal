@@ -43,7 +43,14 @@ pub fn randomly_spawn_plant(
                 .any(|plant| plant.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
     } {}
 
-    plants.insert(time_since_unix_epoch!(), Plant { pos });
+    let mut key;
+
+    // Make sure the position is far enough from the rest of the bodies and the borders of the area
+    while {
+        key = time_since_unix_epoch!() % 100000;
+        plants.contains_key(&key)
+    } {}
+    plants.insert(key, Plant { pos });
 }
 
 #[macro_export]

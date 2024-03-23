@@ -4,7 +4,7 @@ use std::f32::consts::SQRT_3;
 pub static BODY_EATERS_N: usize = 1000;
 pub static PLANTS_EATERS_N: usize = 500;
 pub static BODIES_N: usize = BODY_EATERS_N + PLANTS_EATERS_N;
-pub static PLANTS_N: usize = 3500;
+pub static PLANTS_N: usize = 20000;
 pub static OBJECT_RADIUS: f32 = 10.0;
 /// Used for `get_with_deviation`.
 pub static DEVIATION: f32 = 0.15;
@@ -25,7 +25,7 @@ pub static AVERAGE_DIVISION_THRESHOLD: f32 = 1000.0;
 pub static PLANT_HP: f32 = 100.0;
 pub static MIN_GAP: f32 = 3.0;
 pub static COLOR_GAP: f32 = 0.65; // Depends on COLOR_MIN and COLOR_MAX
-pub static PLANT_SPAWN_CHANCE: f32 = 1.0; // Mid-game
+pub static PLANTS_N_FOR_ONE_STEP: usize = 10; // Mid-game
 pub static PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 
 // Spending energy

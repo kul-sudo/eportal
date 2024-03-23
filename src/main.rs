@@ -35,14 +35,14 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 /// Adjust the coordinates according to the borders.
 macro_rules! adjusted_coordinates {
     ($pos:expr, $area_size:expr) => {
-        (
-            ($pos.x * MAX_ZOOM)
+        Vec2 {
+            x: ($pos.x * MAX_ZOOM)
                 .max($area_size.x / MAX_ZOOM / 2.0)
                 .min($area_size.x * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
-            ($pos.y * MAX_ZOOM)
+            y: ($pos.y * MAX_ZOOM)
                 .max($area_size.y / MAX_ZOOM / 2.0)
                 .min($area_size.y * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
-        )
+        }
     };
 }
 
@@ -68,9 +68,9 @@ macro_rules! time_since_unix_epoch {
 /// Set the camera zoom to where the mouse cursor is.
 fn get_zoom_target(camera: &mut Camera2D, area_size: Vec2) {
     let (x, y) = mouse_position();
-    let (target_x, target_y) = adjusted_coordinates!(Vec2 { x, y }, area_size);
+    let target = adjusted_coordinates!(Vec2 { x, y }, area_size);
 
-    camera.target = vec2(target_x, target_y);
+    camera.target = target;
     camera.zoom = vec2(MAX_ZOOM / area_size.x * 2.0, MAX_ZOOM / area_size.y * 2.0);
     set_camera(camera);
 }
@@ -122,9 +122,11 @@ async fn main() {
     }
 
     let area_size = Vec2 {
+        // OBJECT_RADIUS is equal to one pixel when unzoomed
         x: screen_width() * OBJECT_RADIUS,
         y: screen_height() * OBJECT_RADIUS,
     };
+
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.x, area_size.y));
     default_camera(&mut camera, area_size);
 
@@ -175,7 +177,7 @@ async fn main() {
             }
 
             // Spawn a plant in a random place with a specific chance
-            if rng.gen_range(0.0..1.0) < PLANT_SPAWN_CHANCE {
+            for _ in 0..PLANTS_N_FOR_ONE_STEP {
                 randomly_spawn_plant(&bodies, &mut plants, rng, area_size)
             }
 
@@ -236,6 +238,11 @@ async fn main() {
                 for (_, other_body) in bodies_within_vision_distance
                     .iter()
                     .filter(|(_, other_body)| {
+                        // if let Some(other_body_target) = other_body.target {
+                        //     other_body_target == *body_id
+                        // } else {
+                        //     false
+                        // }
                         other_body.target.is_some() && other_body.target.unwrap() == *body_id
                     })
                     .collect::<Vec<_>>()
@@ -252,20 +259,19 @@ async fn main() {
                     };
 
                     // Wrap
-                    let old_pos = body.pos;
                     if body.pos.x > area_size.x {
                         body.pos.x = MIN_GAP;
+                        body.just_wrapped = true
                     } else if body.pos.x < 0.0 {
                         body.pos.x = area_size.x - MIN_GAP;
+                        body.just_wrapped = true
                     }
 
                     if body.pos.y > area_size.y {
                         body.pos.y = MIN_GAP;
+                        body.just_wrapped = true
                     } else if body.pos.y < 0.0 {
                         body.pos.y = area_size.y - MIN_GAP;
-                    }
-
-                    if old_pos != body.pos {
                         body.just_wrapped = true
                     }
 
@@ -347,15 +353,11 @@ async fn main() {
                 body_colors.push(body.color);
 
                 // Procreate
-                if body.energy > body.division_threshold
-                // && bodies_clone
-                //     .values()
-                //     .all(|other_body| body.pos.distance(other_body.pos) > MIN_GAP)
-                {
-                    for min_gap in [MIN_GAP, -MIN_GAP] {
+                if body.energy > body.division_threshold {
+                    for lambda in [1.0, -1.0] {
                         bodies_to_spawn.push(Body::new(
                             Vec2 {
-                                x: body.pos.x + min_gap,
+                                x: body.pos.x + MIN_GAP * lambda,
                                 y: body.pos.y,
                             },
                             body.energy,
@@ -414,10 +416,10 @@ async fn main() {
                             body.pos.x,
                             body.pos.y,
                             body.vision_distance,
-                            4.0,
+                            2.0,
                             body.color,
                         );
-                        let to_display = format!("{:?} {:?}", body.division_threshold, body.energy);
+                        let to_display = body_id.to_string();
                         draw_text(
                             &to_display.to_string(),
                             body.pos.x
