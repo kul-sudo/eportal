@@ -139,7 +139,6 @@ async fn main() {
         let mut plants: HashMap<u128, Plant> = HashMap::new();
         let mut removed_plants: HashSet<u128> = HashSet::new();
         let mut removed_bodies: HashSet<u128> = HashSet::with_capacity(bodies.len());
-        let mut n = 0;
 
         // Spawn the bodies
         for i in 0..BODIES_N {
@@ -164,23 +163,6 @@ async fn main() {
         let mut last_updated = Instant::now();
 
         loop {
-            if n % N_LIMIT == 0 {
-                // Removing by a key takes too long, so it's better to do it once
-                // but more rarely
-                for plant_id in &removed_plants {
-                    plants.remove(plant_id);
-                }
-
-                for body_id in &removed_bodies {
-                    bodies.remove(body_id);
-                }
-
-                removed_plants.clear();
-                removed_bodies.clear();
-            }
-
-            n += 1;
-
             // Handle the left mouse button click for zooming in/out
             if unlikely(is_mouse_button_pressed(MouseButton::Left)) {
                 if zoom_mode {
@@ -203,7 +185,8 @@ async fn main() {
 
             // Whether enough time has passed to draw a new frame
             let is_draw_mode =
-                last_updated.elapsed().as_millis() >= Duration::from_secs(1 / FPS).as_millis();
+                // last_updated.elapsed().as_millis() >= Duration::from_secs(1 / FPS).as_millis();
+                true;
 
             // Due to certain borrowing rules, it's impossible to modify these during the loop,
             // so it'll be done after it
@@ -380,9 +363,8 @@ async fn main() {
                 // Procreate
                 if body.energy > body.division_threshold {
                     for lambda in [1.0, -1.0] {
-                        spawn_body!(
-                            &mut new_bodies,
-                            &shot,
+                        new_bodies.insert(
+                            time_since_unix_epoch!(),
                             Body::new(
                                 Vec2 {
                                     x: body.pos.x + OBJECT_RADIUS * lambda,
@@ -397,7 +379,7 @@ async fn main() {
                                 body.color,
                                 false,
                                 rng,
-                            )
+                            ),
                         );
                     }
                     removed_bodies.insert(*body_id);
@@ -440,17 +422,12 @@ async fn main() {
                                 2.0,
                                 body.color,
                             );
-                            let to_display = body_id.to_string();
+                            let to_display = body.energy.to_string();
                             draw_text(
-                                &to_display.to_string(),
+                                &to_display,
                                 body.pos.x
-                                    - measure_text(
-                                        &to_display.to_string(),
-                                        None,
-                                        BODY_INFO_FONT_SIZE,
-                                        1.0,
-                                    )
-                                    .width
+                                    - measure_text(&to_display, None, BODY_INFO_FONT_SIZE, 1.0)
+                                        .width
                                         / 2.0,
                                 body.pos.y - OBJECT_RADIUS - MIN_GAP,
                                 BODY_INFO_FONT_SIZE as f32,
@@ -475,6 +452,22 @@ async fn main() {
 
                 last_updated = Instant::now();
                 next_frame().await;
+
+                // Removing by a key takes too long, so it's better to do it once
+                // but more rarely
+                if removed_plants.len() > MIN_TO_REMOVE {
+                    for plant_id in &removed_plants {
+                        plants.remove(plant_id);
+                    }
+                    removed_plants.clear();
+                }
+
+                if removed_bodies.len() > MIN_TO_REMOVE {
+                    for body_id in &removed_bodies {
+                        bodies.remove(body_id);
+                    }
+                    removed_bodies.clear();
+                }
             }
         }
     }

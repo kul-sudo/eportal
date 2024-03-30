@@ -77,21 +77,6 @@ impl Body {
     }
 }
 
-#[macro_export]
-macro_rules! spawn_body {
-    ($bodies:expr, $existing_bodies:expr, $body:expr) => {
-
-    let mut key;
-
-    // Make sure the position is far enough from the rest of the bodies and the borders of the area
-    while {
-        key = time_since_unix_epoch!() % 100000;
-        $bodies.contains_key(&key)
-    } {}
-    $bodies.insert(key, $body);
-    };
-}
-
 /// Generate a random position until it fits certain creteria.
 pub fn randomly_spawn_body(
     bodies: &mut HashMap<u128, Body>,
@@ -156,9 +141,8 @@ pub fn randomly_spawn_body(
         )
     }
 
-    spawn_body!(
-        bodies,
-        bodies,
+    bodies.insert(
+        time_since_unix_epoch!(),
         Body::new(
             pos,
             AVERAGE_ENERGY,
@@ -170,7 +154,7 @@ pub fn randomly_spawn_body(
             color,
             true,
             rng,
-        )
+        ),
     );
 }
 
