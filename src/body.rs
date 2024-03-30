@@ -14,10 +14,10 @@ use crate::{constants::*, get_with_deviation, time_since_unix_epoch};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Status {
-    FollowingTarget,
-    EscapingBody,
+    FollowingTarget((u128, Vec2)),
+    EscapingBody((u128, u16)),
     Sleeping,
-    Dead,
+    Dead(Instant),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -39,8 +39,7 @@ pub struct Body {
     pub color: Color,
     pub status: Status,
     /// When the body died due to a lack of energy if it did die in the first place.
-    pub death_time: Option<Instant>,
-    pub target: Option<(u128, Vec2)>,
+    pub body_type: u16,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -56,6 +55,7 @@ impl Body {
         color: Color,
         is_first_generation: bool,
         rng: &mut StdRng,
+        body_type: u16,
     ) -> Self {
         Body {
             pos,
@@ -71,18 +71,22 @@ impl Body {
             iq,
             color,
             status: Status::Sleeping,
-            death_time: None,
-            target: None,
+            body_type,
         }
+    }
+
+    pub fn is_alive(&self) -> bool {
+        !matches!(self.status, Status::Dead(_))
     }
 }
 
-/// Generate a random position until it fits certain creteria.
+/// Generate a random position until it suits certain creteria.
 pub fn randomly_spawn_body(
     bodies: &mut HashMap<u128, Body>,
     area_size: Vec2,
     eating_strategy: EatingStrategy,
     rng: &mut StdRng,
+    body_type: usize,
 ) {
     let mut pos = Vec2::default();
 
@@ -141,19 +145,34 @@ pub fn randomly_spawn_body(
         )
     }
 
+    let body_eater = body_type <= BODY_EATERS_N;
+
     bodies.insert(
         time_since_unix_epoch!(),
         Body::new(
             pos,
             AVERAGE_ENERGY,
-            AVERAGE_SPEED,
-            AVERAGE_VISION_DISTANCE,
+            if body_eater {
+                AVERAGE_SPEED * 2.0
+            } else {
+                AVERAGE_SPEED
+            },
+            if body_eater {
+                AVERAGE_VISION_DISTANCE * 3.0
+            } else {
+                AVERAGE_VISION_DISTANCE
+            },
             eating_strategy,
-            AVERAGE_DIVISION_THRESHOLD,
+            if body_eater {
+                AVERAGE_DIVISION_THRESHOLD
+            } else {
+                AVERAGE_DIVISION_THRESHOLD * 1.5
+            },
             0.0,
             color,
             true,
             rng,
+            body_type as u16,
         ),
     );
 }
@@ -163,27 +182,8 @@ macro_rules! draw_body {
     ($body:expr) => {
         let side_length_half = OBJECT_RADIUS / SQRT_2;
 
-        match $body.death_time {
-            Some(_) => {
-                draw_line(
-                    $body.pos.x - side_length_half,
-                    $body.pos.y - side_length_half,
-                    $body.pos.x + side_length_half,
-                    $body.pos.y + side_length_half,
-                    2.0,
-                    RED,
-                );
-
-                draw_line(
-                    $body.pos.x + side_length_half,
-                    $body.pos.y - side_length_half,
-                    $body.pos.x - side_length_half,
-                    $body.pos.y + side_length_half,
-                    2.0,
-                    RED,
-                )
-            }
-            None => match $body.eating_strategy {
+        if $body.is_alive() {
+            match $body.eating_strategy {
                 EatingStrategy::Bodies => {
                     let side_length = side_length_half * 2.0;
                     draw_rectangle(
@@ -198,7 +198,25 @@ macro_rules! draw_body {
                 EatingStrategy::Plants => {
                     draw_circle($body.pos.x, $body.pos.y, OBJECT_RADIUS, $body.color)
                 }
-            },
+            }
+        } else {
+            draw_line(
+                $body.pos.x - side_length_half,
+                $body.pos.y - side_length_half,
+                $body.pos.x + side_length_half,
+                $body.pos.y + side_length_half,
+                2.0,
+                RED,
+            );
+
+            draw_line(
+                $body.pos.x + side_length_half,
+                $body.pos.y - side_length_half,
+                $body.pos.x - side_length_half,
+                $body.pos.y + side_length_half,
+                2.0,
+                RED,
+            )
         }
     };
 }

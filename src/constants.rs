@@ -1,13 +1,13 @@
 use std::f32::consts::SQRT_3;
 
 // Base
-pub static BODY_EATERS_N: usize = 0;
-pub static PLANTS_EATERS_N: usize = 500;
+pub static BODY_EATERS_N: usize = 500;
+pub static PLANTS_EATERS_N: usize = 250;
 pub static BODIES_N: usize = BODY_EATERS_N + PLANTS_EATERS_N;
 pub static PLANTS_N: usize = 20000;
 pub static OBJECT_RADIUS: f32 = 10.0;
 /// Used for `get_with_deviation`.
-pub static DEVIATION: f32 = 0.15;
+pub static DEVIATION: f32 = 0.2;
 pub static COLOR_MIN: u8 = 50;
 pub static COLOR_MAX: u8 = 250;
 
@@ -15,7 +15,7 @@ pub static COLOR_MAX: u8 = 250;
 pub static AVERAGE_ENERGY: f32 = 50.0;
 pub static AVERAGE_VISION_DISTANCE: f32 = 100.0;
 pub static AVERAGE_SPEED: f32 = 1.5;
-pub static AVERAGE_DIVISION_THRESHOLD: f32 = 300.0;
+pub static AVERAGE_DIVISION_THRESHOLD: f32 = 500.0;
 
 // Evolution process
 pub static PLANT_HP: f32 = 100.0;
@@ -26,10 +26,10 @@ pub static PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 pub static MIN_TO_REMOVE: usize = 500;
 
 // Spending energy
-pub static ENERGY_SPEND_CONST_FOR_MASS: f32 = 0.005;
-pub static ENERGY_SPEND_CONST_FOR_IQ: f32 = 0.005;
-pub static ENERGY_SPEND_CONST_FOR_VISION: f32 = 0.005;
-pub static ENERGY_SPEND_CONST_FOR_MOVEMENT: f32 = 0.005;
+pub static ENERGY_SPEND_CONST_FOR_MASS: f32 = 0.0001;
+pub static ENERGY_SPEND_CONST_FOR_IQ: f32 = 0.001;
+pub static ENERGY_SPEND_CONST_FOR_VISION: f32 = 0.0005;
+pub static ENERGY_SPEND_CONST_FOR_MOVEMENT: f32 = 0.001;
 
 // Death
 pub static CROSS_LIFESPAN: u64 = 5; // In seconds

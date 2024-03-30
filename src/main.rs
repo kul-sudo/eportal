@@ -15,7 +15,6 @@ use std::{
     env::consts::OS,
     f32::consts::SQRT_2,
     intrinsics::unlikely,
-    process::exit,
     thread::sleep,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -23,14 +22,14 @@ use std::{
 use macroquad::{
     camera::{set_camera, Camera2D},
     color::{Color, GREEN, RED, WHITE},
-    input::{is_mouse_button_pressed, mouse_position},
+    input::{is_key_pressed, is_mouse_button_pressed, mouse_position, KeyCode},
     math::{vec2, Rect, Vec2},
     miniquad::{window::set_fullscreen, MouseButton},
     shapes::{draw_circle, draw_circle_lines, draw_line, draw_rectangle, draw_triangle},
     text::{draw_text, measure_text},
     window::{next_frame, screen_height, screen_width, Conf},
 };
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{rngs::StdRng, SeedableRng};
 
 /// Adjust the coordinates according to the borders.
 macro_rules! adjusted_coordinates {
@@ -58,10 +57,12 @@ macro_rules! get_with_deviation {
 #[macro_export]
 macro_rules! time_since_unix_epoch {
     () => {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        unsafe {
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_unchecked()
+        }
+        .as_nanos()
     };
 }
 
@@ -133,6 +134,7 @@ async fn main() {
     let rng = &mut StdRng::from_entropy();
 
     let mut zoom_mode = false;
+    let mut show_info = true;
 
     'main_evolution_loop: loop {
         let mut bodies: HashMap<u128, Body> = HashMap::with_capacity(BODIES_N);
@@ -151,6 +153,7 @@ async fn main() {
                     EatingStrategy::Bodies
                 },
                 rng,
+                i + 1,
             );
         }
 
@@ -174,6 +177,10 @@ async fn main() {
                 zoom_mode = !zoom_mode
             }
 
+            if unlikely(is_key_pressed(KeyCode::Key1)) {
+                show_info = !show_info
+            }
+
             if zoom_mode {
                 get_zoom_target(&mut camera, area_size);
             }
@@ -185,8 +192,7 @@ async fn main() {
 
             // Whether enough time has passed to draw a new frame
             let is_draw_mode =
-                // last_updated.elapsed().as_millis() >= Duration::from_secs(1 / FPS).as_millis();
-                true;
+                last_updated.elapsed().as_millis() >= Duration::from_secs(1 / FPS).as_millis();
 
             // Due to certain borrowing rules, it's impossible to modify these during the loop,
             // so it'll be done after it
@@ -202,10 +208,10 @@ async fn main() {
                 }
 
                 // Handle if dead
-                if body.status == Status::Dead
-                    && body.death_time.unwrap().elapsed().as_secs() >= CROSS_LIFESPAN
-                {
-                    removed_bodies.insert(*body_id);
+                if let Status::Dead(death_time) = body.status {
+                    if death_time.elapsed().as_secs() >= CROSS_LIFESPAN {
+                        removed_bodies.insert(*body_id);
+                    }
                     continue;
                 }
 
@@ -214,18 +220,13 @@ async fn main() {
                 body.energy -= ENERGY_SPEND_CONST_FOR_MASS * body.energy
                     + ENERGY_SPEND_CONST_FOR_IQ * body.iq
                     + ENERGY_SPEND_CONST_FOR_VISION * body.vision_distance;
-                if body.status == Status::FollowingTarget || body.status == Status::EscapingBody {
+                if body.status != Status::Sleeping {
                     body.energy -= ENERGY_SPEND_CONST_FOR_MOVEMENT * body.speed * body.energy
                 }
 
-                // If needed, it's changed in the future
-                body.target = None;
-
                 // Check if the body should be dead
-                if body.energy.is_sign_negative() {
-                    body.death_time = Some(Instant::now());
-                    body.status = Status::Dead;
-
+                if body.energy < 0.0 {
+                    body.status = Status::Dead(Instant::now());
                     continue;
                 }
 
@@ -238,22 +239,26 @@ async fn main() {
                     })
                     .collect::<Vec<_>>();
 
-                if let Some((_, closest_chasing_body)) = bodies_within_vision_distance
-                    .iter()
-                    .filter(|(_, other_body)| {
-                        if let Some(other_body_target) = other_body.target {
-                            other_body_target.0 == *body_id
-                        } else {
-                            false
-                        }
-                    })
-                    .min_by(|(_, a), (_, b)| {
-                        body.pos
-                            .distance(a.pos)
-                            .total_cmp(&body.pos.distance(b.pos))
-                    })
+                if let Some((closest_chasing_body_id, closest_chasing_body)) =
+                    bodies_within_vision_distance
+                        .iter()
+                        .filter(|(_, other_body)| {
+                            if let Status::FollowingTarget(other_body_target) = other_body.status {
+                                other_body_target.0 == *body_id
+                            } else {
+                                false
+                            }
+                        })
+                        .min_by(|(_, a), (_, b)| {
+                            body.pos
+                                .distance(a.pos)
+                                .total_cmp(&body.pos.distance(b.pos))
+                        })
                 {
-                    body.status = Status::EscapingBody;
+                    body.status = Status::EscapingBody((
+                        **closest_chasing_body_id,
+                        closest_chasing_body.body_type,
+                    ));
 
                     let distance_to_closest_chasing_body =
                         body.pos.distance(closest_chasing_body.pos);
@@ -290,15 +295,24 @@ async fn main() {
                         if let Some((prey_id, prey)) = bodies_within_vision_distance
                             .iter()
                             .filter(|(_, other_body)| {
-                                body.energy > other_body.energy
-                                    && other_body.status != Status::Dead
-                                    && body.color != other_body.color
+                                other_body.eating_strategy == EatingStrategy::Plants
+                                    && if let Status::EscapingBody((
+                                        chasing_body_id,
+                                        chasing_body_type,
+                                    )) = other_body.status
+                                    {
+                                        chasing_body_id == *body_id
+                                            || chasing_body_type != body.body_type
+                                    } else {
+                                        true
+                                    }
+                                    && other_body.is_alive()
                             })
-                            .min_by(|(_, a), (_, b)| {
+                            .min_by(|(_, a), (_, b)| unsafe {
                                 body.pos
                                     .distance(a.pos)
                                     .partial_cmp(&body.pos.distance(b.pos))
-                                    .unwrap()
+                                    .unwrap_unchecked()
                             })
                         {
                             let distance_to_prey = body.pos.distance(prey.pos);
@@ -307,8 +321,7 @@ async fn main() {
                                 body.pos = prey.pos;
                                 removed_bodies.insert(**prey_id);
                             } else {
-                                body.status = Status::FollowingTarget;
-                                body.target = Some((**prey_id, prey.pos));
+                                body.status = Status::FollowingTarget((**prey_id, prey.pos));
                                 body.pos = Vec2 {
                                     x: body.pos.x
                                         + ((prey.pos.x - body.pos.x) * body.speed)
@@ -328,11 +341,11 @@ async fn main() {
                                 !removed_plants.contains(plant_id)
                                     && body.pos.distance(plant.pos) <= body.vision_distance
                             })
-                            .min_by(|(_, a), (_, b)| {
+                            .min_by(|(_, a), (_, b)| unsafe {
                                 body.pos
                                     .distance(a.pos)
                                     .partial_cmp(&body.pos.distance(b.pos))
-                                    .unwrap()
+                                    .unwrap_unchecked()
                             })
                         {
                             let distance_to_closest_plant = body.pos.distance(closest_plant.pos);
@@ -341,8 +354,10 @@ async fn main() {
                                 body.pos = closest_plant.pos;
                                 removed_plants.insert(*closest_plant_index);
                             } else {
-                                body.status = Status::FollowingTarget;
-                                body.target = Some((*closest_plant_index, closest_plant.pos));
+                                body.status = Status::FollowingTarget((
+                                    *closest_plant_index,
+                                    closest_plant.pos,
+                                ));
                                 body.pos = Vec2 {
                                     x: body.pos.x
                                         + ((closest_plant.pos.x - body.pos.x) * body.speed)
@@ -379,6 +394,7 @@ async fn main() {
                                 body.color,
                                 false,
                                 rng,
+                                body.body_type,
                             ),
                         );
                     }
@@ -404,8 +420,8 @@ async fn main() {
 
                 for (body_id, body) in &bodies {
                     if !removed_bodies.contains(body_id) {
-                        if zoom_mode {
-                            if let Some((_, target_pos)) = body.target {
+                        if zoom_mode && body.is_alive() {
+                            if let Status::FollowingTarget((_, target_pos)) = body.status {
                                 draw_line(
                                     body.pos.x,
                                     body.pos.y,
@@ -415,24 +431,26 @@ async fn main() {
                                     WHITE,
                                 );
                             }
-                            draw_circle_lines(
-                                body.pos.x,
-                                body.pos.y,
-                                body.vision_distance,
-                                2.0,
-                                body.color,
-                            );
-                            let to_display = body.energy.to_string();
-                            draw_text(
-                                &to_display,
-                                body.pos.x
-                                    - measure_text(&to_display, None, BODY_INFO_FONT_SIZE, 1.0)
-                                        .width
-                                        / 2.0,
-                                body.pos.y - OBJECT_RADIUS - MIN_GAP,
-                                BODY_INFO_FONT_SIZE as f32,
-                                WHITE,
-                            );
+                            if show_info {
+                                draw_circle_lines(
+                                    body.pos.x,
+                                    body.pos.y,
+                                    body.vision_distance,
+                                    2.0,
+                                    body.color,
+                                );
+                                let to_display = body.energy.to_string();
+                                draw_text(
+                                    &to_display,
+                                    body.pos.x
+                                        - measure_text(&to_display, None, BODY_INFO_FONT_SIZE, 1.0)
+                                            .width
+                                            / 2.0,
+                                    body.pos.y - OBJECT_RADIUS - MIN_GAP,
+                                    BODY_INFO_FONT_SIZE as f32,
+                                    WHITE,
+                                );
+                            }
                         }
 
                         draw_body!(body);
