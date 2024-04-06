@@ -151,14 +151,18 @@ pub fn randomly_spawn_body(
         time_since_unix_epoch!(),
         Body::new(
             pos,
-            AVERAGE_ENERGY,
             if body_eater {
-                AVERAGE_SPEED * 2.0
+                AVERAGE_ENERGY
+            } else {
+                AVERAGE_ENERGY
+            },
+            if body_eater {
+                AVERAGE_SPEED
             } else {
                 AVERAGE_SPEED
             },
             if body_eater {
-                AVERAGE_VISION_DISTANCE * 3.0
+                AVERAGE_VISION_DISTANCE
             } else {
                 AVERAGE_VISION_DISTANCE
             },
@@ -166,7 +170,7 @@ pub fn randomly_spawn_body(
             if body_eater {
                 AVERAGE_DIVISION_THRESHOLD
             } else {
-                AVERAGE_DIVISION_THRESHOLD * 1.5
+                1000.0
             },
             0.0,
             color,

@@ -1,7 +1,7 @@
 use std::f32::consts::SQRT_3;
 
 // Base
-pub static BODY_EATERS_N: usize = 500;
+pub static BODY_EATERS_N: usize = 0;
 pub static PLANTS_EATERS_N: usize = 250;
 pub static BODIES_N: usize = BODY_EATERS_N + PLANTS_EATERS_N;
 pub static PLANTS_N: usize = 20000;
@@ -23,16 +23,19 @@ pub static MIN_GAP: f32 = 3.0;
 pub static COLOR_GAP: f32 = 0.65; // Depends on COLOR_MIN and COLOR_MAX
 pub static PLANTS_N_FOR_ONE_STEP: usize = 5; // Mid-game
 pub static PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
-pub static MIN_TO_REMOVE: usize = 500;
+pub static MIN_TO_REMOVE: usize = 500; // Bodies and plants are removed only it's needed to remove
+                                       // more of them than this constant. That's because when the amount of object to remove, the time it
+                                       // takes to delete them barely depends on their amount
 
 // Spending energy
 pub static ENERGY_SPEND_CONST_FOR_MASS: f32 = 0.0001;
 pub static ENERGY_SPEND_CONST_FOR_IQ: f32 = 0.001;
-pub static ENERGY_SPEND_CONST_FOR_VISION: f32 = 0.0005;
+pub static ENERGY_SPEND_CONST_FOR_VISION: f32 = 0.00001;
 pub static ENERGY_SPEND_CONST_FOR_MOVEMENT: f32 = 0.001;
 
 // Death
 pub static CROSS_LIFESPAN: u64 = 5; // In seconds
+pub static PART_OF_PLANTS_TO_REMOVE: f32 = 0.008;
 
 // Zoom
 pub static MAX_ZOOM: f32 = OBJECT_RADIUS;
