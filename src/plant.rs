@@ -11,7 +11,6 @@ use crate::{time_since_unix_epoch, Body, MIN_GAP, OBJECT_RADIUS, PLANT_SPAWN_TIM
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Plant {
     pub pos: Vec2,
-    pub death_time: Option<u128>
 }
 
 pub fn randomly_spawn_plant(
@@ -51,7 +50,7 @@ pub fn randomly_spawn_plant(
         key = time_since_unix_epoch!() % 100000;
         plants.contains_key(&key)
     } {}
-    plants.insert(key, Plant { pos, death_time: None });
+    plants.insert(key, Plant { pos });
 }
 
 #[macro_export]
