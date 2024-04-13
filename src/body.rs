@@ -16,8 +16,8 @@ use crate::{constants::*, get_with_deviation, time_since_unix_epoch};
 pub enum Status {
     FollowingTarget((u128, Vec2)),
     EscapingBody((u128, u16)),
-    Sleeping,
     Dead(Instant),
+    Sleeping,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -153,32 +153,20 @@ pub fn randomly_spawn_body(
         )
     }
 
-    let body_eater = eating_strategy == EatingStrategy::Bodies;
-
     bodies.insert(
         time_since_unix_epoch!(),
         Body::new(
             pos,
-            if body_eater {
-                AVERAGE_ENERGY
-            } else {
-                AVERAGE_ENERGY
+            match eating_strategy {
+                EatingStrategy::Bodies => BODY_EATER_AVERAGE_ENERGY,
+                EatingStrategy::Plants => PLANT_EATER_AVERAGE_ENERGY,
             },
-            if body_eater {
-                AVERAGE_SPEED
-            } else {
-                AVERAGE_SPEED
-            },
-            if body_eater {
-                AVERAGE_VISION_DISTANCE
-            } else {
-                AVERAGE_VISION_DISTANCE
-            },
+            AVERAGE_SPEED,
+            AVERAGE_VISION_DISTANCE,
             eating_strategy,
-            if body_eater {
-                AVERAGE_DIVISION_THRESHOLD
-            } else {
-                AVERAGE_DIVISION_THRESHOLD
+            match eating_strategy {
+                EatingStrategy::Bodies => BODY_EATER_AVERAGE_DIVISION_THRESHOLD,
+                EatingStrategy::Plants => PLANT_EATER_AVERAGE_DIVISION_THRESHOLD,
             },
             0.0,
             color,

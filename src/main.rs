@@ -312,18 +312,23 @@ async fn main() {
                     if let Some((prey_id, prey)) = bodies_within_vision_distance
                         .iter()
                         .filter(|(_, other_body)| {
-                            other_body.eating_strategy == EatingStrategy::Plants
-                                && if let Status::EscapingBody((
-                                    chasing_body_id,
-                                    chasing_body_type,
-                                )) = other_body.status
-                                {
-                                    chasing_body_id == *body_id
-                                        || chasing_body_type != body.body_type
+                            other_body.body_type != body.body_type
+                                && (if other_body.eating_strategy == EatingStrategy::Bodies {
+                                    other_body.energy < body.energy
                                 } else {
                                     true
-                                }
-                                && other_body.is_alive()
+                                })
+                                // && other_body.is_alive()
+                            // && if let Status::EscapingBody((
+                            //     chasing_body_id,
+                            //     chasing_body_type,
+                            // )) = other_body.status
+                            // {
+                            //     chasing_body_id == *body_id
+                            //         || chasing_body_type != body.body_type
+                            // } else {
+                            //     true
+                            // }
                         })
                         .min_by(|(_, a), (_, b)| unsafe {
                             body.pos
@@ -450,7 +455,7 @@ async fn main() {
                                     2.0,
                                     body.color,
                                 );
-                                let to_display = body.speed.to_string();
+                                let to_display = body.energy.to_string();
                                 draw_text(
                                     &to_display,
                                     body.pos.x
