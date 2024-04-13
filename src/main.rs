@@ -232,17 +232,18 @@ async fn main() {
 
             // Handle the energy
             // The mass is proportional to the energy; to keep the mass up, energy is spent
-            body.energy -= ENERGY_SPEND_CONST_FOR_MASS * body.energy
-                + ENERGY_SPEND_CONST_FOR_IQ * body.iq
-                + ENERGY_SPEND_CONST_FOR_VISION * body.vision_distance.powi(2); // The vision
-                                                                                // distance is in the power of 2, because the area of a circle is proportional to its radius
-                                                                                // in the power of 2
+            body.energy -=
+                ENERGY_SPEND_CONST_FOR_MASS * body.energy + ENERGY_SPEND_CONST_FOR_IQ * body.iq;
+
             if body.status != Status::Sleeping {
                 body.energy -= ENERGY_SPEND_CONST_FOR_MOVEMENT * body.speed * body.energy
             }
 
             // Check if the body should be dead
-            if body.energy < 0.0 {
+            if body.energy < MIN_ENERGY
+                || time_since_unix_epoch!() - body_id
+                    > Duration::from_secs(body.lifespan).as_nanos()
+            {
                 body.status = Status::Dead(Instant::now());
                 continue;
             }
@@ -402,6 +403,7 @@ async fn main() {
                             false,
                             rng,
                             body.body_type,
+                            body.lifespan,
                         ),
                     );
                 }
@@ -448,7 +450,7 @@ async fn main() {
                                     2.0,
                                     body.color,
                                 );
-                                let to_display = body.energy.to_string();
+                                let to_display = body.speed.to_string();
                                 draw_text(
                                     &to_display,
                                     body.pos.x

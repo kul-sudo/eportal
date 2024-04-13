@@ -8,7 +8,7 @@ use macroquad::{
     math::{Vec2, Vec3},
     rand::gen_range,
 };
-use rand::{rngs::StdRng, Rng};
+use rand::{rngs::StdRng, seq::IteratorRandom, Rng};
 
 use crate::{constants::*, get_with_deviation, time_since_unix_epoch};
 
@@ -40,6 +40,7 @@ pub struct Body {
     pub status: Status,
     /// When the body died due to a lack of energy if it did die in the first place.
     pub body_type: u16,
+    pub lifespan: u64,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -56,6 +57,7 @@ impl Body {
         is_first_generation: bool,
         rng: &mut StdRng,
         body_type: u16,
+        lifespan: u64,
     ) -> Self {
         Body {
             pos,
@@ -63,7 +65,8 @@ impl Body {
                 get_with_deviation!(energy, rng)
             } else {
                 energy / 2.0
-            },
+            } - VISION_DISTANCE_BIRTH_ENERGY_SPENT * vision_distance
+                - SPEED_BIRTH_ENERGY_SPENT * speed,
             speed: get_with_deviation!(speed, rng),
             vision_distance: get_with_deviation!(vision_distance, rng),
             eating_strategy,
@@ -72,6 +75,11 @@ impl Body {
             color,
             status: Status::Sleeping,
             body_type,
+            lifespan: if is_first_generation {
+                unsafe { LIFESPAN_RANGE.choose(rng).unwrap_unchecked() }
+            } else {
+                lifespan
+            },
         }
     }
 
@@ -145,7 +153,7 @@ pub fn randomly_spawn_body(
         )
     }
 
-    let body_eater = body_type <= BODY_EATERS_N;
+    let body_eater = eating_strategy == EatingStrategy::Bodies;
 
     bodies.insert(
         time_since_unix_epoch!(),
@@ -170,13 +178,14 @@ pub fn randomly_spawn_body(
             if body_eater {
                 AVERAGE_DIVISION_THRESHOLD
             } else {
-                1000.0
+                AVERAGE_DIVISION_THRESHOLD
             },
             0.0,
             color,
             true,
             rng,
             body_type as u16,
+            0,
         ),
     );
 }
