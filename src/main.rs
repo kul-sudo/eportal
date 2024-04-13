@@ -338,12 +338,11 @@ async fn main() {
                             removed_bodies.insert(**prey_id);
                         } else {
                             body.status = Status::FollowingTarget((**prey_id, prey.pos));
-                            body.pos = Vec2 {
-                                x: body.pos.x
-                                    + ((prey.pos.x - body.pos.x) * body.speed) / distance_to_prey,
-                                y: body.pos.y
-                                    + ((prey.pos.y - body.pos.y) * body.speed) / distance_to_prey,
-                            };
+                            body.pos.x +=
+                                ((prey.pos.x - body.pos.x) * body.speed) / distance_to_prey;
+                            body.pos.y +=
+                                ((prey.pos.y - body.pos.y) * body.speed) / distance_to_prey;
+
                             continue;
                         }
                     }
@@ -370,14 +369,10 @@ async fn main() {
                         } else {
                             body.status =
                                 Status::FollowingTarget((*closest_plant_index, closest_plant.pos));
-                            body.pos = Vec2 {
-                                x: body.pos.x
-                                    + ((closest_plant.pos.x - body.pos.x) * body.speed)
-                                        / distance_to_closest_plant,
-                                y: body.pos.y
-                                    + ((closest_plant.pos.y - body.pos.y) * body.speed)
-                                        / distance_to_closest_plant,
-                            };
+                            body.pos.x += ((closest_plant.pos.x - body.pos.x) * body.speed)
+                                / distance_to_closest_plant;
+                            body.pos.y += ((closest_plant.pos.y - body.pos.y) * body.speed)
+                                / distance_to_closest_plant;
 
                             continue;
                         }
@@ -389,12 +384,12 @@ async fn main() {
 
             // Procreate
             if body.energy > body.division_threshold {
-                for lambda in [1.0, -1.0] {
+                for _ in 0..2 {
                     new_bodies.insert(
                         time_since_unix_epoch!(),
                         Body::new(
                             Vec2 {
-                                x: body.pos.x + OBJECT_RADIUS * lambda,
+                                x: body.pos.x + OBJECT_RADIUS,
                                 y: body.pos.y,
                             },
                             body.energy,
