@@ -1,4 +1,4 @@
-use std::{f32::consts::SQRT_3, ops::Range};
+use std::f32::consts::SQRT_3;
 
 // Base
 pub const BODY_EATERS_N: usize = 100;
@@ -11,13 +11,13 @@ pub const DEVIATION: f32 = 0.2;
 pub const COLOR_MIN: u8 = 50;
 pub const COLOR_MAX: u8 = 250;
 pub const MIN_ENERGY: f32 = 1000.0;
-pub const LIFESPAN_RANGE: Range<u64> = 80..120;
+pub const LIFESPAN: f32 = 240.0;
 
 // Average spawn attributes
 pub const PLANT_EATER_AVERAGE_ENERGY: f32 = 1500.0;
-pub const BODY_EATER_AVERAGE_ENERGY: f32 = 20000.0;
+pub const BODY_EATER_AVERAGE_ENERGY: f32 = 3000.0;
 pub const PLANT_EATER_AVERAGE_DIVISION_THRESHOLD: f32 = 3000.0;
-pub const BODY_EATER_AVERAGE_DIVISION_THRESHOLD: f32 = 25000.0;
+pub const BODY_EATER_AVERAGE_DIVISION_THRESHOLD: f32 = 3601.0;
 
 pub const AVERAGE_VISION_DISTANCE: f32 = 100.0;
 pub const AVERAGE_SPEED: f32 = 1.5;
@@ -33,16 +33,17 @@ pub const MIN_TO_REMOVE: usize = 500; // Bodies and plants are removed only it's
                                       // takes to delete them barely depends on their amount
 
 // Spending energy
-pub const ENERGY_SPEND_CONST_FOR_MASS: f32 = 0.00008;
-pub const ENERGY_SPEND_CONST_FOR_IQ: f32 = 0.001;
-pub const ENERGY_SPEND_CONST_FOR_MOVEMENT: f32 = 0.00008;
+pub const ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.00008;
+pub const ENERGY_SPENT_CONST_FOR_IQ: f32 = 0.001;
+pub const ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.00008;
+pub const CONST_FOR_LIFESPAN: f32 = 0.0000007;
 
 // Birth
 pub const VISION_DISTANCE_BIRTH_ENERGY_SPENT: f32 = 0.1;
 pub const SPEED_BIRTH_ENERGY_SPENT: f32 = 10.0;
 
 // Death
-pub const CROSS_LIFESPAN: u64 = 5; // In seconds
+pub const CROSS_LIFESPAN: u64 = 30; // In seconds
 pub const PART_OF_PLANTS_TO_REMOVE: f32 = 0.008;
 
 // Zoom

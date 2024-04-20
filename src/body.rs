@@ -4,11 +4,11 @@ use std::{
 };
 
 use macroquad::{
-    color::{Color, GREEN, RED},
+    color::{Color, GREEN},
     math::{Vec2, Vec3},
     rand::gen_range,
 };
-use rand::{rngs::StdRng, seq::IteratorRandom, Rng};
+use rand::{rngs::StdRng, Rng};
 
 use crate::{constants::*, get_with_deviation, time_since_unix_epoch};
 
@@ -17,7 +17,8 @@ pub enum Status {
     FollowingTarget((u128, Vec2)),
     EscapingBody((u128, u16)),
     Dead(Instant),
-    Sleeping,
+    Walking(Vec2),
+    Idle,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -40,7 +41,7 @@ pub struct Body {
     pub status: Status,
     /// When the body died due to a lack of energy if it did die in the first place.
     pub body_type: u16,
-    pub lifespan: u64,
+    pub lifespan: f32,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -57,7 +58,6 @@ impl Body {
         is_first_generation: bool,
         rng: &mut StdRng,
         body_type: u16,
-        lifespan: u64,
     ) -> Self {
         Body {
             pos,
@@ -73,18 +73,28 @@ impl Body {
             division_threshold: get_with_deviation!(division_threshold, rng),
             iq,
             color,
-            status: Status::Sleeping,
+            status: Status::Idle,
             body_type,
-            lifespan: if is_first_generation {
-                unsafe { LIFESPAN_RANGE.choose(rng).unwrap_unchecked() }
-            } else {
-                lifespan
-            },
+            lifespan: LIFESPAN,
         }
     }
 
     pub fn is_alive(&self) -> bool {
-        !matches!(self.status, Status::Dead(_))
+        !matches!(self.status, Status::Dead(..))
+    }
+
+    pub fn wrap(&mut self, area_size: Vec2) {
+        if self.pos.x > area_size.x {
+            self.pos.x = MIN_GAP;
+        } else if self.pos.x < 0.0 {
+            self.pos.x = area_size.x - MIN_GAP;
+        }
+
+        if self.pos.y > area_size.y {
+            self.pos.y = MIN_GAP;
+        } else if self.pos.y < 0.0 {
+            self.pos.y = area_size.y - MIN_GAP;
+        }
     }
 }
 
@@ -110,7 +120,7 @@ pub fn randomly_spawn_body(
     } {}
 
     // Make sure the color is different enough
-    let real_color_gap = COLOR_GAP / ((BODIES_N + 2) as f32).powf(1.0 / 3.0);
+    let real_color_gap = COLOR_GAP / ((BODIES_N + 1) as f32).powf(1.0 / 3.0);
 
     let mut color = Color::from_rgba(
         gen_range(COLOR_MIN, COLOR_MAX),
@@ -125,12 +135,6 @@ pub fn randomly_spawn_body(
         z: GREEN.b,
     };
 
-    let red_rgb = Vec3 {
-        x: RED.r,
-        y: RED.g,
-        z: RED.b,
-    };
-
     while bodies.values().any(|body| {
         let current_body_rgb = Vec3 {
             x: body.color.r,
@@ -138,7 +142,6 @@ pub fn randomly_spawn_body(
             z: body.color.b,
         };
         current_body_rgb.distance(green_rgb) < real_color_gap
-            || current_body_rgb.distance(red_rgb) < real_color_gap
             || current_body_rgb.distance(Vec3 {
                 x: color.r,
                 y: color.g,
@@ -173,7 +176,6 @@ pub fn randomly_spawn_body(
             true,
             rng,
             body_type as u16,
-            0,
         ),
     );
 }
@@ -207,7 +209,7 @@ macro_rules! draw_body {
                 $body.pos.x + side_length_half,
                 $body.pos.y + side_length_half,
                 2.0,
-                RED,
+                $body.color,
             );
 
             draw_line(
@@ -216,7 +218,7 @@ macro_rules! draw_body {
                 $body.pos.x - side_length_half,
                 $body.pos.y + side_length_half,
                 2.0,
-                RED,
+                $body.color,
             )
         }
     };

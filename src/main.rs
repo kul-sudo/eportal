@@ -13,7 +13,7 @@ use plant::{randomly_spawn_plant, Plant};
 use std::{
     collections::{HashMap, HashSet},
     env::consts::OS,
-    f32::consts::SQRT_2,
+    f32::consts::{PI, SQRT_2},
     intrinsics::unlikely,
     thread::sleep,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -21,7 +21,7 @@ use std::{
 
 use macroquad::{
     camera::{set_camera, Camera2D},
-    color::{Color, GREEN, RED, WHITE},
+    color::{GREEN, WHITE},
     input::{is_key_down, is_key_pressed, is_mouse_button_pressed, mouse_position, KeyCode},
     math::{vec2, Rect, Vec2},
     miniquad::{window::set_fullscreen, MouseButton},
@@ -29,7 +29,7 @@ use macroquad::{
     text::{draw_text, measure_text},
     window::{next_frame, screen_height, screen_width, Conf},
 };
-use rand::{rngs::StdRng, SeedableRng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 /// Adjust the coordinates according to the borders.
 macro_rules! adjusted_coordinates {
@@ -211,7 +211,6 @@ async fn main() {
 
         // Due to certain borrowing rules, it's impossible to modify these during the loop,
         // so it'll be done after it
-        let mut body_colors: Vec<Color> = Vec::with_capacity(bodies.len());
         let mut new_bodies: HashMap<u128, Body> = HashMap::with_capacity(bodies.len() * 2);
         let bodies_shot = bodies.clone();
         let plants_shot = plants.clone();
@@ -222,7 +221,7 @@ async fn main() {
                 continue;
             }
 
-            // Handle if dead
+            // Handle if completely dead
             if let Status::Dead(death_time) = body.status {
                 if death_time.elapsed().as_secs() >= CROSS_LIFESPAN {
                     removed_bodies.insert(*body_id);
@@ -230,22 +229,28 @@ async fn main() {
                 continue;
             }
 
-            // Handle the energy
-            // The mass is proportional to the energy; to keep the mass up, energy is spent
-            body.energy -=
-                ENERGY_SPEND_CONST_FOR_MASS * body.energy + ENERGY_SPEND_CONST_FOR_IQ * body.iq;
-
-            if body.status != Status::Sleeping {
-                body.energy -= ENERGY_SPEND_CONST_FOR_MOVEMENT * body.speed * body.energy
+            // Handle lifespan
+            if body.status != Status::Idle {
+                body.lifespan =
+                    (body.lifespan - CONST_FOR_LIFESPAN * body.speed * body.energy).max(0.0)
             }
 
-            // Check if the body should be dead
+            // Handle if dead to become a cross
             if body.energy < MIN_ENERGY
-                || time_since_unix_epoch!() - body_id
-                    > Duration::from_secs(body.lifespan).as_nanos()
+                || body_id + Duration::from_secs_f32(body.lifespan).as_nanos()
+                    < time_since_unix_epoch!()
             {
                 body.status = Status::Dead(Instant::now());
                 continue;
+            }
+
+            // Handle the energy
+            // The mass is proportional to the energy; to keep the mass up, energy is spent
+            body.energy -=
+                ENERGY_SPENT_CONST_FOR_MASS * body.energy + ENERGY_SPENT_CONST_FOR_IQ * body.iq;
+
+            if body.status != Status::Idle {
+                body.energy -= ENERGY_SPENT_CONST_FOR_MOVEMENT * body.speed * body.energy
             }
 
             // Escape
@@ -288,23 +293,10 @@ async fn main() {
                             / distance_to_closest_chasing_body,
                 };
 
-                // Wrap
-                if body.pos.x > area_size.x {
-                    body.pos.x = MIN_GAP;
-                } else if body.pos.x < 0.0 {
-                    body.pos.x = area_size.x - MIN_GAP;
-                }
-
-                if body.pos.y > area_size.y {
-                    body.pos.y = MIN_GAP;
-                } else if body.pos.y < 0.0 {
-                    body.pos.y = area_size.y - MIN_GAP;
-                }
+                body.wrap(area_size);
 
                 continue;
             }
-
-            body.status = Status::Sleeping;
 
             // Find food according to body.eating_strategy
             match body.eating_strategy {
@@ -313,22 +305,16 @@ async fn main() {
                         .iter()
                         .filter(|(_, other_body)| {
                             other_body.body_type != body.body_type
-                                && (if other_body.eating_strategy == EatingStrategy::Bodies {
-                                    other_body.energy < body.energy
-                                } else {
-                                    true
-                                })
-                                // && other_body.is_alive()
-                            // && if let Status::EscapingBody((
-                            //     chasing_body_id,
-                            //     chasing_body_type,
-                            // )) = other_body.status
-                            // {
-                            //     chasing_body_id == *body_id
-                            //         || chasing_body_type != body.body_type
-                            // } else {
-                            //     true
-                            // }
+                                && match other_body.eating_strategy {
+                                    EatingStrategy::Bodies => {
+                                        if other_body.is_alive() {
+                                            body.energy > other_body.energy
+                                        } else {
+                                            true
+                                        }
+                                    }
+                                    EatingStrategy::Plants => true,
+                                }
                         })
                         .min_by(|(_, a), (_, b)| unsafe {
                             body.pos
@@ -386,8 +372,6 @@ async fn main() {
                 }
             }
 
-            body_colors.push(body.color);
-
             // Procreate
             if body.energy > body.division_threshold {
                 for _ in 0..2 {
@@ -408,23 +392,41 @@ async fn main() {
                             false,
                             rng,
                             body.body_type,
-                            body.lifespan,
                         ),
                     );
                 }
 
                 removed_bodies.insert(*body_id);
+
+                continue;
+            }
+
+            // Handle body-eaters walking & plant-eaters idle
+            match body.eating_strategy {
+                EatingStrategy::Bodies => {
+                    if !matches!(body.status, Status::Walking(..)) {
+                        let walking_angle: f32 = rng.gen_range(0.0..2.0 * PI);
+                        let pos_deviation = Vec2 {
+                            x: body.speed * walking_angle.cos(),
+                            y: body.speed * walking_angle.sin(),
+                        };
+                        body.status = Status::Walking(pos_deviation);
+                    }
+
+                    if let Status::Walking(pos_deviation) = body.status {
+                        body.pos.x += pos_deviation.x;
+                        body.pos.y += pos_deviation.y;
+                    }
+
+                    body.wrap(area_size);
+                }
+                EatingStrategy::Plants => body.status = Status::Idle,
             }
         }
 
         for (new_body_id, new_body) in new_bodies {
             bodies.insert(new_body_id, new_body);
         }
-
-        // body_colors.dedup();
-        // if body_colors.len() == 1 {
-        //     continue 'main_evolution_loop;
-        // }
 
         if is_draw_mode {
             if !is_draw_prevented {
@@ -455,7 +457,11 @@ async fn main() {
                                     2.0,
                                     body.color,
                                 );
-                                let to_display = body.energy.to_string();
+                                let to_display = format!(
+                                    "{} {}",
+                                    body.energy.round(),
+                                    body.division_threshold.round()
+                                );
                                 draw_text(
                                     &to_display,
                                     body.pos.x
@@ -473,19 +479,26 @@ async fn main() {
                     }
                 }
 
+                // draw_text(
+                //     &format!("Bodies alive {}", bodies.len()),
+                //     10.0,
+                //     20.0,
+                //     20.0,
+                //     WHITE,
+                // );
+
+                // if zoom_mode {
+                //     let mouse_position = mouse_position();
+                //     let (x, y) = adjusted_coordinates!(
+                //         mouse_position.0 + 25.0,
+                //         mouse_position.1 - 25.0,
+                //         area_size
+                //     );
+                //     draw_text("zoomed in", x, y, 10.0 * MAX_ZOOM, WHITE)
+                // }
+
                 last_updated = Instant::now();
             }
-            // draw_text(&format!("zoom {}", zoom), 10.0, 20.0, 20.0, WHITE);
-
-            // if zoom_mode {
-            //     let mouse_position = mouse_position();
-            //     let (x, y) = adjusted_coordinates!(
-            //         mouse_position.0 + 25.0,
-            //         mouse_position.1 - 25.0,
-            //         area_size
-            //     );
-            //     draw_text("zoomed in", x, y, 10.0 * MAX_ZOOM, WHITE)
-            // }
 
             next_frame().await;
 
