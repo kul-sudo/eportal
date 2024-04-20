@@ -8,7 +8,7 @@ use macroquad::{
     math::{Vec2, Vec3},
     rand::gen_range,
 };
-use rand::{rngs::StdRng, Rng};
+use rand::{random, rngs::StdRng, Rng};
 
 use crate::{constants::*, get_with_deviation, time_since_unix_epoch};
 
@@ -36,7 +36,7 @@ pub struct Body {
     pub eating_strategy: EatingStrategy,
     /// The body procreates after a specific level of energy has been reached.
     pub division_threshold: f32,
-    pub iq: f32,
+    pub iq: u8,
     pub color: Color,
     pub status: Status,
     /// When the body died due to a lack of energy if it did die in the first place.
@@ -53,7 +53,7 @@ impl Body {
         vision_distance: f32,
         eating_strategy: EatingStrategy,
         division_threshold: f32,
-        iq: f32,
+        iq: u8,
         color: Color,
         is_first_generation: bool,
         rng: &mut StdRng,
@@ -71,7 +71,28 @@ impl Body {
             vision_distance: get_with_deviation!(vision_distance, rng),
             eating_strategy,
             division_threshold: get_with_deviation!(division_threshold, rng),
-            iq,
+            iq: if is_first_generation {
+                iq
+            } else if rng.gen_range(0.0..1.0) < IQ_CHANGE_CHANCE {
+                match random::<bool>() {
+                    true => {
+                        if iq == MAX_IQ {
+                            iq
+                        } else {
+                            iq + 1
+                        }
+                    }
+                    false => {
+                        if iq == MIN_IQ {
+                            iq
+                        } else {
+                            iq + 1
+                        }
+                    }
+                }
+            } else {
+                iq
+            },
             color,
             status: Status::Idle,
             body_type,
@@ -171,7 +192,7 @@ pub fn randomly_spawn_body(
                 EatingStrategy::Bodies => BODY_EATER_AVERAGE_DIVISION_THRESHOLD,
                 EatingStrategy::Plants => PLANT_EATER_AVERAGE_DIVISION_THRESHOLD,
             },
-            0.0,
+            0,
             color,
             true,
             rng,

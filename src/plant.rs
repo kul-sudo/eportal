@@ -8,7 +8,7 @@ use rand::{rngs::StdRng, Rng};
 
 use crate::{time_since_unix_epoch, Body, MIN_GAP, OBJECT_RADIUS, PLANT_SPAWN_TIME_LIMIT};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Plant {
     pub pos: Vec2,
 }

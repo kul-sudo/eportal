@@ -1,4 +1,4 @@
-use std::f32::consts::SQRT_3;
+use std::{f32::consts::SQRT_3, ops::Range};
 
 // Base
 pub const BODY_EATERS_N: usize = 100;
@@ -17,7 +17,7 @@ pub const LIFESPAN: f32 = 240.0;
 pub const PLANT_EATER_AVERAGE_ENERGY: f32 = 1500.0;
 pub const BODY_EATER_AVERAGE_ENERGY: f32 = 3000.0;
 pub const PLANT_EATER_AVERAGE_DIVISION_THRESHOLD: f32 = 3000.0;
-pub const BODY_EATER_AVERAGE_DIVISION_THRESHOLD: f32 = 3601.0;
+pub const BODY_EATER_AVERAGE_DIVISION_THRESHOLD: f32 = 3950.0;
 
 pub const AVERAGE_VISION_DISTANCE: f32 = 100.0;
 pub const AVERAGE_SPEED: f32 = 1.5;
@@ -31,6 +31,9 @@ pub const PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 pub const MIN_TO_REMOVE: usize = 500; // Bodies and plants are removed only it's needed to remove
                                       // more of them than this constant. That's because when the amount of object to remove, the time it
                                       // takes to delete them barely depends on their amount
+pub const IQ_CHANGE_CHANCE: f32 = 0.9;
+pub const MAX_IQ: u8 = 1;
+pub const MIN_IQ: u8 = 0;
 
 // Spending energy
 pub const ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.00008;

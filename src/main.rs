@@ -1,6 +1,7 @@
 #![allow(internal_features)]
 #![feature(core_intrinsics)]
 #![feature(more_float_constants)]
+#![feature(exclusive_range_pattern)]
 
 mod body;
 mod constants;
@@ -246,8 +247,8 @@ async fn main() {
 
             // Handle the energy
             // The mass is proportional to the energy; to keep the mass up, energy is spent
-            body.energy -=
-                ENERGY_SPENT_CONST_FOR_MASS * body.energy + ENERGY_SPENT_CONST_FOR_IQ * body.iq;
+            body.energy -= ENERGY_SPENT_CONST_FOR_MASS * body.energy
+                + ENERGY_SPENT_CONST_FOR_IQ * body.iq as f32;
 
             if body.status != Status::Idle {
                 body.energy -= ENERGY_SPENT_CONST_FOR_MOVEMENT * body.speed * body.energy
@@ -315,6 +316,18 @@ async fn main() {
                                     }
                                     EatingStrategy::Plants => true,
                                 }
+                            // && match body.iq {
+                            //     1.0..7.0 => {
+                            //         if let Status::EscapingBody((_, body_type)) =
+                            //             other_body.status
+                            //         {
+                            //             body_type != body.body_type
+                            //         } else {
+                            //             true
+                            //         }
+                            //     }
+                            //     _ => true,
+                            // }
                         })
                         .min_by(|(_, a), (_, b)| unsafe {
                             body.pos
@@ -345,6 +358,28 @@ async fn main() {
                         .filter(|(plant_id, plant)| {
                             !removed_plants.contains(plant_id)
                                 && body.pos.distance(plant.pos) <= body.vision_distance
+                                && match body.iq {
+                                    1..7 => bodies_within_vision_distance.iter().all(
+                                        |(other_body_id, other_body)| {
+                                            if other_body.body_type == body.body_type
+                                                && *other_body_id != body_id
+                                            {
+                                                if let Status::FollowingTarget((
+                                                    other_body_chasing_plant_id,
+                                                    _,
+                                                )) = other_body.status
+                                                {
+                                                    other_body_chasing_plant_id != **plant_id
+                                                } else {
+                                                    true
+                                                }
+                                            } else {
+                                                true
+                                            }
+                                        },
+                                    ),
+                                    _ => true,
+                                }
                         })
                         .min_by(|(_, a), (_, b)| unsafe {
                             body.pos
@@ -457,11 +492,8 @@ async fn main() {
                                     2.0,
                                     body.color,
                                 );
-                                let to_display = format!(
-                                    "{} {}",
-                                    body.energy.round(),
-                                    body.division_threshold.round()
-                                );
+
+                                let to_display = format!("{} {}", body.body_type, body.iq);
                                 draw_text(
                                     &to_display,
                                     body.pos.x
