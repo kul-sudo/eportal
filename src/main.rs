@@ -17,7 +17,7 @@ use std::{
     f32::consts::{PI, SQRT_2},
     intrinsics::unlikely,
     thread::sleep,
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant},
 };
 
 use macroquad::{
@@ -55,18 +55,6 @@ macro_rules! get_with_deviation {
     }};
 }
 
-#[macro_export]
-macro_rules! time_since_unix_epoch {
-    () => {
-        unsafe {
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_unchecked()
-        }
-        .as_nanos()
-    };
-}
-
 /// Set the camera zoom to where the mouse cursor is.
 fn get_zoom_target(camera: &mut Camera2D, area_size: Vec2) {
     let (x, y) = mouse_position();
@@ -83,27 +71,6 @@ fn default_camera(camera: &mut Camera2D, area_size: Vec2) {
     camera.zoom = vec2(MIN_ZOOM / area_size.x * 2.0, MIN_ZOOM / area_size.y * 2.0);
     set_camera(camera);
 }
-
-// fn get_nearest_plant_for_body(plants: &[Plant], body: &Body) -> Option<(f32, (usize, Plant))> {
-//     let (plant_id, plant) = plants
-//         .iter()
-//         .enumerate()
-//         .min_by_key(|(_, plant)| plant.pos.distance(body.pos) as i16)?;
-//     Some((plant.pos.distance(body.pos), (plant_id, *plant)))
-// }
-
-// fn get_nearest_body_for_body<'a>(
-//     bodies: &'a HashMap<usize, Body<'a>>,
-//     body: &Body,
-// ) -> Option<(f32, (usize, &'a Body<'a>))> {
-//     let (body_id, closest_body) = bodies.iter().min_by_key(|(_, enemy_body)| {
-//         distance(vec![enemy_body.x, enemy_body.y], vec![body.x, body.y]) as isize
-//     })?;
-//     Some((
-//         distance(vec![closest_body.x, closest_body.y], vec![body.x, body.y]),
-//         (*body_id, closest_body),
-//     ))
-// }
 
 fn window_conf() -> Conf {
     Conf {
@@ -143,6 +110,8 @@ async fn main() {
     let mut removed_plants: HashSet<u128> = HashSet::new();
     let mut removed_bodies: HashSet<u128> = HashSet::with_capacity(bodies.len());
 
+    let epoch_start = Instant::now();
+
     // Spawn the bodies
     for i in 0..BODIES_N {
         randomly_spawn_body(
@@ -155,12 +124,13 @@ async fn main() {
             },
             rng,
             i + 1,
+            epoch_start,
         );
     }
 
     // Spawn the plants
     for _ in 0..PLANTS_N {
-        randomly_spawn_plant(&bodies, &mut plants, rng, area_size)
+        randomly_spawn_plant(&bodies, &mut plants, rng, area_size, epoch_start)
     }
 
     // The timer needed for the FPS
@@ -203,7 +173,7 @@ async fn main() {
 
         // Spawn a plant in a random place with a specific chance
         for _ in 0..PLANTS_N_FOR_ONE_STEP {
-            randomly_spawn_plant(&bodies, &mut plants, rng, area_size)
+            randomly_spawn_plant(&bodies, &mut plants, rng, area_size, epoch_start)
         }
 
         // Whether enough time has passed to draw a new frame
@@ -214,6 +184,8 @@ async fn main() {
         // so it'll be done after it
         let mut new_bodies: HashMap<u128, Body> = HashMap::with_capacity(bodies.len() * 2);
         let bodies_shot = bodies.clone();
+        let mut bodies_shot_for_statuses = bodies.clone();
+
         let plants_shot = plants.clone();
 
         for (body_id, body) in &mut bodies {
@@ -239,7 +211,7 @@ async fn main() {
             // Handle if dead to become a cross
             if body.energy < MIN_ENERGY
                 || body_id + Duration::from_secs_f32(body.lifespan).as_nanos()
-                    < time_since_unix_epoch!()
+                    < epoch_start.elapsed().as_nanos()
             {
                 body.status = Status::Dead(Instant::now());
                 continue;
@@ -266,8 +238,14 @@ async fn main() {
             if let Some((closest_chasing_body_id, closest_chasing_body)) =
                 bodies_within_vision_distance
                     .iter()
-                    .filter(|(_, other_body)| {
-                        if let Status::FollowingTarget(other_body_target) = other_body.status {
+                    .filter(|(other_body_id, _)| {
+                        if let Status::FollowingTarget(other_body_target) = unsafe {
+                            bodies_shot_for_statuses
+                                .get(other_body_id)
+                                .unwrap_unchecked()
+                        }
+                        .status
+                        {
                             other_body_target.0 == *body_id
                         } else {
                             false
@@ -283,6 +261,8 @@ async fn main() {
                     **closest_chasing_body_id,
                     closest_chasing_body.body_type,
                 ));
+                unsafe { bodies_shot_for_statuses.get_mut(body_id).unwrap_unchecked() }.status =
+                    body.status;
 
                 let distance_to_closest_chasing_body = body.pos.distance(closest_chasing_body.pos);
                 body.pos = Vec2 {
@@ -304,7 +284,7 @@ async fn main() {
                 EatingStrategy::Bodies => {
                     if let Some((prey_id, prey)) = bodies_within_vision_distance
                         .iter()
-                        .filter(|(_, other_body)| {
+                        .filter(|(other_body_id, other_body)| {
                             other_body.body_type != body.body_type
                                 && match other_body.eating_strategy {
                                     EatingStrategy::Bodies => {
@@ -316,18 +296,22 @@ async fn main() {
                                     }
                                     EatingStrategy::Plants => true,
                                 }
-                            // && match body.iq {
-                            //     1.0..7.0 => {
-                            //         if let Status::EscapingBody((_, body_type)) =
-                            //             other_body.status
-                            //         {
-                            //             body_type != body.body_type
-                            //         } else {
-                            //             true
-                            //         }
-                            //     }
-                            //     _ => true,
-                            // }
+                                && match body.iq {
+                                    1..7 => {
+                                        if let Status::EscapingBody((_, body_type)) = unsafe {
+                                            bodies_shot_for_statuses
+                                                .get_mut(other_body_id)
+                                                .unwrap_unchecked()
+                                        }
+                                        .status
+                                        {
+                                            body_type != body.body_type
+                                        } else {
+                                            true
+                                        }
+                                    }
+                                    _ => true,
+                                }
                         })
                         .min_by(|(_, a), (_, b)| unsafe {
                             body.pos
@@ -343,6 +327,11 @@ async fn main() {
                             removed_bodies.insert(**prey_id);
                         } else {
                             body.status = Status::FollowingTarget((**prey_id, prey.pos));
+                            unsafe {
+                                bodies_shot_for_statuses.get_mut(body_id).unwrap_unchecked()
+                            }
+                            .status = body.status;
+
                             body.pos.x +=
                                 ((prey.pos.x - body.pos.x) * body.speed) / distance_to_prey;
                             body.pos.y +=
@@ -367,7 +356,12 @@ async fn main() {
                                                 if let Status::FollowingTarget((
                                                     other_body_chasing_plant_id,
                                                     _,
-                                                )) = other_body.status
+                                                )) = unsafe {
+                                                    bodies_shot_for_statuses
+                                                        .get_mut(other_body_id)
+                                                        .unwrap_unchecked()
+                                                }
+                                                .status
                                                 {
                                                     other_body_chasing_plant_id != **plant_id
                                                 } else {
@@ -396,6 +390,11 @@ async fn main() {
                         } else {
                             body.status =
                                 Status::FollowingTarget((*closest_plant_index, closest_plant.pos));
+                            unsafe {
+                                bodies_shot_for_statuses.get_mut(body_id).unwrap_unchecked()
+                            }
+                            .status = body.status;
+
                             body.pos.x += ((closest_plant.pos.x - body.pos.x) * body.speed)
                                 / distance_to_closest_plant;
                             body.pos.y += ((closest_plant.pos.y - body.pos.y) * body.speed)
@@ -411,7 +410,7 @@ async fn main() {
             if body.energy > body.division_threshold {
                 for _ in 0..2 {
                     new_bodies.insert(
-                        time_since_unix_epoch!(),
+                        epoch_start.elapsed().as_nanos(),
                         Body::new(
                             Vec2 {
                                 x: body.pos.x + OBJECT_RADIUS,
@@ -493,7 +492,7 @@ async fn main() {
                                     body.color,
                                 );
 
-                                let to_display = format!("{} {}", body.body_type, body.iq);
+                                let to_display = format!("{} {}", body.iq, body.lifespan.round());
                                 draw_text(
                                     &to_display,
                                     body.pos.x

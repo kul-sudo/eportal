@@ -1,16 +1,13 @@
-use std::{
-    collections::HashMap,
-    time::{Instant, SystemTime, UNIX_EPOCH},
-};
+use std::{collections::HashMap, time::Instant};
 
 use macroquad::{
     color::{Color, GREEN},
     math::{Vec2, Vec3},
     rand::gen_range,
 };
-use rand::{random, rngs::StdRng, Rng};
+use rand::{rngs::StdRng, Rng};
 
-use crate::{constants::*, get_with_deviation, time_since_unix_epoch};
+use crate::{constants::*, get_with_deviation};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Status {
@@ -73,22 +70,11 @@ impl Body {
             division_threshold: get_with_deviation!(division_threshold, rng),
             iq: if is_first_generation {
                 iq
-            } else if rng.gen_range(0.0..1.0) < IQ_CHANGE_CHANCE {
-                match random::<bool>() {
-                    true => {
-                        if iq == MAX_IQ {
-                            iq
-                        } else {
-                            iq + 1
-                        }
-                    }
-                    false => {
-                        if iq == MIN_IQ {
-                            iq
-                        } else {
-                            iq + 1
-                        }
-                    }
+            } else if rng.gen_range(0.0..1.0) < IQ_INCREASE_CHANCE {
+                if iq == MAX_IQ {
+                    iq
+                } else {
+                    iq + 1
                 }
             } else {
                 iq
@@ -126,6 +112,7 @@ pub fn randomly_spawn_body(
     eating_strategy: EatingStrategy,
     rng: &mut StdRng,
     body_type: usize,
+    epoch_start: Instant,
 ) {
     let mut pos = Vec2::default();
 
@@ -178,7 +165,7 @@ pub fn randomly_spawn_body(
     }
 
     bodies.insert(
-        time_since_unix_epoch!(),
+        epoch_start.elapsed().as_nanos(),
         Body::new(
             pos,
             match eating_strategy {

@@ -1,12 +1,12 @@
 use std::{
     collections::HashMap,
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant},
 };
 
 use macroquad::math::Vec2;
 use rand::{rngs::StdRng, Rng};
 
-use crate::{time_since_unix_epoch, Body, MIN_GAP, OBJECT_RADIUS, PLANT_SPAWN_TIME_LIMIT};
+use crate::{Body, MIN_GAP, OBJECT_RADIUS, PLANT_SPAWN_TIME_LIMIT};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Plant {
@@ -18,6 +18,7 @@ pub fn randomly_spawn_plant(
     plants: &mut HashMap<u128, Plant>,
     rng: &mut StdRng,
     area_size: Vec2,
+    epoch_start: Instant,
 ) {
     let starting_point = Instant::now();
 
@@ -47,7 +48,7 @@ pub fn randomly_spawn_plant(
 
     // Make sure the position is far enough from the rest of the bodies and the borders of the area
     while {
-        key = time_since_unix_epoch!() % 100000;
+        key = epoch_start.elapsed().as_nanos();
         plants.contains_key(&key)
     } {}
     plants.insert(key, Plant { pos });
