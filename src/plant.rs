@@ -3,14 +3,34 @@ use std::{
     time::{Duration, Instant},
 };
 
-use macroquad::math::Vec2;
+use macroquad::{color::GREEN, math::Vec2, shapes::draw_triangle};
 use rand::{rngs::StdRng, Rng};
 
-use crate::{Body, MIN_GAP, OBJECT_RADIUS, PLANT_SPAWN_TIME_LIMIT};
+use crate::{Body, COSINE_OF_30_DEGREES, MIN_GAP, OBJECT_RADIUS, PLANT_SPAWN_TIME_LIMIT};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Plant {
     pub pos: Vec2,
+}
+
+impl Plant {
+    pub fn draw(&self) {
+        draw_triangle(
+            Vec2 {
+                x: self.pos.x,
+                y: self.pos.y - OBJECT_RADIUS,
+            },
+            Vec2 {
+                x: self.pos.x + OBJECT_RADIUS * (COSINE_OF_30_DEGREES),
+                y: self.pos.y + OBJECT_RADIUS / 2.0,
+            },
+            Vec2 {
+                x: self.pos.x - OBJECT_RADIUS * (COSINE_OF_30_DEGREES),
+                y: self.pos.y + OBJECT_RADIUS / 2.0,
+            },
+            GREEN,
+        );
+    }
 }
 
 pub fn randomly_spawn_plant(
@@ -52,25 +72,4 @@ pub fn randomly_spawn_plant(
         plants.contains_key(&key)
     } {}
     plants.insert(key, Plant { pos });
-}
-
-#[macro_export]
-macro_rules! draw_plant {
-    ($plant:expr) => {
-        draw_triangle(
-            Vec2 {
-                x: $plant.pos.x,
-                y: $plant.pos.y - OBJECT_RADIUS,
-            },
-            Vec2 {
-                x: $plant.pos.x + OBJECT_RADIUS * (COSINE_OF_30_DEGREES),
-                y: $plant.pos.y + OBJECT_RADIUS / 2.0,
-            },
-            Vec2 {
-                x: $plant.pos.x - OBJECT_RADIUS * (COSINE_OF_30_DEGREES),
-                y: $plant.pos.y + OBJECT_RADIUS / 2.0,
-            },
-            GREEN,
-        );
-    };
 }

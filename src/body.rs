@@ -1,9 +1,10 @@
-use std::{collections::HashMap, time::Instant};
+use std::{collections::HashMap, f32::consts::SQRT_2, time::Instant};
 
 use macroquad::{
     color::{Color, GREEN},
     math::{Vec2, Vec3},
     rand::gen_range,
+    shapes::{draw_circle, draw_line, draw_rectangle},
 };
 use rand::{rngs::StdRng, Rng};
 
@@ -103,6 +104,46 @@ impl Body {
             self.pos.y = area_size.y - MIN_GAP;
         }
     }
+
+    pub fn draw(self) {
+        let side_length_half = OBJECT_RADIUS / SQRT_2;
+
+        if self.is_alive() {
+            match self.eating_strategy {
+                EatingStrategy::Bodies => {
+                    let side_length = side_length_half * 2.0;
+                    draw_rectangle(
+                        self.pos.x - side_length_half,
+                        self.pos.y - side_length_half,
+                        side_length,
+                        side_length,
+                        self.color,
+                    )
+                }
+                EatingStrategy::Plants => {
+                    draw_circle(self.pos.x, self.pos.y, OBJECT_RADIUS, self.color)
+                }
+            }
+        } else {
+            draw_line(
+                self.pos.x - side_length_half,
+                self.pos.y - side_length_half,
+                self.pos.x + side_length_half,
+                self.pos.y + side_length_half,
+                2.0,
+                self.color,
+            );
+
+            draw_line(
+                self.pos.x + side_length_half,
+                self.pos.y - side_length_half,
+                self.pos.x - side_length_half,
+                self.pos.y + side_length_half,
+                2.0,
+                self.color,
+            )
+        }
+    }
 }
 
 /// Generate a random position until it suits certain creteria.
@@ -186,48 +227,4 @@ pub fn randomly_spawn_body(
             body_type as u16,
         ),
     );
-}
-
-#[macro_export]
-macro_rules! draw_body {
-    ($body:expr) => {
-        let side_length_half = OBJECT_RADIUS / SQRT_2;
-
-        if $body.is_alive() {
-            match $body.eating_strategy {
-                EatingStrategy::Bodies => {
-                    let side_length = side_length_half * 2.0;
-                    draw_rectangle(
-                        $body.pos.x - side_length_half,
-                        $body.pos.y - side_length_half,
-                        side_length,
-                        side_length,
-                        $body.color,
-                    )
-                }
-
-                EatingStrategy::Plants => {
-                    draw_circle($body.pos.x, $body.pos.y, OBJECT_RADIUS, $body.color)
-                }
-            }
-        } else {
-            draw_line(
-                $body.pos.x - side_length_half,
-                $body.pos.y - side_length_half,
-                $body.pos.x + side_length_half,
-                $body.pos.y + side_length_half,
-                2.0,
-                $body.color,
-            );
-
-            draw_line(
-                $body.pos.x + side_length_half,
-                $body.pos.y - side_length_half,
-                $body.pos.x - side_length_half,
-                $body.pos.y + side_length_half,
-                2.0,
-                $body.color,
-            )
-        }
-    };
 }

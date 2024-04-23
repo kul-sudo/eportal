@@ -14,7 +14,7 @@ use plant::{randomly_spawn_plant, Plant};
 use std::{
     collections::{HashMap, HashSet},
     env::consts::OS,
-    f32::consts::{PI, SQRT_2},
+    f32::consts::PI,
     intrinsics::unlikely,
     thread::sleep,
     time::{Duration, Instant},
@@ -22,15 +22,15 @@ use std::{
 
 use macroquad::{
     camera::{set_camera, Camera2D},
-    color::{GREEN, WHITE},
+    color::WHITE,
     input::{is_key_down, is_key_pressed, is_mouse_button_pressed, mouse_position, KeyCode},
     math::{vec2, Rect, Vec2},
     miniquad::{window::set_fullscreen, MouseButton},
-    shapes::{draw_circle, draw_circle_lines, draw_line, draw_rectangle, draw_triangle},
+    shapes::{draw_circle_lines, draw_line},
     text::{draw_text, measure_text},
     window::{next_frame, screen_height, screen_width, Conf},
 };
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{rngs::StdRng, seq::IteratorRandom, Rng, SeedableRng};
 
 /// Adjust the coordinates according to the borders.
 macro_rules! adjusted_coordinates {
@@ -159,15 +159,15 @@ async fn main() {
         }
 
         // Remove plants
+        let mut n_removed = 0;
         let n_to_remove =
             ((plants.len() - removed_plants.len()) as f32 * PART_OF_PLANTS_TO_REMOVE) as usize;
 
-        for (plant_n, plant) in plants.iter().enumerate() {
-            if plant_n == n_to_remove {
-                break;
-            }
-            if !removed_plants.contains(plant.0) {
-                removed_plants.insert(*plant.0);
+        while n_removed != n_to_remove {
+            let random_plant_id = unsafe { plants.iter().choose(rng).unwrap_unchecked() }.0;
+            if !removed_plants.contains(random_plant_id) {
+                removed_plants.insert(*random_plant_id);
+                n_removed += 1;
             }
         }
 
@@ -466,7 +466,7 @@ async fn main() {
             if !is_draw_prevented {
                 for (plant_id, plant) in &plants {
                     if !removed_plants.contains(plant_id) {
-                        draw_plant!(plant);
+                        plant.draw();
                     }
                 }
 
@@ -506,7 +506,7 @@ async fn main() {
                             }
                         }
 
-                        draw_body!(body);
+                        body.draw();
                     }
                 }
 

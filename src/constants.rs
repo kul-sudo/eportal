@@ -46,7 +46,7 @@ pub const SPEED_BIRTH_ENERGY_SPENT: f32 = 10.0;
 
 // Death
 pub const CROSS_LIFESPAN: u64 = 30; // In seconds
-pub const PART_OF_PLANTS_TO_REMOVE: f32 = 0.008;
+pub const PART_OF_PLANTS_TO_REMOVE: f32 = 0.0004;
 
 // Zoom
 pub const MAX_ZOOM: f32 = OBJECT_RADIUS;
