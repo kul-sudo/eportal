@@ -34,11 +34,10 @@ impl Plant {
 }
 
 pub fn randomly_spawn_plant(
-    bodies: &HashMap<u128, Body>,
-    plants: &mut HashMap<u128, Plant>,
+    bodies: &HashMap<Instant, Body>,
+    plants: &mut HashMap<Instant, Plant>,
     rng: &mut StdRng,
     area_size: Vec2,
-    epoch_start: Instant,
 ) {
     let starting_point = Instant::now();
 
@@ -64,12 +63,5 @@ pub fn randomly_spawn_plant(
                 .any(|plant| plant.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
     } {}
 
-    let mut key;
-
-    // Make sure the position is far enough from the rest of the bodies and the borders of the area
-    while {
-        key = epoch_start.elapsed().as_nanos();
-        plants.contains_key(&key)
-    } {}
-    plants.insert(key, Plant { pos });
+    plants.insert(Instant::now(), Plant { pos });
 }

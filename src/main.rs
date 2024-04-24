@@ -105,12 +105,10 @@ async fn main() {
     let mut show_info = true;
 
     // 'main_evolution_loop: loop {
-    let mut bodies: HashMap<u128, Body> = HashMap::with_capacity(BODIES_N);
-    let mut plants: HashMap<u128, Plant> = HashMap::new();
-    let mut removed_plants: HashSet<u128> = HashSet::new();
-    let mut removed_bodies: HashSet<u128> = HashSet::with_capacity(bodies.len());
-
-    let epoch_start = Instant::now();
+    let mut bodies: HashMap<Instant, Body> = HashMap::with_capacity(BODIES_N);
+    let mut plants: HashMap<Instant, Plant> = HashMap::new();
+    let mut removed_plants: HashSet<Instant> = HashSet::new();
+    let mut removed_bodies: HashSet<Instant> = HashSet::with_capacity(bodies.len());
 
     // Spawn the bodies
     for i in 0..BODIES_N {
@@ -124,13 +122,12 @@ async fn main() {
             },
             rng,
             i + 1,
-            epoch_start,
         );
     }
 
     // Spawn the plants
     for _ in 0..PLANTS_N {
-        randomly_spawn_plant(&bodies, &mut plants, rng, area_size, epoch_start)
+        randomly_spawn_plant(&bodies, &mut plants, rng, area_size)
     }
 
     // The timer needed for the FPS
@@ -159,21 +156,22 @@ async fn main() {
         }
 
         // Remove plants
-        let mut n_removed = 0;
         let n_to_remove =
             ((plants.len() - removed_plants.len()) as f32 * PART_OF_PLANTS_TO_REMOVE) as usize;
 
-        while n_removed != n_to_remove {
-            let random_plant_id = unsafe { plants.iter().choose(rng).unwrap_unchecked() }.0;
-            if !removed_plants.contains(random_plant_id) {
-                removed_plants.insert(*random_plant_id);
-                n_removed += 1;
+        for _ in 0..n_to_remove {
+            loop {
+                let random_plant_id = unsafe { plants.iter().choose(rng).unwrap_unchecked() }.0;
+                if !removed_plants.contains(random_plant_id) {
+                    removed_plants.insert(*random_plant_id);
+                    break;
+                }
             }
         }
 
         // Spawn a plant in a random place with a specific chance
         for _ in 0..PLANTS_N_FOR_ONE_STEP {
-            randomly_spawn_plant(&bodies, &mut plants, rng, area_size, epoch_start)
+            randomly_spawn_plant(&bodies, &mut plants, rng, area_size)
         }
 
         // Whether enough time has passed to draw a new frame
@@ -182,7 +180,7 @@ async fn main() {
 
         // Due to certain borrowing rules, it's impossible to modify these during the loop,
         // so it'll be done after it
-        let mut new_bodies: HashMap<u128, Body> = HashMap::with_capacity(bodies.len() * 2);
+        let mut new_bodies: HashMap<Instant, Body> = HashMap::with_capacity(bodies.len() * 2);
         let bodies_shot = bodies.clone();
         let mut bodies_shot_for_statuses = bodies.clone();
 
@@ -209,10 +207,7 @@ async fn main() {
             }
 
             // Handle if dead to become a cross
-            if body.energy < MIN_ENERGY
-                || body_id + Duration::from_secs_f32(body.lifespan).as_nanos()
-                    < epoch_start.elapsed().as_nanos()
-            {
+            if body.energy < MIN_ENERGY || body_id.elapsed().as_secs_f32() > body.lifespan {
                 body.status = Status::Dead(Instant::now());
                 continue;
             }
@@ -410,7 +405,7 @@ async fn main() {
             if body.energy > body.division_threshold {
                 for _ in 0..2 {
                     new_bodies.insert(
-                        epoch_start.elapsed().as_nanos(),
+                        Instant::now(),
                         Body::new(
                             Vec2 {
                                 x: body.pos.x + OBJECT_RADIUS,

@@ -12,8 +12,8 @@ use crate::{constants::*, get_with_deviation};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Status {
-    FollowingTarget((u128, Vec2)),
-    EscapingBody((u128, u16)),
+    FollowingTarget((Instant, Vec2)),
+    EscapingBody((Instant, u16)),
     Dead(Instant),
     Walking(Vec2),
     Idle,
@@ -148,12 +148,11 @@ impl Body {
 
 /// Generate a random position until it suits certain creteria.
 pub fn randomly_spawn_body(
-    bodies: &mut HashMap<u128, Body>,
+    bodies: &mut HashMap<Instant, Body>,
     area_size: Vec2,
     eating_strategy: EatingStrategy,
     rng: &mut StdRng,
     body_type: usize,
-    epoch_start: Instant,
 ) {
     let mut pos = Vec2::default();
 
@@ -206,7 +205,7 @@ pub fn randomly_spawn_body(
     }
 
     bodies.insert(
-        epoch_start.elapsed().as_nanos(),
+        Instant::now(),
         Body::new(
             pos,
             match eating_strategy {
