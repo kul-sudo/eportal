@@ -6,11 +6,11 @@ use macroquad::{
     rand::gen_range,
     shapes::{draw_circle, draw_line, draw_rectangle},
 };
-use rand::{rngs::StdRng, Rng};
+use rand::{rngs::StdRng, seq::IteratorRandom, Rng};
 
 use crate::{constants::*, get_with_deviation};
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Status {
     FollowingTarget((Instant, Vec2)),
     EscapingBody((Instant, u16)),
@@ -28,13 +28,14 @@ pub enum EatingStrategy {
 #[derive(Clone, Copy, PartialEq)]
 pub struct Body {
     pub pos: Vec2,
-    pub energy: f32,
-    pub speed: f32,
-    pub vision_distance: f32,
+    pub energy: Option<f32>,
+    pub speed: Option<f32>,
+    pub vision_distance: Option<f32>,
     pub eating_strategy: EatingStrategy,
     /// The body procreates after a specific level of energy has been reached.
-    pub division_threshold: f32,
-    pub iq: u8,
+    pub division_threshold: Option<f32>,
+    pub iq: Option<u8>,
+    pub max_iq: Option<u8>,
     pub color: Color,
     pub status: Status,
     /// When the body died due to a lack of energy if it did die in the first place.
@@ -46,40 +47,74 @@ pub struct Body {
 impl Body {
     pub fn new(
         pos: Vec2,
-        energy: f32,
-        speed: f32,
-        vision_distance: f32,
+        energy: Option<f32>,
+        speed: Option<f32>,
+        vision_distance: Option<f32>,
         eating_strategy: EatingStrategy,
-        division_threshold: f32,
-        iq: u8,
+        division_threshold: Option<f32>,
+        iq: Option<u8>,
+        max_iq: Option<u8>,
         color: Color,
-        is_first_generation: bool,
         rng: &mut StdRng,
         body_type: u16,
     ) -> Self {
         Body {
             pos,
-            energy: if is_first_generation {
-                get_with_deviation!(energy, rng)
-            } else {
-                energy / 2.0
-            } - VISION_DISTANCE_BIRTH_ENERGY_SPENT * vision_distance
-                - SPEED_BIRTH_ENERGY_SPENT * speed,
-            speed: get_with_deviation!(speed, rng),
-            vision_distance: get_with_deviation!(vision_distance, rng),
-            eating_strategy,
-            division_threshold: get_with_deviation!(division_threshold, rng),
-            iq: if is_first_generation {
-                iq
-            } else if rng.gen_range(0.0..1.0) < IQ_INCREASE_CHANCE {
-                if iq == MAX_IQ {
-                    iq
-                } else {
-                    iq + 1
-                }
-            } else {
-                iq
+            energy: match energy {
+                Some(energy) => Some(energy / 2.0),
+                None => Some(get_with_deviation!(
+                    match eating_strategy {
+                        EatingStrategy::Bodies => BODY_EATER_AVERAGE_ENERGY,
+                        EatingStrategy::Plants => PLANT_EATER_AVERAGE_ENERGY,
+                    },
+                    rng
+                )),
             },
+            speed: Some(get_with_deviation!(
+                match speed {
+                    Some(speed) => speed,
+                    None => AVERAGE_SPEED,
+                },
+                rng
+            )),
+            vision_distance: Some(get_with_deviation!(
+                match vision_distance {
+                    Some(vision_distance) => vision_distance,
+                    None => AVERAGE_VISION_DISTANCE,
+                },
+                rng
+            )),
+            eating_strategy,
+            division_threshold: Some(get_with_deviation!(
+                match division_threshold {
+                    Some(division_threshold) => division_threshold,
+                    None => {
+                        match eating_strategy {
+                            EatingStrategy::Bodies => BODY_EATER_AVERAGE_DIVISION_THRESHOLD,
+                            EatingStrategy::Plants => PLANT_EATER_AVERAGE_DIVISION_THRESHOLD,
+                        }
+                    }
+                },
+                rng
+            )),
+            iq: Some(match iq {
+                Some(iq) => {
+                    if rng.gen_range(0.0..1.0) < IQ_INCREASE_CHANCE {
+                        if Some(iq) == max_iq {
+                            iq
+                        } else {
+                            iq + 1
+                        }
+                    } else {
+                        iq
+                    }
+                }
+                None => 0,
+            }),
+            max_iq: Some(match max_iq {
+                Some(max_iq) => max_iq,
+                None => unsafe { (0..MAX_IQ + 1).choose(rng).unwrap_unchecked() },
+            }),
             color,
             status: Status::Idle,
             body_type,
@@ -208,20 +243,14 @@ pub fn randomly_spawn_body(
         Instant::now(),
         Body::new(
             pos,
-            match eating_strategy {
-                EatingStrategy::Bodies => BODY_EATER_AVERAGE_ENERGY,
-                EatingStrategy::Plants => PLANT_EATER_AVERAGE_ENERGY,
-            },
-            AVERAGE_SPEED,
-            AVERAGE_VISION_DISTANCE,
+            None,
+            None,
+            None,
             eating_strategy,
-            match eating_strategy {
-                EatingStrategy::Bodies => BODY_EATER_AVERAGE_DIVISION_THRESHOLD,
-                EatingStrategy::Plants => PLANT_EATER_AVERAGE_DIVISION_THRESHOLD,
-            },
-            0,
+            None,
+            None,
+            None,
             color,
-            true,
             rng,
             body_type as u16,
         ),
