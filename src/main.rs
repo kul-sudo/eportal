@@ -16,6 +16,7 @@ use std::{
     env::consts::OS,
     f32::consts::PI,
     intrinsics::unlikely,
+    io::Result,
     thread::sleep,
     time::{Duration, Instant},
 };
@@ -81,7 +82,7 @@ fn window_conf() -> Conf {
 }
 
 #[macroquad::main(window_conf)]
-async fn main() {
+async fn main() -> Result<()> {
     // Make the window fullscreen on Linux: for some reason, when the application has been built,
     // Arch Linux apparently doesn't have enough time to make it fullscreen
     if OS == "linux" {
@@ -187,11 +188,6 @@ async fn main() {
         let plants_shot = plants.clone();
 
         for (body_id, body) in &mut bodies {
-            let body_speed = unsafe { body.speed.unwrap_unchecked() };
-            let body_energy = unsafe { body.energy.unwrap_unchecked() };
-            let body_iq = unsafe { body.iq.unwrap_unchecked() };
-            let body_vision_distance = unsafe { body.vision_distance.unwrap_unchecked() };
-
             // Handle if the body was eaten earlier
             if removed_bodies.contains(body_id) {
                 continue;
@@ -207,12 +203,17 @@ async fn main() {
 
             // Handle lifespan
             if body.status != Status::Idle {
-                body.lifespan =
-                    (body.lifespan - CONST_FOR_LIFESPAN * body_speed * body_energy).max(0.0)
+                body.lifespan = (body.lifespan
+                    - CONST_FOR_LIFESPAN
+                        * unsafe { body.speed.unwrap_unchecked() }
+                        * unsafe { body.energy.unwrap_unchecked() })
+                .max(0.0)
             }
 
             // Handle if dead to become a cross
-            if body_energy < MIN_ENERGY || body_id.elapsed().as_secs_f32() > body.lifespan {
+            if unsafe { body.energy.unwrap_unchecked() } < MIN_ENERGY
+                || body_id.elapsed().as_secs_f32() > body.lifespan
+            {
                 body.status = Status::Dead(Instant::now());
                 continue;
             }
@@ -220,20 +221,27 @@ async fn main() {
             // Handle the energy
             // The mass is proportional to the energy; to keep the mass up, energy is spent
             body.energy = Some(
-                (body_energy - ENERGY_SPENT_CONST_FOR_MASS * body_energy
-                    + ENERGY_SPENT_CONST_FOR_IQ * body_iq as f32)
-                    .max(0.0),
+                unsafe { body.energy.unwrap_unchecked() }
+                    - ENERGY_SPENT_CONST_FOR_MASS * unsafe { body.energy.unwrap_unchecked() }
+                    - ENERGY_SPENT_CONST_FOR_IQ * unsafe { body.iq.unwrap_unchecked() } as f32
+                    - ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
+                        * unsafe { body.vision_distance.unwrap_unchecked() }.powi(2),
             );
 
             if body.status != Status::Idle {
                 body.energy = Some(
-                    body_energy
+                    unsafe { body.energy.unwrap_unchecked() }
                         - match body.eating_strategy {
                             EatingStrategy::Bodies => BODY_EATER_ENERGY_SPENT_CONST_FOR_MOVEMENT,
                             EatingStrategy::Plants => PLANT_EATER_ENERGY_SPENT_CONST_FOR_MOVEMENT,
-                        } * body_speed
-                            * body_energy,
+                        } * unsafe { body.speed.unwrap_unchecked() }
+                            * unsafe { body.energy.unwrap_unchecked() },
                 )
+            }
+
+            if body.energy <= Some(0.0) {
+                removed_bodies.insert(*body_id);
+                continue;
             }
 
             // Escape
@@ -242,7 +250,8 @@ async fn main() {
                 .filter(|(other_body_id, other_body)| {
                     body_id != *other_body_id
                         && !removed_bodies.contains(other_body_id)
-                        && body.pos.distance(other_body.pos) <= body_vision_distance
+                        && body.pos.distance(other_body.pos)
+                            <= unsafe { body.vision_distance.unwrap_unchecked() }
                 })
                 .collect::<Vec<_>>();
 
@@ -278,10 +287,12 @@ async fn main() {
                 let distance_to_closest_chasing_body = body.pos.distance(closest_chasing_body.pos);
                 body.pos = Vec2 {
                     x: body.pos.x
-                        - ((closest_chasing_body.pos.x - body.pos.x) * body_speed)
+                        - ((closest_chasing_body.pos.x - body.pos.x)
+                            * unsafe { body.speed.unwrap_unchecked() })
                             / distance_to_closest_chasing_body,
                     y: body.pos.y
-                        - ((closest_chasing_body.pos.y - body.pos.y) * body_speed)
+                        - ((closest_chasing_body.pos.y - body.pos.y)
+                            * unsafe { body.speed.unwrap_unchecked() })
                             / distance_to_closest_chasing_body,
                 };
 
@@ -307,16 +318,25 @@ async fn main() {
                                     }
                                     EatingStrategy::Plants => true,
                                 }
-                                && match body_iq {
+                                && match unsafe { body.iq.unwrap_unchecked() } {
                                     1..7 => {
-                                        if let Status::EscapingBody((_, body_type)) = unsafe {
+                                        if let Status::EscapingBody((
+                                            chasing_body_id,
+                                            chasing_body_type,
+                                        )) = unsafe {
                                             bodies_shot_for_statuses
                                                 .get_mut(other_body_id)
                                                 .unwrap_unchecked()
                                         }
                                         .status
                                         {
-                                            body_type != body.body_type
+                                            // if chasing_body_type == body.body_type {
+                                            //     *body_id == chasing_body_id
+                                            // } else {
+                                            //     true
+                                            // }
+                                            chasing_body_type != body.body_type
+                                                || *body_id == chasing_body_id
                                         } else {
                                             true
                                         }
@@ -332,9 +352,11 @@ async fn main() {
                         })
                     {
                         let distance_to_prey = body.pos.distance(prey.pos);
-                        if distance_to_prey <= body_speed {
-                            body.energy =
-                                Some(body_energy + unsafe { prey.energy.unwrap_unchecked() });
+                        if distance_to_prey <= unsafe { body.speed.unwrap_unchecked() } {
+                            body.energy = Some(
+                                unsafe { body.energy.unwrap_unchecked() }
+                                    + unsafe { prey.energy.unwrap_unchecked() },
+                            );
                             body.pos = prey.pos;
                             removed_bodies.insert(**prey_id);
                         } else {
@@ -344,10 +366,12 @@ async fn main() {
                             }
                             .status = body.status;
 
-                            body.pos.x +=
-                                ((prey.pos.x - body.pos.x) * body_speed) / distance_to_prey;
-                            body.pos.y +=
-                                ((prey.pos.y - body.pos.y) * body_speed) / distance_to_prey;
+                            body.pos.x += ((prey.pos.x - body.pos.x)
+                                * unsafe { body.speed.unwrap_unchecked() })
+                                / distance_to_prey;
+                            body.pos.y += ((prey.pos.y - body.pos.y)
+                                * unsafe { body.speed.unwrap_unchecked() })
+                                / distance_to_prey;
 
                             continue;
                         }
@@ -358,8 +382,9 @@ async fn main() {
                         .iter()
                         .filter(|(plant_id, plant)| {
                             !removed_plants.contains(plant_id)
-                                && body.pos.distance(plant.pos) <= body_vision_distance
-                                && match body_iq {
+                                && body.pos.distance(plant.pos)
+                                    <= unsafe { body.vision_distance.unwrap_unchecked() }
+                                && match unsafe { body.iq.unwrap_unchecked() } {
                                     1..7 => bodies_within_vision_distance.iter().all(
                                         |(other_body_id, other_body)| {
                                             if other_body.body_type == body.body_type
@@ -395,8 +420,9 @@ async fn main() {
                         })
                     {
                         let distance_to_closest_plant = body.pos.distance(closest_plant.pos);
-                        if distance_to_closest_plant <= body_speed {
-                            body.energy = Some(body_energy + PLANT_HP);
+                        if distance_to_closest_plant <= unsafe { body.speed.unwrap_unchecked() } {
+                            body.energy =
+                                Some(unsafe { body.energy.unwrap_unchecked() } + PLANT_HP);
                             body.pos = closest_plant.pos;
                             removed_plants.insert(*closest_plant_index);
                         } else {
@@ -407,9 +433,11 @@ async fn main() {
                             }
                             .status = body.status;
 
-                            body.pos.x += ((closest_plant.pos.x - body.pos.x) * body_speed)
+                            body.pos.x += ((closest_plant.pos.x - body.pos.x)
+                                * unsafe { body.speed.unwrap_unchecked() })
                                 / distance_to_closest_plant;
-                            body.pos.y += ((closest_plant.pos.y - body.pos.y) * body_speed)
+                            body.pos.y += ((closest_plant.pos.y - body.pos.y)
+                                * unsafe { body.speed.unwrap_unchecked() })
                                 / distance_to_closest_plant;
 
                             continue;
@@ -453,9 +481,10 @@ async fn main() {
                     if !matches!(body.status, Status::Walking(..)) {
                         let walking_angle: f32 = rng.gen_range(0.0..2.0 * PI);
                         let pos_deviation = Vec2 {
-                            x: body_speed * walking_angle.cos(),
-                            y: body_speed * walking_angle.sin(),
+                            x: unsafe { body.speed.unwrap_unchecked() } * walking_angle.cos(),
+                            y: unsafe { body.speed.unwrap_unchecked() } * walking_angle.sin(),
                         };
+
                         body.status = Status::Walking(pos_deviation);
                     }
 
@@ -504,7 +533,12 @@ async fn main() {
                                     body.color,
                                 );
 
-                                let to_display = format!("{:?} {:?}", unsafe { body.iq.unwrap_unchecked() }, unsafe { body.max_iq.unwrap_unchecked() });
+                                let to_display = format!(
+                                    "iq = {:?} \n max_iq = {:?} \n energy = {:?}",
+                                    unsafe { body.iq.unwrap_unchecked() },
+                                    unsafe { body.max_iq.unwrap_unchecked() },
+                                    unsafe { body.energy.unwrap_unchecked() }.round()
+                                );
                                 draw_text(
                                     &to_display,
                                     body.pos.x

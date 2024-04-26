@@ -2,7 +2,7 @@ use std::f32::consts::SQRT_3;
 
 // Base
 pub const BODY_EATERS_N: usize = 100;
-pub const PLANTS_EATERS_N: usize = 250;
+pub const PLANTS_EATERS_N: usize = 300;
 pub const BODIES_N: usize = BODY_EATERS_N + PLANTS_EATERS_N;
 pub const PLANTS_N: usize = 20000;
 pub const OBJECT_RADIUS: f32 = 10.0;
@@ -26,7 +26,7 @@ pub const AVERAGE_SPEED: f32 = 1.5;
 pub const PLANT_HP: f32 = 100.0;
 pub const MIN_GAP: f32 = 3.0;
 pub const COLOR_GAP: f32 = 0.65; // Depends on COLOR_MIN and COLOR_MAX
-pub const PLANTS_N_FOR_ONE_STEP: usize = 5; // Mid-game
+pub const PLANTS_N_FOR_ONE_STEP: usize = 8; // Mid-game
 pub const PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 pub const MIN_TO_REMOVE: usize = 500; // Bodies and plants are removed only it's needed to remove
                                       // more of them than this constant. That's because when the amount of object to remove, the time it
@@ -37,8 +37,9 @@ pub const MAX_IQ: u8 = 1;
 // Spending energy
 pub const ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.00008;
 pub const ENERGY_SPENT_CONST_FOR_IQ: f32 = 0.006;
+pub const ENERGY_SPENT_CONST_FOR_VISION_DISTANCE: f32 = 0.00001;
 pub const PLANT_EATER_ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.00008;
-pub const BODY_EATER_ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.00004;
+pub const BODY_EATER_ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.000001; // 0.00004
 pub const CONST_FOR_LIFESPAN: f32 = 0.000005;
 
 // Death
