@@ -16,7 +16,6 @@ use std::{
     env::consts::OS,
     f32::consts::PI,
     intrinsics::unlikely,
-    io::Result,
     thread::sleep,
     time::{Duration, Instant},
 };
@@ -82,7 +81,7 @@ fn window_conf() -> Conf {
 }
 
 #[macroquad::main(window_conf)]
-async fn main() -> Result<()> {
+async fn main() {
     // Make the window fullscreen on Linux: for some reason, when the application has been built,
     // Arch Linux apparently doesn't have enough time to make it fullscreen
     if OS == "linux" {
