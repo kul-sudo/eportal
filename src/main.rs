@@ -55,6 +55,18 @@ macro_rules! get_with_deviation {
     }};
 }
 
+enum FoodType {
+    Body,
+    Plant,
+}
+
+struct FoodInfo {
+    id: Instant,
+    food_type: FoodType,
+    pos: Vec2,
+    energy: f32,
+}
+
 /// Set the camera zoom to where the mouse cursor is.
 fn get_zoom_target(camera: &mut Camera2D, area_size: Vec2) {
     let (x, y) = mouse_position();
@@ -115,10 +127,10 @@ async fn main() {
         randomly_spawn_body(
             &mut bodies,
             area_size,
-            if i >= BODY_EATERS_N {
-                EatingStrategy::Plants
+            if rng.gen_range(0.0..1.0) <= PASSIVE_CHANCE {
+                EatingStrategy::Passive
             } else {
-                EatingStrategy::Bodies
+                EatingStrategy::Active
             },
             rng,
             i + 1,
@@ -138,8 +150,6 @@ async fn main() {
         if unlikely(is_mouse_button_pressed(MouseButton::Left)) {
             if zoom_mode {
                 default_camera(&mut camera, area_size);
-            } else {
-                get_zoom_target(&mut camera, area_size);
             }
 
             zoom_mode = !zoom_mode
@@ -230,10 +240,8 @@ async fn main() {
             if body.status != Status::Idle {
                 body.energy = Some(
                     unsafe { body.energy.unwrap_unchecked() }
-                        - match body.eating_strategy {
-                            EatingStrategy::Bodies => BODY_EATER_ENERGY_SPENT_CONST_FOR_MOVEMENT,
-                            EatingStrategy::Plants => PLANT_EATER_ENERGY_SPENT_CONST_FOR_MOVEMENT,
-                        } * unsafe { body.speed.unwrap_unchecked() }
+                        - ENERGY_SPENT_CONST_FOR_MOVEMENT
+                            * unsafe { body.speed.unwrap_unchecked() }
                             * unsafe { body.energy.unwrap_unchecked() },
                 )
             }
@@ -284,131 +292,93 @@ async fn main() {
                     body.status;
 
                 let distance_to_closest_chasing_body = body.pos.distance(closest_chasing_body.pos);
-                body.pos = Vec2 {
-                    x: body.pos.x
-                        - ((closest_chasing_body.pos.x - body.pos.x)
-                            * unsafe { body.speed.unwrap_unchecked() })
-                            / distance_to_closest_chasing_body,
-                    y: body.pos.y
-                        - ((closest_chasing_body.pos.y - body.pos.y)
-                            * unsafe { body.speed.unwrap_unchecked() })
-                            / distance_to_closest_chasing_body,
-                };
+
+                body.pos.x -= ((closest_chasing_body.pos.x - body.pos.x)
+                    * unsafe { body.speed.unwrap_unchecked() })
+                    / distance_to_closest_chasing_body;
+                body.pos.y -= ((closest_chasing_body.pos.y - body.pos.y)
+                    * unsafe { body.speed.unwrap_unchecked() })
+                    / distance_to_closest_chasing_body;
 
                 body.wrap(area_size);
 
                 continue;
             }
 
-            // Find food according to body.eating_strategy
-            match body.eating_strategy {
-                EatingStrategy::Bodies => {
-                    if let Some((prey_id, prey)) = bodies_within_vision_distance
-                        .iter()
-                        .filter(|(other_body_id, other_body)| {
-                            other_body.body_type != body.body_type
-                                && match other_body.eating_strategy {
-                                    EatingStrategy::Bodies => {
-                                        if other_body.is_alive() {
-                                            body.energy > other_body.energy
-                                        } else {
-                                            true
-                                        }
+            // Eating
+            let bodies_within_vision_distance_of_my_type = bodies_within_vision_distance
+                .iter()
+                .filter(|(_, other_body)| other_body.body_type == body.body_type)
+                .collect::<Vec<_>>();
+
+            let mut food: Option<FoodInfo> = None;
+
+            // Find the closest cross
+            match bodies_within_vision_distance
+                .iter()
+                .filter(|(cross_id, cross)| {
+                    body.body_type != cross.body_type && !cross.is_alive() && {
+                        let iq = unsafe { body.iq.unwrap_unchecked() };
+
+                        if (1..7).contains(&iq) {
+                            bodies_within_vision_distance_of_my_type.iter().all(
+                                |(other_body_id, _)| {
+                                    unsafe {
+                                        bodies_shot_for_statuses
+                                            .get(other_body_id)
+                                            .unwrap_unchecked()
                                     }
-                                    EatingStrategy::Plants => true,
-                                }
-                                && match unsafe { body.iq.unwrap_unchecked() } {
-                                    1..7 => {
-                                        if let Status::EscapingBody((
-                                            chasing_body_id,
-                                            chasing_body_type,
-                                        )) = unsafe {
-                                            bodies_shot_for_statuses
-                                                .get_mut(other_body_id)
-                                                .unwrap_unchecked()
-                                        }
-                                        .status
-                                        {
-                                            // if chasing_body_type == body.body_type {
-                                            //     *body_id == chasing_body_id
-                                            // } else {
-                                            //     true
-                                            // }
-                                            chasing_body_type != body.body_type
-                                                || *body_id == chasing_body_id
-                                        } else {
-                                            true
-                                        }
-                                    }
-                                    _ => true,
-                                }
-                        })
-                        .min_by(|(_, a), (_, b)| unsafe {
-                            body.pos
-                                .distance(a.pos)
-                                .partial_cmp(&body.pos.distance(b.pos))
-                                .unwrap_unchecked()
-                        })
-                    {
-                        let distance_to_prey = body.pos.distance(prey.pos);
-                        if distance_to_prey <= unsafe { body.speed.unwrap_unchecked() } {
-                            body.energy = Some(
-                                unsafe { body.energy.unwrap_unchecked() }
-                                    + unsafe { prey.energy.unwrap_unchecked() },
-                            );
-                            body.pos = prey.pos;
-                            removed_bodies.insert(**prey_id);
+                                    .status
+                                        != Status::FollowingTarget((**cross_id, cross.pos))
+                                },
+                            )
                         } else {
-                            body.status = Status::FollowingTarget((**prey_id, prey.pos));
-                            unsafe {
-                                bodies_shot_for_statuses.get_mut(body_id).unwrap_unchecked()
-                            }
-                            .status = body.status;
-
-                            body.pos.x += ((prey.pos.x - body.pos.x)
-                                * unsafe { body.speed.unwrap_unchecked() })
-                                / distance_to_prey;
-                            body.pos.y += ((prey.pos.y - body.pos.y)
-                                * unsafe { body.speed.unwrap_unchecked() })
-                                / distance_to_prey;
-
-                            continue;
+                            true
                         }
                     }
+                })
+                .min_by(|(_, a), (_, b)| unsafe {
+                    body.pos
+                        .distance(a.pos)
+                        .partial_cmp(&body.pos.distance(b.pos))
+                        .unwrap_unchecked()
+                }) {
+                Some(closest_cross) => {
+                    food = Some(FoodInfo {
+                        id: *closest_cross.0,
+                        food_type: FoodType::Body,
+                        pos: closest_cross.1.pos,
+                        energy: unsafe { closest_cross.1.energy.unwrap_unchecked() },
+                    })
                 }
-                EatingStrategy::Plants => {
-                    if let Some((closest_plant_index, closest_plant)) = plants_shot
+                None => {
+                    // Find the closest plant
+                    match plants_shot
                         .iter()
                         .filter(|(plant_id, plant)| {
-                            !removed_plants.contains(plant_id)
-                                && body.pos.distance(plant.pos)
-                                    <= unsafe { body.vision_distance.unwrap_unchecked() }
-                                && match unsafe { body.iq.unwrap_unchecked() } {
-                                    1..7 => bodies_within_vision_distance.iter().all(
-                                        |(other_body_id, other_body)| {
-                                            if other_body.body_type == body.body_type
-                                                && *other_body_id != body_id
-                                            {
-                                                if let Status::FollowingTarget((
-                                                    other_body_chasing_plant_id,
-                                                    _,
-                                                )) = unsafe {
+                            body.pos.distance(plant.pos)
+                                <= unsafe { body.vision_distance.unwrap_unchecked() }
+                                && !removed_plants.contains(plant_id)
+                                && {
+                                    let iq = unsafe { body.iq.unwrap_unchecked() };
+
+                                    if (1..7).contains(&iq) {
+                                        bodies_within_vision_distance_of_my_type.iter().all(
+                                            |(other_body_id, _)| {
+                                                unsafe {
                                                     bodies_shot_for_statuses
-                                                        .get_mut(other_body_id)
+                                                        .get(other_body_id)
                                                         .unwrap_unchecked()
                                                 }
                                                 .status
-                                                {
-                                                    other_body_chasing_plant_id != **plant_id
-                                                } else {
-                                                    true
-                                                }
-                                            } else {
-                                                true
-                                            }
-                                        },
-                                    ),
-                                    _ => true,
+                                                    != Status::FollowingTarget((
+                                                        **plant_id, plant.pos,
+                                                    ))
+                                            },
+                                        )
+                                    } else {
+                                        true
+                                    }
                                 }
                         })
                         .min_by(|(_, a), (_, b)| unsafe {
@@ -416,32 +386,231 @@ async fn main() {
                                 .distance(a.pos)
                                 .partial_cmp(&body.pos.distance(b.pos))
                                 .unwrap_unchecked()
-                        })
-                    {
-                        let distance_to_closest_plant = body.pos.distance(closest_plant.pos);
-                        if distance_to_closest_plant <= unsafe { body.speed.unwrap_unchecked() } {
-                            body.energy =
-                                Some(unsafe { body.energy.unwrap_unchecked() } + PLANT_HP);
-                            body.pos = closest_plant.pos;
-                            removed_plants.insert(*closest_plant_index);
-                        } else {
-                            body.status =
-                                Status::FollowingTarget((*closest_plant_index, closest_plant.pos));
-                            unsafe {
-                                bodies_shot_for_statuses.get_mut(body_id).unwrap_unchecked()
+                        }) {
+                        Some(closest_plant) => {
+                            food = Some(FoodInfo {
+                                id: *closest_plant.0,
+                                food_type: FoodType::Plant,
+                                pos: closest_plant.1.pos,
+                                energy: PLANT_ENERGY,
+                            })
+                        }
+                        None => {
+                            // Find the closest body
+                            if let Some(closest_body) = bodies_within_vision_distance
+                                .iter()
+                                .filter(|(other_body_id, other_body)| {
+                                    body.body_type != other_body.body_type
+                                        && body.energy > other_body.energy
+                                        && other_body.is_alive()
+                                        && {
+                                            let iq = unsafe { body.iq.unwrap_unchecked() };
+
+                                            if (1..7).contains(&iq) {
+                                                bodies_within_vision_distance_of_my_type.iter().all(
+                                                    |(_, other_body)| {
+                                                        other_body.status
+                                                            != Status::FollowingTarget((
+                                                                **other_body_id,
+                                                                other_body.pos,
+                                                            ))
+                                                    },
+                                                )
+                                            } else {
+                                                true
+                                            }
+                                        }
+                                })
+                                .min_by(|(_, a), (_, b)| unsafe {
+                                    body.pos
+                                        .distance(a.pos)
+                                        .partial_cmp(&body.pos.distance(b.pos))
+                                        .unwrap_unchecked()
+                                })
+                            {
+                                food = Some(FoodInfo {
+                                    id: *closest_body.0,
+                                    food_type: FoodType::Body,
+                                    pos: closest_body.1.pos,
+                                    energy: unsafe { closest_body.1.energy.unwrap_unchecked() },
+                                })
                             }
-                            .status = body.status;
-
-                            body.pos.x += ((closest_plant.pos.x - body.pos.x)
-                                * unsafe { body.speed.unwrap_unchecked() })
-                                / distance_to_closest_plant;
-                            body.pos.y += ((closest_plant.pos.y - body.pos.y)
-                                * unsafe { body.speed.unwrap_unchecked() })
-                                / distance_to_closest_plant;
-
-                            continue;
                         }
                     }
+                }
+            }
+
+            // match body.eating_strategy {
+            //     EatingStrategy::Bodies => {
+            //         if let Some((prey_id, prey)) = bodies_within_vision_distance
+            //             .iter()
+            //             .filter(|(other_body_id, other_body)| {
+            //                 other_body.body_type != body.body_type
+            //                     && match other_body.eating_strategy {
+            //                         EatingStrategy::Bodies => {
+            //                             if other_body.is_alive() {
+            //                                 body.energy > other_body.energy
+            //                             } else {
+            //                                 true
+            //                             }
+            //                         }
+            //                         EatingStrategy::Plants => true,
+            //                     }
+            //                     && match unsafe { body.iq.unwrap_unchecked() } {
+            //                         1..7 => {
+            //                             if let Status::EscapingBody((
+            //                                 chasing_body_id,
+            //                                 chasing_body_type,
+            //                             )) = unsafe {
+            //                                 bodies_shot_for_statuses
+            //                                     .get_mut(other_body_id)
+            //                                     .unwrap_unchecked()
+            //                             }
+            //                             .status
+            //                             {
+            //                                 // if chasing_body_type == body.body_type {
+            //                                 //     *body_id == chasing_body_id
+            //                                 // } else {
+            //                                 //     true
+            //                                 // }
+            //                                 chasing_body_type != body.body_type
+            //                                     || *body_id == chasing_body_id
+            //                             } else {
+            //                                 true
+            //                             }
+            //                         }
+            //                         _ => true,
+            //                     }
+            //             })
+            //             .min_by(|(_, a), (_, b)| unsafe {
+            //                 body.pos
+            //                     .distance(a.pos)
+            //                     .partial_cmp(&body.pos.distance(b.pos))
+            //                     .unwrap_unchecked()
+            //             })
+            //         {
+            //             let distance_to_prey = body.pos.distance(prey.pos);
+            //             if distance_to_prey <= unsafe { body.speed.unwrap_unchecked() } {
+            //                 body.energy = Some(
+            //                     unsafe { body.energy.unwrap_unchecked() }
+            //                         + unsafe { prey.energy.unwrap_unchecked() },
+            //                 );
+            //                 body.pos = prey.pos;
+            //                 removed_bodies.insert(**prey_id);
+            //             } else {
+            //                 body.status = Status::FollowingTarget((**prey_id, prey.pos));
+            //                 unsafe {
+            //                     bodies_shot_for_statuses.get_mut(body_id).unwrap_unchecked()
+            //                 }
+            //                 .status = body.status;
+            //
+            //                 body.pos.x += ((prey.pos.x - body.pos.x)
+            //                     * unsafe { body.speed.unwrap_unchecked() })
+            //                     / distance_to_prey;
+            //                 body.pos.y += ((prey.pos.y - body.pos.y)
+            //                     * unsafe { body.speed.unwrap_unchecked() })
+            //                     / distance_to_prey;
+            //
+            //                 continue;
+            //             }
+            //         }
+            //     }
+            //     EatingStrategy::Plants => {
+            //         if let Some((closest_plant_index, closest_plant)) = plants_shot
+            //             .iter()
+            //             .filter(|(plant_id, plant)| {
+            //                 !removed_plants.contains(plant_id)
+            //                     && body.pos.distance(plant.pos)
+            //                         <= unsafe { body.vision_distance.unwrap_unchecked() }
+            //                     && match unsafe { body.iq.unwrap_unchecked() } {
+            //                         1..7 => bodies_within_vision_distance.iter().all(
+            //                             |(other_body_id, other_body)| {
+            //                                 if other_body.body_type == body.body_type
+            //                                     && *other_body_id != body_id
+            //                                 {
+            //                                     if let Status::FollowingTarget((
+            //                                         other_body_chasing_plant_id,
+            //                                         _,
+            //                                     )) = unsafe {
+            //                                         bodies_shot_for_statuses
+            //                                             .get_mut(other_body_id)
+            //                                             .unwrap_unchecked()
+            //                                     }
+            //                                     .status
+            //                                     {
+            //                                         other_body_chasing_plant_id != **plant_id
+            //                                     } else {
+            //                                         true
+            //                                     }
+            //                                 } else {
+            //                                     true
+            //                                 }
+            //                             },
+            //                         ),
+            //                         _ => true,
+            //                     }
+            //             })
+            //             .min_by(|(_, a), (_, b)| unsafe {
+            //                 body.pos
+            //                     .distance(a.pos)
+            //                     .partial_cmp(&body.pos.distance(b.pos))
+            //                     .unwrap_unchecked()
+            //             })
+            //         {
+            //             let distance_to_closest_plant = body.pos.distance(closest_plant.pos);
+            //             if distance_to_closest_plant <= unsafe { body.speed.unwrap_unchecked() } {
+            //                 body.energy =
+            //                     Some(unsafe { body.energy.unwrap_unchecked() } + PLANT_HP);
+            //                 body.pos = closest_plant.pos;
+            //                 removed_plants.insert(*closest_plant_index);
+            //             } else {
+            //                 body.status =
+            //                     Status::FollowingTarget((*closest_plant_index, closest_plant.pos));
+            //                 unsafe {
+            //                     bodies_shot_for_statuses.get_mut(body_id).unwrap_unchecked()
+            //                 }
+            //                 .status = body.status;
+            //
+            //                 body.pos.x += ((closest_plant.pos.x - body.pos.x)
+            //                     * unsafe { body.speed.unwrap_unchecked() })
+            //                     / distance_to_closest_plant;
+            //                 body.pos.y += ((closest_plant.pos.y - body.pos.y)
+            //                     * unsafe { body.speed.unwrap_unchecked() })
+            //                     / distance_to_closest_plant;
+            //
+            //                 continue;
+            //             }
+            //         }
+            //     }
+            // }
+
+            if let Some(food) = food {
+                let distance_to_food = body.pos.distance(food.pos);
+                if distance_to_food <= unsafe { body.speed.unwrap_unchecked() } {
+                    body.energy = Some(unsafe { body.energy.unwrap_unchecked() } + food.energy);
+                    body.pos = food.pos;
+
+                    match food.food_type {
+                        FoodType::Body => {
+                            removed_bodies.insert(food.id);
+                        }
+                        FoodType::Plant => {
+                            removed_plants.insert(food.id);
+                        }
+                    }
+                } else {
+                    body.status = Status::FollowingTarget((food.id, food.pos));
+                    unsafe { bodies_shot_for_statuses.get_mut(body_id).unwrap_unchecked() }
+                        .status = body.status;
+
+                    body.pos.x += ((food.pos.x - body.pos.x)
+                        * unsafe { body.speed.unwrap_unchecked() })
+                        / distance_to_food;
+                    body.pos.y += ((food.pos.y - body.pos.y)
+                        * unsafe { body.speed.unwrap_unchecked() })
+                        / distance_to_food;
+
+                    continue;
                 }
             }
 
@@ -451,10 +620,7 @@ async fn main() {
                     new_bodies.insert(
                         Instant::now(),
                         Body::new(
-                            Vec2 {
-                                x: body.pos.x + OBJECT_RADIUS,
-                                y: body.pos.y,
-                            },
+                            body.pos,
                             body.energy,
                             body.speed,
                             body.vision_distance,
@@ -463,8 +629,8 @@ async fn main() {
                             body.iq,
                             body.max_iq,
                             body.color,
-                            rng,
                             body.body_type,
+                            rng,
                         ),
                     );
                 }
@@ -476,7 +642,7 @@ async fn main() {
 
             // Handle body-eaters walking & plant-eaters idle
             match body.eating_strategy {
-                EatingStrategy::Bodies => {
+                EatingStrategy::Active => {
                     if !matches!(body.status, Status::Walking(..)) {
                         let walking_angle: f32 = rng.gen_range(0.0..2.0 * PI);
                         let pos_deviation = Vec2 {
@@ -494,7 +660,7 @@ async fn main() {
 
                     body.wrap(area_size);
                 }
-                EatingStrategy::Plants => body.status = Status::Idle,
+                EatingStrategy::Passive => body.status = Status::Idle,
             }
         }
 

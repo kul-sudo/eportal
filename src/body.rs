@@ -21,8 +21,8 @@ pub enum Status {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum EatingStrategy {
-    Bodies,
-    Plants,
+    Passive,
+    Active,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -55,21 +55,15 @@ impl Body {
         iq: Option<u8>,
         max_iq: Option<u8>,
         color: Color,
-        rng: &mut StdRng,
         body_type: u16,
+        rng: &mut StdRng,
     ) -> Self {
         Body {
             pos,
-            energy: match energy {
-                Some(energy) => Some(energy / 2.0),
-                None => Some(get_with_deviation!(
-                    match eating_strategy {
-                        EatingStrategy::Bodies => BODY_EATER_AVERAGE_ENERGY,
-                        EatingStrategy::Plants => PLANT_EATER_AVERAGE_ENERGY,
-                    },
-                    rng
-                )),
-            },
+            energy: Some(match energy {
+                Some(energy) => energy / 2.0,
+                None => get_with_deviation!(AVERAGE_ENERGY, rng),
+            }),
             speed: Some(get_with_deviation!(
                 match speed {
                     Some(speed) => speed,
@@ -88,12 +82,7 @@ impl Body {
             division_threshold: Some(get_with_deviation!(
                 match division_threshold {
                     Some(division_threshold) => division_threshold,
-                    None => {
-                        match eating_strategy {
-                            EatingStrategy::Bodies => BODY_EATER_AVERAGE_DIVISION_THRESHOLD,
-                            EatingStrategy::Plants => PLANT_EATER_AVERAGE_DIVISION_THRESHOLD,
-                        }
-                    }
+                    None => AVERAGE_DIVISION_THRESHOLD,
                 },
                 rng
             )),
@@ -145,7 +134,7 @@ impl Body {
 
         if self.is_alive() {
             match self.eating_strategy {
-                EatingStrategy::Bodies => {
+                EatingStrategy::Active => {
                     let side_length = side_length_half * 2.0;
                     draw_rectangle(
                         self.pos.x - side_length_half,
@@ -155,7 +144,7 @@ impl Body {
                         self.color,
                     )
                 }
-                EatingStrategy::Plants => {
+                EatingStrategy::Passive => {
                     draw_circle(self.pos.x, self.pos.y, OBJECT_RADIUS, self.color)
                 }
             }
@@ -251,8 +240,8 @@ pub fn randomly_spawn_body(
             None,
             None,
             color,
-            rng,
             body_type as u16,
+            rng,
         ),
     );
 }

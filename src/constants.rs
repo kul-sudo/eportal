@@ -1,10 +1,9 @@
 use std::f32::consts::SQRT_3;
 
 // Base
-pub const BODY_EATERS_N: usize = 100;
-pub const PLANTS_EATERS_N: usize = 300;
-pub const BODIES_N: usize = BODY_EATERS_N + PLANTS_EATERS_N;
+pub const BODIES_N: usize = 300;
 pub const PLANTS_N: usize = 20000;
+pub const PASSIVE_CHANCE: f32 = 0.3;
 pub const OBJECT_RADIUS: f32 = 10.0;
 /// Used for `get_with_deviation`.
 pub const DEVIATION: f32 = 0.2;
@@ -14,16 +13,14 @@ pub const MIN_ENERGY: f32 = 1000.0;
 pub const LIFESPAN: f32 = 240.0;
 
 // Average spawn attributes
-pub const PLANT_EATER_AVERAGE_ENERGY: f32 = 1500.0;
-pub const BODY_EATER_AVERAGE_ENERGY: f32 = 3000.0;
-pub const PLANT_EATER_AVERAGE_DIVISION_THRESHOLD: f32 = 3000.0;
-pub const BODY_EATER_AVERAGE_DIVISION_THRESHOLD: f32 = 3950.0;
+pub const AVERAGE_ENERGY: f32 = 1500.0;
+pub const AVERAGE_DIVISION_THRESHOLD: f32 = 3000.0;
 
 pub const AVERAGE_VISION_DISTANCE: f32 = 100.0;
 pub const AVERAGE_SPEED: f32 = 1.5;
 
 // Evolution process
-pub const PLANT_HP: f32 = 100.0;
+pub const PLANT_ENERGY: f32 = 100.0;
 pub const MIN_GAP: f32 = 3.0;
 pub const COLOR_GAP: f32 = 0.65; // Depends on COLOR_MIN and COLOR_MAX
 pub const PLANTS_N_FOR_ONE_STEP: usize = 8; // Mid-game
@@ -37,9 +34,8 @@ pub const MAX_IQ: u8 = 1;
 // Spending energy
 pub const ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.00008;
 pub const ENERGY_SPENT_CONST_FOR_IQ: f32 = 0.006;
-pub const ENERGY_SPENT_CONST_FOR_VISION_DISTANCE: f32 = 0.00001;
-pub const PLANT_EATER_ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.00008;
-pub const BODY_EATER_ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.000001; // 0.00004
+pub const ENERGY_SPENT_CONST_FOR_VISION_DISTANCE: f32 = 0.00004;
+pub const ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.0003;
 pub const CONST_FOR_LIFESPAN: f32 = 0.000005;
 
 // Death
