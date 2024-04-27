@@ -217,21 +217,19 @@ async fn main() {
 
         for _ in 0..n_to_remove {
             loop {
-                let random_cell = unsafe { plants.iter().choose(rng).unwrap_unchecked() }.0;
-                let (random_plant_id, random_plant) = unsafe {
-                    plants
-                        .get(random_cell)
-                        .unwrap_unchecked()
-                        .iter()
-                        .choose(rng)
-                        .unwrap_unchecked()
-                };
+                let random_cell = plants.iter().choose(rng).unwrap().0;
+
+                if let Some((random_plant_id, random_plant)) =
+                    plants.get(random_cell).unwrap().iter().choose(rng)
+                {
+
                 if !removed_plants.contains(&(*random_plant_id, random_plant.pos)) {
                     removed_plants.push((*random_plant_id, random_plant.pos));
-                    if random_plant.pos.x > area_size.x || random_plant.pos.y > area_size.y {
-                        println!("{:?}", random_plant.pos);
-                    }
+                    // if random_plant.pos.x > area_size.x || random_plant.pos.y > area_size.y {
+                    //     println!("{:?}", random_plant.pos);
+                    // }
                     break;
+                }
                 }
             }
         }
@@ -272,15 +270,12 @@ async fn main() {
             // Handle lifespan
             if body.status != Status::Idle {
                 body.lifespan = (body.lifespan
-                    - CONST_FOR_LIFESPAN
-                        * unsafe { body.speed.unwrap_unchecked() }
-                        * unsafe { body.energy.unwrap_unchecked() })
+                    - CONST_FOR_LIFESPAN * body.speed.unwrap() * body.energy.unwrap())
                 .max(0.0)
             }
 
             // Handle if dead to become a cross
-            if unsafe { body.energy.unwrap_unchecked() } < MIN_ENERGY
-                || body_id.elapsed().as_secs_f32() > body.lifespan
+            if body.energy.unwrap() < MIN_ENERGY || body_id.elapsed().as_secs_f32() > body.lifespan
             {
                 body.status = Status::Dead(Instant::now());
                 continue;
@@ -289,19 +284,19 @@ async fn main() {
             // Handle the energy
             // The mass is proportional to the energy; to keep the mass up, energy is spent
             body.energy = Some(
-                unsafe { body.energy.unwrap_unchecked() }
-                    - ENERGY_SPENT_CONST_FOR_MASS * unsafe { body.energy.unwrap_unchecked() }
-                    - ENERGY_SPENT_CONST_FOR_IQ * unsafe { body.iq.unwrap_unchecked() } as f32
+                body.energy.unwrap()
+                    - ENERGY_SPENT_CONST_FOR_MASS * body.energy.unwrap()
+                    - ENERGY_SPENT_CONST_FOR_IQ * body.iq.unwrap() as f32
                     - ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
-                        * unsafe { body.vision_distance.unwrap_unchecked() }.powi(2),
+                        * body.vision_distance.unwrap().powi(2),
             );
 
             if body.status != Status::Idle {
                 body.energy = Some(
-                    unsafe { body.energy.unwrap_unchecked() }
+                    body.energy.unwrap()
                         - ENERGY_SPENT_CONST_FOR_MOVEMENT
-                            * unsafe { body.speed.unwrap_unchecked() }
-                            * unsafe { body.energy.unwrap_unchecked() },
+                            * body.speed.unwrap()
+                            * body.energy.unwrap(),
                 )
             }
 
@@ -316,8 +311,7 @@ async fn main() {
                 .filter(|(other_body_id, other_body)| {
                     body_id != *other_body_id
                         && !removed_bodies.contains(other_body_id)
-                        && body.pos.distance(other_body.pos)
-                            <= unsafe { body.vision_distance.unwrap_unchecked() }
+                        && body.pos.distance(other_body.pos) <= body.vision_distance.unwrap()
                 })
                 .collect::<Vec<_>>();
 
@@ -325,12 +319,8 @@ async fn main() {
                 bodies_within_vision_distance
                     .iter()
                     .filter(|(other_body_id, _)| {
-                        if let Status::FollowingTarget(other_body_target) = unsafe {
-                            bodies_shot_for_statuses
-                                .get(other_body_id)
-                                .unwrap_unchecked()
-                        }
-                        .status
+                        if let Status::FollowingTarget(other_body_target) =
+                            bodies_shot_for_statuses.get(other_body_id).unwrap().status
                         {
                             other_body_target.0 == *body_id
                         } else {
@@ -347,16 +337,13 @@ async fn main() {
                     **closest_chasing_body_id,
                     closest_chasing_body.body_type,
                 ));
-                unsafe { bodies_shot_for_statuses.get_mut(body_id).unwrap_unchecked() }.status =
-                    body.status;
+                bodies_shot_for_statuses.get_mut(body_id).unwrap().status = body.status;
 
                 let distance_to_closest_chasing_body = body.pos.distance(closest_chasing_body.pos);
 
-                body.pos.x -= ((closest_chasing_body.pos.x - body.pos.x)
-                    * unsafe { body.speed.unwrap_unchecked() })
+                body.pos.x -= ((closest_chasing_body.pos.x - body.pos.x) * body.speed.unwrap())
                     / distance_to_closest_chasing_body;
-                body.pos.y -= ((closest_chasing_body.pos.y - body.pos.y)
-                    * unsafe { body.speed.unwrap_unchecked() })
+                body.pos.y -= ((closest_chasing_body.pos.y - body.pos.y) * body.speed.unwrap())
                     / distance_to_closest_chasing_body;
 
                 body.wrap(area_size);
@@ -380,17 +367,12 @@ async fn main() {
                 .iter()
                 .filter(|(cross_id, cross)| {
                     body.body_type != cross.body_type && !cross.is_alive() && {
-                        let iq = unsafe { body.iq.unwrap_unchecked() };
+                        let iq = body.iq.unwrap();
 
                         if (1..7).contains(&iq) {
                             bodies_within_vision_distance_of_my_type.iter().all(
                                 |(other_body_id, _)| {
-                                    unsafe {
-                                        bodies_shot_for_statuses
-                                            .get(other_body_id)
-                                            .unwrap_unchecked()
-                                    }
-                                    .status
+                                    bodies_shot_for_statuses.get(other_body_id).unwrap().status
                                         != Status::FollowingTarget((**cross_id, cross.pos))
                                 },
                             )
@@ -399,18 +381,18 @@ async fn main() {
                         }
                     }
                 })
-                .min_by(|(_, a), (_, b)| unsafe {
+                .min_by(|(_, a), (_, b)| {
                     body.pos
                         .distance(a.pos)
                         .partial_cmp(&body.pos.distance(b.pos))
-                        .unwrap_unchecked()
+                        .unwrap()
                 }) {
                 Some(closest_cross) => {
                     food = Some(FoodInfo {
                         id: *closest_cross.0,
                         food_type: FoodType::Body,
                         pos: closest_cross.1.pos,
-                        energy: unsafe { closest_cross.1.energy.unwrap_unchecked() },
+                        energy: closest_cross.1.energy.unwrap(),
                     })
                 }
                 None => {
@@ -418,29 +400,24 @@ async fn main() {
                     let mut only_plants: HashMap<&Instant, &Plant> = HashMap::new();
                     let body_cell = cells.get_cell_by_pos(body.pos);
 
-                    for (plant_id, plant) in
-                        unsafe { plants_shot.get(&body_cell).unwrap_unchecked() }
-                    {
+                    for (plant_id, plant) in plants_shot.get(&body_cell).unwrap() {
                         only_plants.insert(plant_id, plant);
                     }
                     match only_plants
                         .iter()
                         .filter(|(plant_id, plant)| {
-                            body.pos.distance(plant.pos)
-                                <= unsafe { body.vision_distance.unwrap_unchecked() }
+                            body.pos.distance(plant.pos) <= body.vision_distance.unwrap()
                                 && !removed_plants.contains(&(***plant_id, plant.pos))
                                 && {
-                                    let iq = unsafe { body.iq.unwrap_unchecked() };
+                                    let iq = body.iq.unwrap();
 
                                     if (1..7).contains(&iq) {
                                         bodies_within_vision_distance_of_my_type.iter().all(
                                             |(other_body_id, _)| {
-                                                unsafe {
-                                                    bodies_shot_for_statuses
-                                                        .get(other_body_id)
-                                                        .unwrap_unchecked()
-                                                }
-                                                .status
+                                                bodies_shot_for_statuses
+                                                    .get(other_body_id)
+                                                    .unwrap()
+                                                    .status
                                                     != Status::FollowingTarget((
                                                         ***plant_id,
                                                         plant.pos,
@@ -452,11 +429,11 @@ async fn main() {
                                     }
                                 }
                         })
-                        .min_by(|(_, a), (_, b)| unsafe {
+                        .min_by(|(_, a), (_, b)| {
                             body.pos
                                 .distance(a.pos)
                                 .partial_cmp(&body.pos.distance(b.pos))
-                                .unwrap_unchecked()
+                                .unwrap()
                         }) {
                         Some(closest_plant) => {
                             food = Some(FoodInfo {
@@ -475,7 +452,7 @@ async fn main() {
                                         && body.energy > other_body.energy
                                         && other_body.is_alive()
                                         && {
-                                            let iq = unsafe { body.iq.unwrap_unchecked() };
+                                            let iq = body.iq.unwrap();
 
                                             if (1..7).contains(&iq) {
                                                 bodies_within_vision_distance_of_my_type.iter().all(
@@ -492,18 +469,18 @@ async fn main() {
                                             }
                                         }
                                 })
-                                .min_by(|(_, a), (_, b)| unsafe {
+                                .min_by(|(_, a), (_, b)| {
                                     body.pos
                                         .distance(a.pos)
                                         .partial_cmp(&body.pos.distance(b.pos))
-                                        .unwrap_unchecked()
+                                        .unwrap()
                                 })
                             {
                                 food = Some(FoodInfo {
                                     id: *closest_body.0,
                                     food_type: FoodType::Body,
                                     pos: closest_body.1.pos,
-                                    energy: unsafe { closest_body.1.energy.unwrap_unchecked() },
+                                    energy: closest_body.1.energy.unwrap(),
                                 })
                             }
                         }
@@ -513,8 +490,8 @@ async fn main() {
 
             if let Some(food) = food {
                 let distance_to_food = body.pos.distance(food.pos);
-                if distance_to_food <= unsafe { body.speed.unwrap_unchecked() } {
-                    body.energy = Some(unsafe { body.energy.unwrap_unchecked() } + food.energy);
+                if distance_to_food <= body.speed.unwrap() {
+                    body.energy = Some(body.energy.unwrap() + food.energy);
                     body.pos = food.pos;
 
                     match food.food_type {
@@ -531,15 +508,12 @@ async fn main() {
                     }
                 } else {
                     body.status = Status::FollowingTarget((food.id, food.pos));
-                    unsafe { bodies_shot_for_statuses.get_mut(body_id).unwrap_unchecked() }
-                        .status = body.status;
+                    bodies_shot_for_statuses.get_mut(body_id).unwrap().status = body.status;
 
-                    body.pos.x += ((food.pos.x - body.pos.x)
-                        * unsafe { body.speed.unwrap_unchecked() })
-                        / distance_to_food;
-                    body.pos.y += ((food.pos.y - body.pos.y)
-                        * unsafe { body.speed.unwrap_unchecked() })
-                        / distance_to_food;
+                    body.pos.x +=
+                        ((food.pos.x - body.pos.x) * body.speed.unwrap()) / distance_to_food;
+                    body.pos.y +=
+                        ((food.pos.y - body.pos.y) * body.speed.unwrap()) / distance_to_food;
 
                     continue;
                 }
@@ -578,8 +552,8 @@ async fn main() {
                     if !matches!(body.status, Status::Walking(..)) {
                         let walking_angle: f32 = rng.gen_range(0.0..2.0 * PI);
                         let pos_deviation = Vec2 {
-                            x: unsafe { body.speed.unwrap_unchecked() } * walking_angle.cos(),
-                            y: unsafe { body.speed.unwrap_unchecked() } * walking_angle.sin(),
+                            x: body.speed.unwrap() * walking_angle.cos(),
+                            y: body.speed.unwrap() * walking_angle.sin(),
                         };
 
                         body.status = Status::Walking(pos_deviation);
@@ -628,16 +602,16 @@ async fn main() {
                                 draw_circle_lines(
                                     body.pos.x,
                                     body.pos.y,
-                                    unsafe { body.vision_distance.unwrap_unchecked() },
+                                    body.vision_distance.unwrap(),
                                     2.0,
                                     body.color,
                                 );
 
                                 let to_display = format!(
                                     "iq = {:?} \n max_iq = {:?} \n energy = {:?}",
-                                    unsafe { body.iq.unwrap_unchecked() },
-                                    unsafe { body.max_iq.unwrap_unchecked() },
-                                    unsafe { body.energy.unwrap_unchecked() }.round()
+                                    body.iq.unwrap(),
+                                    body.max_iq.unwrap(),
+                                    body.energy.unwrap().round()
                                 );
                                 draw_text(
                                     &to_display,

@@ -73,10 +73,8 @@ pub fn randomly_spawn_plant(
                 .any(|plant| plant.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
     } {}
 
-    unsafe {
         plants
             .get_mut(&cells.get_cell_by_pos(pos))
-            .unwrap_unchecked()
-    }
+            .unwrap()
     .insert(Instant::now(), Plant { pos });
 }

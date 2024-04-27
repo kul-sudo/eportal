@@ -102,7 +102,7 @@ impl Body {
             }),
             max_iq: Some(match max_iq {
                 Some(max_iq) => max_iq,
-                None => unsafe { (0..MAX_IQ + 1).choose(rng).unwrap_unchecked() },
+                None => (0..MAX_IQ + 1).choose(rng).unwrap(),
             }),
             color,
             status: Status::Idle,
