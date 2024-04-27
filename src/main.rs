@@ -67,6 +67,31 @@ struct FoodInfo {
     energy: f32,
 }
 
+#[derive(Eq, Hash, PartialEq, Clone, Debug)]
+pub struct CellPos {
+    /// Row number (0..).
+    i: usize,
+    /// Column number (0..).
+    j: usize,
+}
+
+#[derive(Default, Debug)]
+pub struct Cells {
+    rows: usize,
+    columns: usize,
+    cell_width: f32,
+    cell_height: f32,
+}
+
+impl Cells {
+    fn get_cell_by_pos(&self, pos: Vec2) -> CellPos {
+        CellPos {
+            i: (pos.y / self.cell_height) as usize,
+            j: (pos.x / self.cell_width) as usize,
+        }
+    }
+}
+
 /// Set the camera zoom to where the mouse cursor is.
 fn get_zoom_target(camera: &mut Camera2D, area_size: Vec2) {
     let (x, y) = mouse_position();
@@ -108,6 +133,13 @@ async fn main() {
         y: screen_height() * OBJECT_RADIUS,
     };
 
+    let mut cells = Cells::default();
+
+    cells.rows = CELL_ROWS;
+    cells.columns = ((area_size.x * CELL_ROWS as f32) / area_size.y).round() as usize;
+    cells.cell_width = area_size.x / cells.columns as f32;
+    cells.cell_height = area_size.y / cells.rows as f32;
+
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.x, area_size.y));
     default_camera(&mut camera, area_size);
 
@@ -118,8 +150,15 @@ async fn main() {
 
     // 'main_evolution_loop: loop {
     let mut bodies: HashMap<Instant, Body> = HashMap::with_capacity(BODIES_N);
-    let mut plants: HashMap<Instant, Plant> = HashMap::new();
-    let mut removed_plants: HashSet<Instant> = HashSet::new();
+    let mut plants: HashMap<CellPos, HashMap<Instant, Plant>> =
+        HashMap::with_capacity(cells.rows * cells.columns);
+    for i in 0..cells.rows {
+        for j in 0..cells.columns {
+            plants.insert(CellPos { i, j }, HashMap::new());
+        }
+    }
+
+    let mut removed_plants: Vec<(Instant, Vec2)> = Vec::new();
     let mut removed_bodies: HashSet<Instant> = HashSet::with_capacity(bodies.len());
 
     // Spawn the bodies
@@ -139,7 +178,7 @@ async fn main() {
 
     // Spawn the plants
     for _ in 0..PLANTS_N {
-        randomly_spawn_plant(&bodies, &mut plants, rng, area_size)
+        randomly_spawn_plant(&bodies, &mut plants, rng, area_size, &cells)
     }
 
     // The timer needed for the FPS
@@ -165,23 +204,43 @@ async fn main() {
             get_zoom_target(&mut camera, area_size);
         }
 
+        let mut only_plants: HashMap<&Instant, &Plant> = HashMap::new();
+        for cell in plants.values() {
+            for (plant_id, plant) in cell {
+                only_plants.insert(plant_id, plant);
+            }
+        }
+
         // Remove plants
         let n_to_remove =
-            ((plants.len() - removed_plants.len()) as f32 * PART_OF_PLANTS_TO_REMOVE) as usize;
+            ((only_plants.len() - removed_plants.len()) as f32 * PART_OF_PLANTS_TO_REMOVE) as usize;
 
         for _ in 0..n_to_remove {
             loop {
-                let random_plant_id = unsafe { plants.iter().choose(rng).unwrap_unchecked() }.0;
-                if !removed_plants.contains(random_plant_id) {
-                    removed_plants.insert(*random_plant_id);
+                let random_cell = unsafe { plants.iter().choose(rng).unwrap_unchecked() }.0;
+                let (random_plant_id, random_plant) = unsafe {
+                    plants
+                        .get(random_cell)
+                        .unwrap_unchecked()
+                        .iter()
+                        .choose(rng)
+                        .unwrap_unchecked()
+                };
+                if !removed_plants.contains(&(*random_plant_id, random_plant.pos)) {
+                    removed_plants.push((*random_plant_id, random_plant.pos));
+                    if random_plant.pos.x > area_size.x || random_plant.pos.y > area_size.y {
+                        println!("{:?}", random_plant.pos);
+                    }
                     break;
                 }
             }
         }
 
+        // dbg!();
+
         // Spawn a plant in a random place with a specific chance
         for _ in 0..PLANTS_N_FOR_ONE_STEP {
-            randomly_spawn_plant(&bodies, &mut plants, rng, area_size)
+            randomly_spawn_plant(&bodies, &mut plants, rng, area_size, &cells)
         }
 
         // Whether enough time has passed to draw a new frame
@@ -305,6 +364,8 @@ async fn main() {
                 continue;
             }
 
+            // dbg!();
+
             // Eating
             let bodies_within_vision_distance_of_my_type = bodies_within_vision_distance
                 .iter()
@@ -313,6 +374,7 @@ async fn main() {
 
             let mut food: Option<FoodInfo> = None;
 
+            // dbg!();
             // Find the closest cross
             match bodies_within_vision_distance
                 .iter()
@@ -353,12 +415,20 @@ async fn main() {
                 }
                 None => {
                     // Find the closest plant
-                    match plants_shot
+                    let mut only_plants: HashMap<&Instant, &Plant> = HashMap::new();
+                    let body_cell = cells.get_cell_by_pos(body.pos);
+
+                    for (plant_id, plant) in
+                        unsafe { plants_shot.get(&body_cell).unwrap_unchecked() }
+                    {
+                        only_plants.insert(plant_id, plant);
+                    }
+                    match only_plants
                         .iter()
                         .filter(|(plant_id, plant)| {
                             body.pos.distance(plant.pos)
                                 <= unsafe { body.vision_distance.unwrap_unchecked() }
-                                && !removed_plants.contains(plant_id)
+                                && !removed_plants.contains(&(***plant_id, plant.pos))
                                 && {
                                     let iq = unsafe { body.iq.unwrap_unchecked() };
 
@@ -372,7 +442,8 @@ async fn main() {
                                                 }
                                                 .status
                                                     != Status::FollowingTarget((
-                                                        **plant_id, plant.pos,
+                                                        ***plant_id,
+                                                        plant.pos,
                                                     ))
                                             },
                                         )
@@ -389,7 +460,7 @@ async fn main() {
                         }) {
                         Some(closest_plant) => {
                             food = Some(FoodInfo {
-                                id: *closest_plant.0,
+                                id: **closest_plant.0,
                                 food_type: FoodType::Plant,
                                 pos: closest_plant.1.pos,
                                 energy: PLANT_ENERGY,
@@ -440,150 +511,6 @@ async fn main() {
                 }
             }
 
-            // match body.eating_strategy {
-            //     EatingStrategy::Bodies => {
-            //         if let Some((prey_id, prey)) = bodies_within_vision_distance
-            //             .iter()
-            //             .filter(|(other_body_id, other_body)| {
-            //                 other_body.body_type != body.body_type
-            //                     && match other_body.eating_strategy {
-            //                         EatingStrategy::Bodies => {
-            //                             if other_body.is_alive() {
-            //                                 body.energy > other_body.energy
-            //                             } else {
-            //                                 true
-            //                             }
-            //                         }
-            //                         EatingStrategy::Plants => true,
-            //                     }
-            //                     && match unsafe { body.iq.unwrap_unchecked() } {
-            //                         1..7 => {
-            //                             if let Status::EscapingBody((
-            //                                 chasing_body_id,
-            //                                 chasing_body_type,
-            //                             )) = unsafe {
-            //                                 bodies_shot_for_statuses
-            //                                     .get_mut(other_body_id)
-            //                                     .unwrap_unchecked()
-            //                             }
-            //                             .status
-            //                             {
-            //                                 // if chasing_body_type == body.body_type {
-            //                                 //     *body_id == chasing_body_id
-            //                                 // } else {
-            //                                 //     true
-            //                                 // }
-            //                                 chasing_body_type != body.body_type
-            //                                     || *body_id == chasing_body_id
-            //                             } else {
-            //                                 true
-            //                             }
-            //                         }
-            //                         _ => true,
-            //                     }
-            //             })
-            //             .min_by(|(_, a), (_, b)| unsafe {
-            //                 body.pos
-            //                     .distance(a.pos)
-            //                     .partial_cmp(&body.pos.distance(b.pos))
-            //                     .unwrap_unchecked()
-            //             })
-            //         {
-            //             let distance_to_prey = body.pos.distance(prey.pos);
-            //             if distance_to_prey <= unsafe { body.speed.unwrap_unchecked() } {
-            //                 body.energy = Some(
-            //                     unsafe { body.energy.unwrap_unchecked() }
-            //                         + unsafe { prey.energy.unwrap_unchecked() },
-            //                 );
-            //                 body.pos = prey.pos;
-            //                 removed_bodies.insert(**prey_id);
-            //             } else {
-            //                 body.status = Status::FollowingTarget((**prey_id, prey.pos));
-            //                 unsafe {
-            //                     bodies_shot_for_statuses.get_mut(body_id).unwrap_unchecked()
-            //                 }
-            //                 .status = body.status;
-            //
-            //                 body.pos.x += ((prey.pos.x - body.pos.x)
-            //                     * unsafe { body.speed.unwrap_unchecked() })
-            //                     / distance_to_prey;
-            //                 body.pos.y += ((prey.pos.y - body.pos.y)
-            //                     * unsafe { body.speed.unwrap_unchecked() })
-            //                     / distance_to_prey;
-            //
-            //                 continue;
-            //             }
-            //         }
-            //     }
-            //     EatingStrategy::Plants => {
-            //         if let Some((closest_plant_index, closest_plant)) = plants_shot
-            //             .iter()
-            //             .filter(|(plant_id, plant)| {
-            //                 !removed_plants.contains(plant_id)
-            //                     && body.pos.distance(plant.pos)
-            //                         <= unsafe { body.vision_distance.unwrap_unchecked() }
-            //                     && match unsafe { body.iq.unwrap_unchecked() } {
-            //                         1..7 => bodies_within_vision_distance.iter().all(
-            //                             |(other_body_id, other_body)| {
-            //                                 if other_body.body_type == body.body_type
-            //                                     && *other_body_id != body_id
-            //                                 {
-            //                                     if let Status::FollowingTarget((
-            //                                         other_body_chasing_plant_id,
-            //                                         _,
-            //                                     )) = unsafe {
-            //                                         bodies_shot_for_statuses
-            //                                             .get_mut(other_body_id)
-            //                                             .unwrap_unchecked()
-            //                                     }
-            //                                     .status
-            //                                     {
-            //                                         other_body_chasing_plant_id != **plant_id
-            //                                     } else {
-            //                                         true
-            //                                     }
-            //                                 } else {
-            //                                     true
-            //                                 }
-            //                             },
-            //                         ),
-            //                         _ => true,
-            //                     }
-            //             })
-            //             .min_by(|(_, a), (_, b)| unsafe {
-            //                 body.pos
-            //                     .distance(a.pos)
-            //                     .partial_cmp(&body.pos.distance(b.pos))
-            //                     .unwrap_unchecked()
-            //             })
-            //         {
-            //             let distance_to_closest_plant = body.pos.distance(closest_plant.pos);
-            //             if distance_to_closest_plant <= unsafe { body.speed.unwrap_unchecked() } {
-            //                 body.energy =
-            //                     Some(unsafe { body.energy.unwrap_unchecked() } + PLANT_HP);
-            //                 body.pos = closest_plant.pos;
-            //                 removed_plants.insert(*closest_plant_index);
-            //             } else {
-            //                 body.status =
-            //                     Status::FollowingTarget((*closest_plant_index, closest_plant.pos));
-            //                 unsafe {
-            //                     bodies_shot_for_statuses.get_mut(body_id).unwrap_unchecked()
-            //                 }
-            //                 .status = body.status;
-            //
-            //                 body.pos.x += ((closest_plant.pos.x - body.pos.x)
-            //                     * unsafe { body.speed.unwrap_unchecked() })
-            //                     / distance_to_closest_plant;
-            //                 body.pos.y += ((closest_plant.pos.y - body.pos.y)
-            //                     * unsafe { body.speed.unwrap_unchecked() })
-            //                     / distance_to_closest_plant;
-            //
-            //                 continue;
-            //             }
-            //         }
-            //     }
-            // }
-
             if let Some(food) = food {
                 let distance_to_food = body.pos.distance(food.pos);
                 if distance_to_food <= unsafe { body.speed.unwrap_unchecked() } {
@@ -595,7 +522,11 @@ async fn main() {
                             removed_bodies.insert(food.id);
                         }
                         FoodType::Plant => {
-                            removed_plants.insert(food.id);
+                            removed_plants.push((food.id, food.pos));
+
+                            if food.pos.x > area_size.x || food.pos.y > area_size.y {
+                                println!("{:?}", food.pos);
+                            }
                         }
                     }
                 } else {
@@ -614,6 +545,7 @@ async fn main() {
                 }
             }
 
+            // dbg!();
             // Procreate
             if body.energy > body.division_threshold {
                 for _ in 0..2 {
@@ -664,15 +596,18 @@ async fn main() {
             }
         }
 
+        // dbg!();
         for (new_body_id, new_body) in new_bodies {
             bodies.insert(new_body_id, new_body);
         }
 
         if is_draw_mode {
             if !is_draw_prevented {
-                for (plant_id, plant) in &plants {
-                    if !removed_plants.contains(plant_id) {
-                        plant.draw();
+                for cell in plants.values() {
+                    for (plant_id, plant) in cell {
+                        if !removed_plants.contains(&(*plant_id, plant.pos)) {
+                            plant.draw();
+                        }
                     }
                 }
 
@@ -747,11 +682,21 @@ async fn main() {
             // Removing by a key takes too long, so it's better to do it once
             // but more rarely
             if removed_plants.len() > MIN_TO_REMOVE {
-                for plant_id in &removed_plants {
-                    plants.remove(plant_id);
+                for (plant_id, plant_pos) in &removed_plants {
+                    // println!(
+                    //     "{:?} {:?} {:?}",
+                    //     &cells.get_cell_by_pos(*plant_pos),
+                    //     plant_pos,
+                    //     cells
+                    // );
+                    let plants_in_cell =
+                        plants.get_mut(&cells.get_cell_by_pos(*plant_pos)).unwrap();
+                    plants_in_cell.remove(plant_id);
                 }
                 removed_plants.clear();
             }
+
+            // dbg!();
 
             if removed_bodies.len() > MIN_TO_REMOVE {
                 for body_id in &removed_bodies {
@@ -759,7 +704,11 @@ async fn main() {
                 }
                 removed_bodies.clear();
             }
+
+            // dbg!();
         }
+
+        // dbg!();
     }
     // }
 }

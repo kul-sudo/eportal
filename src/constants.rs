@@ -1,6 +1,7 @@
 use std::f32::consts::SQRT_3;
 
 // Base
+pub const CELL_ROWS: usize = 80;
 pub const BODIES_N: usize = 300;
 pub const PLANTS_N: usize = 20000;
 pub const PASSIVE_CHANCE: f32 = 0.3;

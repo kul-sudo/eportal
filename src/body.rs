@@ -116,15 +116,15 @@ impl Body {
     }
 
     pub fn wrap(&mut self, area_size: Vec2) {
-        if self.pos.x > area_size.x {
+        if self.pos.x >= area_size.x {
             self.pos.x = MIN_GAP;
-        } else if self.pos.x < 0.0 {
+        } else if self.pos.x <= 0.0 {
             self.pos.x = area_size.x - MIN_GAP;
         }
 
-        if self.pos.y > area_size.y {
+        if self.pos.y >= area_size.y {
             self.pos.y = MIN_GAP;
-        } else if self.pos.y < 0.0 {
+        } else if self.pos.y <= 0.0 {
             self.pos.y = area_size.y - MIN_GAP;
         }
     }

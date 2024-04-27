@@ -6,7 +6,9 @@ use std::{
 use macroquad::{color::GREEN, math::Vec2, shapes::draw_triangle};
 use rand::{rngs::StdRng, Rng};
 
-use crate::{Body, COSINE_OF_30_DEGREES, MIN_GAP, OBJECT_RADIUS, PLANT_SPAWN_TIME_LIMIT};
+use crate::{
+    Body, CellPos, Cells, COSINE_OF_30_DEGREES, MIN_GAP, OBJECT_RADIUS, PLANT_SPAWN_TIME_LIMIT,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Plant {
@@ -35,13 +37,21 @@ impl Plant {
 
 pub fn randomly_spawn_plant(
     bodies: &HashMap<Instant, Body>,
-    plants: &mut HashMap<Instant, Plant>,
+    plants: &mut HashMap<CellPos, HashMap<Instant, Plant>>,
     rng: &mut StdRng,
     area_size: Vec2,
+    cells: &Cells,
 ) {
     let starting_point = Instant::now();
 
     let mut pos = Vec2::default();
+
+    let mut only_plants: HashMap<&Instant, &Plant> = HashMap::default();
+    for cell in plants.values() {
+        for (plant_id, plant) in cell {
+            only_plants.insert(plant_id, plant);
+        }
+    }
 
     // Make sure the position is far enough from the rest of the plants and bodies and the borders of the area
     while {
@@ -58,10 +68,15 @@ pub fn randomly_spawn_plant(
             || bodies
                 .values()
                 .any(|body| body.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
-            || plants
+            || only_plants
                 .values()
                 .any(|plant| plant.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
     } {}
 
-    plants.insert(Instant::now(), Plant { pos });
+    unsafe {
+        plants
+            .get_mut(&cells.get_cell_by_pos(pos))
+            .unwrap_unchecked()
+    }
+    .insert(Instant::now(), Plant { pos });
 }
