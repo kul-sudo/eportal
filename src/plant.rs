@@ -46,12 +46,12 @@ pub fn randomly_spawn_plant(
 
     let mut pos = Vec2::default();
 
-    let mut only_plants: HashMap<&Instant, &Plant> = HashMap::default();
-    for cell in plants.values() {
-        for (plant_id, plant) in cell {
-            only_plants.insert(plant_id, plant);
-        }
-    }
+    // let mut only_plants: HashMap<&Instant, &Plant> = HashMap::default();
+    // for cell in plants.values() {
+    //     for (plant_id, plant) in cell {
+    //         only_plants.insert(plant_id, plant);
+    //     }
+    // }
 
     // Make sure the position is far enough from the rest of the plants and bodies and the borders of the area
     while {
@@ -68,9 +68,9 @@ pub fn randomly_spawn_plant(
             || bodies
                 .values()
                 .any(|body| body.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
-            || only_plants
-                .values()
-                .any(|plant| plant.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
+            // || only_plants
+            //     .values()
+            //     .any(|plant| plant.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
     } {}
 
         plants

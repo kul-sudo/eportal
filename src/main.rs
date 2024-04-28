@@ -222,19 +222,16 @@ async fn main() {
                 if let Some((random_plant_id, random_plant)) =
                     plants.get(random_cell).unwrap().iter().choose(rng)
                 {
-
-                if !removed_plants.contains(&(*random_plant_id, random_plant.pos)) {
-                    removed_plants.push((*random_plant_id, random_plant.pos));
-                    // if random_plant.pos.x > area_size.x || random_plant.pos.y > area_size.y {
-                    //     println!("{:?}", random_plant.pos);
-                    // }
-                    break;
-                }
+                    if !removed_plants.contains(&(*random_plant_id, random_plant.pos)) {
+                        removed_plants.push((*random_plant_id, random_plant.pos));
+                        // if random_plant.pos.x > area_size.x || random_plant.pos.y > area_size.y {
+                        //     println!("{:?}", random_plant.pos);
+                        // }
+                        break;
+                    }
                 }
             }
         }
-
-        // dbg!();
 
         // Spawn a plant in a random place with a specific chance
         for _ in 0..PLANTS_N_FOR_ONE_STEP {
@@ -351,8 +348,6 @@ async fn main() {
                 continue;
             }
 
-            // dbg!();
-
             // Eating
             let bodies_within_vision_distance_of_my_type = bodies_within_vision_distance
                 .iter()
@@ -361,7 +356,6 @@ async fn main() {
 
             let mut food: Option<FoodInfo> = None;
 
-            // dbg!();
             // Find the closest cross
             match bodies_within_vision_distance
                 .iter()
@@ -519,7 +513,6 @@ async fn main() {
                 }
             }
 
-            // dbg!();
             // Procreate
             if body.energy > body.division_threshold {
                 for _ in 0..2 {
@@ -570,7 +563,6 @@ async fn main() {
             }
         }
 
-        // dbg!();
         for (new_body_id, new_body) in new_bodies {
             bodies.insert(new_body_id, new_body);
         }
@@ -670,19 +662,13 @@ async fn main() {
                 removed_plants.clear();
             }
 
-            // dbg!();
-
             if removed_bodies.len() > MIN_TO_REMOVE {
                 for body_id in &removed_bodies {
                     bodies.remove(body_id);
                 }
                 removed_bodies.clear();
             }
-
-            // dbg!();
         }
-
-        // dbg!();
     }
     // }
 }
