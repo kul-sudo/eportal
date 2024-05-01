@@ -7,7 +7,7 @@ use macroquad::{color::GREEN, math::Vec2, shapes::draw_triangle};
 use rand::{rngs::StdRng, Rng};
 
 use crate::{
-    Body, CellPos, Cells, COSINE_OF_30_DEGREES, MIN_GAP, OBJECT_RADIUS, PLANT_SPAWN_TIME_LIMIT,
+    Body, Cell, Cells, COSINE_OF_30_DEGREES, MIN_GAP, OBJECT_RADIUS, PLANT_SPAWN_TIME_LIMIT,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -37,7 +37,7 @@ impl Plant {
 
 pub fn randomly_spawn_plant(
     bodies: &HashMap<Instant, Body>,
-    plants: &mut HashMap<CellPos, HashMap<Instant, Plant>>,
+    plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,
     rng: &mut StdRng,
     area_size: Vec2,
     cells: &Cells,
@@ -68,13 +68,13 @@ pub fn randomly_spawn_plant(
             || bodies
                 .values()
                 .any(|body| body.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
-            // || only_plants
-            //     .values()
-            //     .any(|plant| plant.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
+        // || only_plants
+        //     .values()
+        //     .any(|plant| plant.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
     } {}
 
-        plants
-            .get_mut(&cells.get_cell_by_pos(pos))
-            .unwrap()
-    .insert(Instant::now(), Plant { pos });
+    plants
+        .get_mut(&cells.get_cell_by_pos(pos))
+        .unwrap()
+        .insert(Instant::now(), Plant { pos });
 }

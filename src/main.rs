@@ -68,11 +68,45 @@ struct FoodInfo {
 }
 
 #[derive(Eq, Hash, PartialEq, Clone, Debug)]
-pub struct CellPos {
+pub struct Cell {
     /// Row number (0..).
     i: usize,
     /// Column number (0..).
     j: usize,
+}
+
+impl Cell {
+    fn get_visible_plant_ids(
+        &self,
+        body: &Body,
+        cells: &Cells,
+        plants_in_cell: HashMap<Instant, Plant>,
+    ) -> HashSet<Instant> {
+        let (a, b) = (body.pos.x, body.pos.y);
+        let r = body.vision_distance.unwrap();
+        let (w, h) = (cells.cell_width, cells.cell_height);
+
+        // Center of the cell
+        let (center_x, center_y) = (self.j as f32 * w + w / 2.0, self.i as f32 * h + h / 2.0);
+
+        // true as usize = 1
+        // false as usize = 0
+        let (i_adjustment, j_adjustment) = ((center_y > b) as usize, (center_x > a) as usize);
+
+        let fully_covered = (((self.j + j_adjustment) as f32) * w - a).powi(2)
+            + (((self.i + i_adjustment) as f32) * h - b).powi(2)
+            < r.powi(2);
+
+        let mut visible_plant_ids_in_cell = HashSet::with_capacity(plants_in_cell.len());
+
+        for (plant_id, plant) in plants_in_cell {
+            if fully_covered || body.pos.distance(plant.pos) <= body.vision_distance.unwrap() {
+                visible_plant_ids_in_cell.insert(plant_id);
+            }
+        }
+
+        visible_plant_ids_in_cell
+    }
 }
 
 #[derive(Default, Debug)]
@@ -84,8 +118,8 @@ pub struct Cells {
 }
 
 impl Cells {
-    fn get_cell_by_pos(&self, pos: Vec2) -> CellPos {
-        CellPos {
+    fn get_cell_by_pos(&self, pos: Vec2) -> Cell {
+        Cell {
             i: (pos.y / self.cell_height) as usize,
             j: (pos.x / self.cell_width) as usize,
         }
@@ -150,11 +184,11 @@ async fn main() {
 
     // 'main_evolution_loop: loop {
     let mut bodies: HashMap<Instant, Body> = HashMap::with_capacity(BODIES_N);
-    let mut plants: HashMap<CellPos, HashMap<Instant, Plant>> =
+    let mut plants: HashMap<Cell, HashMap<Instant, Plant>> =
         HashMap::with_capacity(cells.rows * cells.columns);
     for i in 0..cells.rows {
         for j in 0..cells.columns {
-            plants.insert(CellPos { i, j }, HashMap::new());
+            plants.insert(Cell { i, j }, HashMap::new());
         }
     }
 
@@ -391,37 +425,37 @@ async fn main() {
                 }
                 None => {
                     // Find the closest plant
-                    let mut only_plants: HashMap<&Instant, &Plant> = HashMap::new();
-                    let body_cell = cells.get_cell_by_pos(body.pos);
+                    let mut visible_plants: HashMap<Instant, Plant> = HashMap::new();
+                    let (a, b) = (body.pos.x, body.pos.y);
+                    let r = body.vision_distance.unwrap();
+                    let (w, h) = (cells.cell_width, cells.cell_height);
+                    let (m, n) = (cells.columns, cells.rows);
 
-                    for (plant_id, plant) in plants_shot.get(&body_cell).unwrap() {
-                        only_plants.insert(plant_id, plant);
-                    }
-                    match only_plants
+                    let i_min = ((b - r) / h).floor().max(0.0) as usize;
+                    let i_max = ((b + r) / h).floor().min(n as f32 - 1.0) as usize;
+                    let j_min = ((a - r) / w).floor().max(0.0) as usize;
+                    let j_max = ((a + r) / w).floor().min(m as f32 - 1.0) as usize;
+
+                    match visible_plants
                         .iter()
                         .filter(|(plant_id, plant)| {
-                            body.pos.distance(plant.pos) <= body.vision_distance.unwrap()
-                                && !removed_plants.contains(&(***plant_id, plant.pos))
-                                && {
-                                    let iq = body.iq.unwrap();
+                            !removed_plants.contains(&(***plant_id, plant.pos)) && {
+                                let iq = body.iq.unwrap();
 
-                                    if (1..7).contains(&iq) {
-                                        bodies_within_vision_distance_of_my_type.iter().all(
-                                            |(other_body_id, _)| {
-                                                bodies_shot_for_statuses
-                                                    .get(other_body_id)
-                                                    .unwrap()
-                                                    .status
-                                                    != Status::FollowingTarget((
-                                                        ***plant_id,
-                                                        plant.pos,
-                                                    ))
-                                            },
-                                        )
-                                    } else {
-                                        true
-                                    }
+                                if (1..7).contains(&iq) {
+                                    bodies_within_vision_distance_of_my_type.iter().all(
+                                        |(other_body_id, _)| {
+                                            bodies_shot_for_statuses
+                                                .get(other_body_id)
+                                                .unwrap()
+                                                .status
+                                                != Status::FollowingTarget((***plant_id, plant.pos))
+                                        },
+                                    )
+                                } else {
+                                    true
                                 }
+                            }
                         })
                         .min_by(|(_, a), (_, b)| {
                             body.pos
