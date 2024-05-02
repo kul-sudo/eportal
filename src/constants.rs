@@ -7,7 +7,7 @@ pub const PLANTS_N: usize = 20000;
 pub const PASSIVE_CHANCE: f32 = 0.3;
 pub const OBJECT_RADIUS: f32 = 10.0;
 /// Used for `get_with_deviation`.
-pub const DEVIATION: f32 = 0.2;
+pub const DEVIATION: f32 = 0.1;
 pub const COLOR_MIN: u8 = 50;
 pub const COLOR_MAX: u8 = 250;
 pub const MIN_ENERGY: f32 = 1000.0;
@@ -33,11 +33,11 @@ pub const IQ_INCREASE_CHANCE: f32 = 0.3;
 pub const MAX_IQ: u8 = 1;
 
 // Spending energy
-pub const ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.000085;
+pub const ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.00001;
 pub const ENERGY_SPENT_CONST_FOR_IQ: f32 = 0.006;
-pub const ENERGY_SPENT_CONST_FOR_VISION_DISTANCE: f32 = 0.00002;
-pub const ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.0001;
-pub const CONST_FOR_LIFESPAN: f32 = 0.00004;
+pub const ENERGY_SPENT_CONST_FOR_VISION_DISTANCE: f32 = 0.000008;
+pub const ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.00028;
+pub const CONST_FOR_LIFESPAN: f32 = 0.00001;
 
 // Death
 pub const CROSS_LIFESPAN: u64 = 35; // In seconds
