@@ -272,8 +272,7 @@ async fn main() {
             }
 
             // Handle if dead to become a cross
-            if body.energy.unwrap() < MIN_ENERGY || body_id.elapsed().as_secs_f32() > body.lifespan
-            {
+            if body.energy < Some(MIN_ENERGY) || body_id.elapsed().as_secs_f32() > body.lifespan {
                 body.status = Status::Dead(Instant::now());
                 continue;
             }
@@ -308,7 +307,7 @@ async fn main() {
                 .filter(|(other_body_id, other_body)| {
                     body_id != *other_body_id
                         && !removed_bodies.contains(other_body_id)
-                        && body.pos.distance(other_body.pos) <= body.vision_distance.unwrap()
+                        && Some(body.pos.distance(other_body.pos)) <= body.vision_distance
                 })
                 .collect::<Vec<_>>();
 
@@ -540,7 +539,7 @@ async fn main() {
 
             if let Some(food) = food {
                 let distance_to_food = body.pos.distance(food.pos);
-                if distance_to_food <= body.speed.unwrap() {
+                if Some(distance_to_food) <= body.speed {
                     body.energy = Some(body.energy.unwrap() + food.energy);
                     body.pos = food.pos;
 
