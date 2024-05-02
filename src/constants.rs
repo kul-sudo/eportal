@@ -1,8 +1,8 @@
 use std::f32::consts::SQRT_3;
 
 // Base
-pub const CELL_ROWS: usize = 200;
-pub const BODIES_N: usize = 500;
+pub const CELL_ROWS: usize = 120;
+pub const BODIES_N: usize = 800;
 pub const PLANTS_N: usize = 20000;
 pub const PASSIVE_CHANCE: f32 = 0.3;
 pub const OBJECT_RADIUS: f32 = 10.0;
@@ -33,14 +33,14 @@ pub const IQ_INCREASE_CHANCE: f32 = 0.3;
 pub const MAX_IQ: u8 = 1;
 
 // Spending energy
-pub const ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.00008;
+pub const ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.000085;
 pub const ENERGY_SPENT_CONST_FOR_IQ: f32 = 0.006;
-pub const ENERGY_SPENT_CONST_FOR_VISION_DISTANCE: f32 = 0.00004;
+pub const ENERGY_SPENT_CONST_FOR_VISION_DISTANCE: f32 = 0.00002;
 pub const ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.0001;
-pub const CONST_FOR_LIFESPAN: f32 = 0.000005;
+pub const CONST_FOR_LIFESPAN: f32 = 0.00004;
 
 // Death
-pub const CROSS_LIFESPAN: u64 = 30; // In seconds
+pub const CROSS_LIFESPAN: u64 = 35; // In seconds
 pub const PART_OF_PLANTS_TO_REMOVE: f32 = 0.0004;
 
 // Zoom

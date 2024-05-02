@@ -75,40 +75,6 @@ pub struct Cell {
     j: usize,
 }
 
-impl Cell {
-    fn get_visible_plant_ids(
-        &self,
-        body: &Body,
-        cells: &Cells,
-        plants_in_cell: HashMap<Instant, Plant>,
-    ) -> HashSet<Instant> {
-        let (a, b) = (body.pos.x, body.pos.y);
-        let r = body.vision_distance.unwrap();
-        let (w, h) = (cells.cell_width, cells.cell_height);
-
-        // Center of the cell
-        let (center_x, center_y) = (self.j as f32 * w + w / 2.0, self.i as f32 * h + h / 2.0);
-
-        // true as usize = 1
-        // false as usize = 0
-        let (i_adjustment, j_adjustment) = ((center_y > b) as usize, (center_x > a) as usize);
-
-        let fully_covered = (((self.j + j_adjustment) as f32) * w - a).powi(2)
-            + (((self.i + i_adjustment) as f32) * h - b).powi(2)
-            < r.powi(2);
-
-        let mut visible_plant_ids_in_cell = HashSet::with_capacity(plants_in_cell.len());
-
-        for (plant_id, plant) in plants_in_cell {
-            if fully_covered || body.pos.distance(plant.pos) <= body.vision_distance.unwrap() {
-                visible_plant_ids_in_cell.insert(plant_id);
-            }
-        }
-
-        visible_plant_ids_in_cell
-    }
-}
-
 #[derive(Default, Debug)]
 pub struct Cells {
     rows: usize,
@@ -425,7 +391,7 @@ async fn main() {
                 }
                 None => {
                     // Find the closest plant
-                    let mut visible_plants: HashMap<Instant, Plant> = HashMap::new();
+                    let mut visible_plants: HashMap<&Instant, &Plant> = HashMap::new();
                     let (a, b) = (body.pos.x, body.pos.y);
                     let r = body.vision_distance.unwrap();
                     let (w, h) = (cells.cell_width, cells.cell_height);
@@ -436,80 +402,124 @@ async fn main() {
                     let j_min = ((a - r) / w).floor().max(0.0) as usize;
                     let j_max = ((a + r) / w).floor().min(m as f32 - 1.0) as usize;
 
-                    match visible_plants
-                        .iter()
-                        .filter(|(plant_id, plant)| {
-                            !removed_plants.contains(&(***plant_id, plant.pos)) && {
-                                let iq = body.iq.unwrap();
+                    let body_i = cells.get_cell_by_pos(body.pos).i;
 
-                                if (1..7).contains(&iq) {
-                                    bodies_within_vision_distance_of_my_type.iter().all(
-                                        |(other_body_id, _)| {
-                                            bodies_shot_for_statuses
-                                                .get(other_body_id)
-                                                .unwrap()
-                                                .status
-                                                != Status::FollowingTarget((***plant_id, plant.pos))
-                                        },
-                                    )
-                                } else {
-                                    true
+                    let (mut j_min_i, mut j_max_i, mut i_for_line, mut delta);
+
+                    for i in i_min..=i_max {
+                        if i == body_i {
+                            (j_min_i, j_max_i) = (j_min, j_max);
+                        } else {
+                            i_for_line = if i < body_i { i + 1 } else { i };
+
+                            delta = r * (1.0 - ((i_for_line as f32 * h - b) / r).powi(2)).sqrt();
+                            (j_min_i, j_max_i) = (
+                                ((a - delta) / w).floor().max(0.0) as usize,
+                                ((a + delta) / w).floor().min(m as f32 - 1.0) as usize,
+                            )
+                        }
+
+                        for j in j_min_i..=j_max_i {
+                            // Center of the cell
+                            let (center_x, center_y) =
+                                (j as f32 * w + w / 2.0, i as f32 * h + h / 2.0);
+
+                            // true as usize = 1
+                            // false as usize = 0
+                            let (i_adjustment, j_adjustment) =
+                                ((center_y > b) as usize, (center_x > a) as usize);
+
+                            let fully_covered = (((j + j_adjustment) as f32) * w - a).powi(2)
+                                + (((i + i_adjustment) as f32) * h - b).powi(2)
+                                < r.powi(2);
+
+                            for (plant_id, plant) in plants_shot.get(&Cell { i, j }).unwrap() {
+                                if fully_covered
+                                    || body.pos.distance(plant.pos) <= body.vision_distance.unwrap()
+                                {
+                                    visible_plants.insert(plant_id, plant);
                                 }
                             }
-                        })
-                        .min_by(|(_, a), (_, b)| {
-                            body.pos
-                                .distance(a.pos)
-                                .partial_cmp(&body.pos.distance(b.pos))
-                                .unwrap()
-                        }) {
-                        Some(closest_plant) => {
-                            food = Some(FoodInfo {
-                                id: **closest_plant.0,
-                                food_type: FoodType::Plant,
-                                pos: closest_plant.1.pos,
-                                energy: PLANT_ENERGY,
-                            })
                         }
-                        None => {
-                            // Find the closest body
-                            if let Some(closest_body) = bodies_within_vision_distance
-                                .iter()
-                                .filter(|(other_body_id, other_body)| {
-                                    body.body_type != other_body.body_type
-                                        && body.energy > other_body.energy
-                                        && other_body.is_alive()
-                                        && {
-                                            let iq = body.iq.unwrap();
 
-                                            if (1..7).contains(&iq) {
-                                                bodies_within_vision_distance_of_my_type.iter().all(
-                                                    |(_, other_body)| {
-                                                        other_body.status
-                                                            != Status::FollowingTarget((
-                                                                **other_body_id,
-                                                                other_body.pos,
-                                                            ))
-                                                    },
-                                                )
-                                            } else {
-                                                true
-                                            }
-                                        }
-                                })
-                                .min_by(|(_, a), (_, b)| {
-                                    body.pos
-                                        .distance(a.pos)
-                                        .partial_cmp(&body.pos.distance(b.pos))
-                                        .unwrap()
-                                })
-                            {
+                        match visible_plants
+                            .iter()
+                            .filter(|(plant_id, plant)| {
+                                !removed_plants.contains(&(***plant_id, plant.pos)) && {
+                                    let iq = body.iq.unwrap();
+
+                                    if (1..7).contains(&iq) {
+                                        bodies_within_vision_distance_of_my_type.iter().all(
+                                            |(other_body_id, _)| {
+                                                bodies_shot_for_statuses
+                                                    .get(other_body_id)
+                                                    .unwrap()
+                                                    .status
+                                                    != Status::FollowingTarget((
+                                                        ***plant_id,
+                                                        plant.pos,
+                                                    ))
+                                            },
+                                        )
+                                    } else {
+                                        true
+                                    }
+                                }
+                            })
+                            .min_by(|(_, a), (_, b)| {
+                                body.pos
+                                    .distance(a.pos)
+                                    .partial_cmp(&body.pos.distance(b.pos))
+                                    .unwrap()
+                            }) {
+                            Some(closest_plant) => {
                                 food = Some(FoodInfo {
-                                    id: *closest_body.0,
-                                    food_type: FoodType::Body,
-                                    pos: closest_body.1.pos,
-                                    energy: closest_body.1.energy.unwrap(),
+                                    id: **closest_plant.0,
+                                    food_type: FoodType::Plant,
+                                    pos: closest_plant.1.pos,
+                                    energy: PLANT_ENERGY,
                                 })
+                            }
+                            None => {
+                                // Find the closest body
+                                if let Some(closest_body) = bodies_within_vision_distance
+                                    .iter()
+                                    .filter(|(other_body_id, other_body)| {
+                                        body.body_type != other_body.body_type
+                                            && body.energy > other_body.energy
+                                            && other_body.is_alive()
+                                            && {
+                                                let iq = body.iq.unwrap();
+
+                                                if (1..7).contains(&iq) {
+                                                    bodies_within_vision_distance_of_my_type
+                                                        .iter()
+                                                        .all(|(_, other_body)| {
+                                                            other_body.status
+                                                                != Status::FollowingTarget((
+                                                                    **other_body_id,
+                                                                    other_body.pos,
+                                                                ))
+                                                        })
+                                                } else {
+                                                    true
+                                                }
+                                            }
+                                    })
+                                    .min_by(|(_, a), (_, b)| {
+                                        body.pos
+                                            .distance(a.pos)
+                                            .partial_cmp(&body.pos.distance(b.pos))
+                                            .unwrap()
+                                    })
+                                {
+                                    food = Some(FoodInfo {
+                                        id: *closest_body.0,
+                                        food_type: FoodType::Body,
+                                        pos: closest_body.1.pos,
+                                        energy: closest_body.1.energy.unwrap(),
+                                    })
+                                }
                             }
                         }
                     }
@@ -634,10 +644,11 @@ async fn main() {
                                 );
 
                                 let to_display = format!(
-                                    "iq = {:?} \n max_iq = {:?} \n energy = {:?}",
+                                    "iq = {:?} \n max_iq = {:?} \n energy = {:?} lifespan = {:?}",
                                     body.iq.unwrap(),
                                     body.max_iq.unwrap(),
-                                    body.energy.unwrap().round()
+                                    body.energy.unwrap().round(),
+                                    body.lifespan.round()
                                 );
                                 draw_text(
                                     &to_display,
