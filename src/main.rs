@@ -392,34 +392,46 @@ async fn main() {
                 None => {
                     // Find the closest plant
                     let mut visible_plants: HashMap<&Instant, &Plant> = HashMap::new();
+
+                    // Using these for ease of development
                     let (a, b) = (body.pos.x, body.pos.y);
                     let r = body.vision_distance.unwrap();
                     let (w, h) = (cells.cell_width, cells.cell_height);
                     let (m, n) = (cells.columns, cells.rows);
 
+                    // Get the bottommost, topmost, leftmost, and rightmost rows/columns
                     let i_min = ((b - r) / h).floor().max(0.0) as usize;
                     let i_max = ((b + r) / h).floor().min(n as f32 - 1.0) as usize;
                     let j_min = ((a - r) / w).floor().max(0.0) as usize;
                     let j_max = ((a + r) / w).floor().min(m as f32 - 1.0) as usize;
 
+                    // Get the row going through the center of the body
                     let body_i = cells.get_cell_by_pos(body.pos).i;
 
-                    let (mut j_min_i, mut j_max_i, mut i_for_line, mut delta);
+                    let (
+                        (
+                            // Get the min/max j we have to care about for i
+                            mut j_min_for_i,
+                            mut j_max_for_i,
+                        ),
+                        mut i_for_line,
+                        mut delta,
+                    );
 
                     for i in i_min..=i_max {
                         if i == body_i {
-                            (j_min_i, j_max_i) = (j_min, j_max);
+                            (j_min_for_i, j_max_for_i) = (j_min, j_max);
                         } else {
                             i_for_line = if i < body_i { i + 1 } else { i };
 
                             delta = r * (1.0 - ((i_for_line as f32 * h - b) / r).powi(2)).sqrt();
-                            (j_min_i, j_max_i) = (
+                            (j_min_for_i, j_max_for_i) = (
                                 ((a - delta) / w).floor().max(0.0) as usize,
                                 ((a + delta) / w).floor().min(m as f32 - 1.0) as usize,
                             )
                         }
 
-                        for j in j_min_i..=j_max_i {
+                        for j in j_min_for_i..=j_max_for_i {
                             // Center of the cell
                             let (center_x, center_y) =
                                 (j as f32 * w + w / 2.0, i as f32 * h + h / 2.0);
@@ -435,7 +447,7 @@ async fn main() {
 
                             for (plant_id, plant) in plants_shot.get(&Cell { i, j }).unwrap() {
                                 if fully_covered
-                                    || body.pos.distance(plant.pos) <= body.vision_distance.unwrap()
+                                    || Some(body.pos.distance(plant.pos)) <= body.vision_distance
                                 {
                                     visible_plants.insert(plant_id, plant);
                                 }
