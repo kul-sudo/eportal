@@ -22,11 +22,11 @@ use std::{
 
 use macroquad::{
     camera::{set_camera, Camera2D},
-    color::WHITE,
+    color::{RED, WHITE},
     input::{is_key_down, is_key_pressed, is_mouse_button_pressed, mouse_position, KeyCode},
     math::{vec2, Rect, Vec2},
     miniquad::{window::set_fullscreen, MouseButton},
-    shapes::{draw_circle_lines, draw_line},
+    shapes::{draw_circle, draw_circle_lines, draw_line},
     text::{draw_text, measure_text},
     window::{next_frame, screen_height, screen_width, Conf},
 };
@@ -56,7 +56,7 @@ macro_rules! get_with_deviation {
 }
 
 enum FoodType {
-    Body,
+    Body(Status),
     Plant,
 }
 
@@ -301,6 +301,34 @@ async fn main() {
                 continue;
             }
 
+            for virus in &body.viruses {
+                match virus {
+                    Virus::Coronavirus => {
+                        body.energy = Some(body.energy.unwrap() - body.energy.unwrap() * 0.001);
+                    }
+                    Virus::Influenza => {
+                        body.energy = Some(body.energy.unwrap() - body.energy.unwrap() * 0.0001);
+                    }
+                }
+
+                body.lifespan -= CONST_LIFESPAN_SPENT_FOR_VIRUSES
+            }
+
+            for syndrome in &body.syndromes {
+                match syndrome {
+                    Syndrome::VisualSnow => {
+                        body.vision_distance = Some(
+                            body.vision_distance.unwrap() - body.vision_distance.unwrap() * 0.0001,
+                        );
+                    }
+                    Syndrome::Dementia => {
+                        if rng.gen_range(0.0..1.0) <= DEMENTIA_IQ_DECREASE_CHANCE {
+                            body.iq = Some(body.iq.unwrap().saturating_sub(1));
+                        }
+                    }
+                };
+            }
+
             // Escape
             let bodies_within_vision_distance = bodies_shot
                 .iter()
@@ -383,7 +411,7 @@ async fn main() {
                 Some(closest_cross) => {
                     food = Some(FoodInfo {
                         id: *closest_cross.0,
-                        food_type: FoodType::Body,
+                        food_type: FoodType::Body(closest_cross.1.status),
                         pos: closest_cross.1.pos,
                         energy: closest_cross.1.energy.unwrap(),
                     })
@@ -526,7 +554,7 @@ async fn main() {
                                 {
                                     food = Some(FoodInfo {
                                         id: *closest_body.0,
-                                        food_type: FoodType::Body,
+                                        food_type: FoodType::Body(closest_body.1.status),
                                         pos: closest_body.1.pos,
                                         energy: closest_body.1.energy.unwrap(),
                                     })
@@ -544,7 +572,34 @@ async fn main() {
                     body.pos = food.pos;
 
                     match food.food_type {
-                        FoodType::Body => {
+                        FoodType::Body(status) => {
+                            if let Status::Dead(death_time) = status {
+                                // Infection from eating too old of a cross
+                                // Syndrome don't come from that, so they're handled in a different
+                                // place
+                                if death_time.elapsed().as_secs() >= CROSS_INFECTION_POINT
+                                    && rng.gen_range(0.0..1.0) <= CROSS_INFECTION_CHANCE
+                                {
+                                    let random_virus = *[Virus::Influenza, Virus::Coronavirus]
+                                        .iter()
+                                        .choose(rng)
+                                        .unwrap();
+                                    match random_virus {
+                                        Virus::Coronavirus => {
+                                            body.speed = Some(
+                                                body.speed.unwrap() - body.speed.unwrap() * 0.5,
+                                            );
+                                        }
+                                        Virus::Influenza => {
+                                            body.speed = Some(
+                                                body.speed.unwrap() - body.speed.unwrap() * 0.4,
+                                            )
+                                        }
+                                    }
+
+                                    body.viruses.insert(random_virus);
+                                }
+                            }
                             removed_bodies.insert(food.id);
                         }
                         FoodType::Plant => {
@@ -618,7 +673,15 @@ async fn main() {
             }
         }
 
-        for (new_body_id, new_body) in new_bodies {
+        for (new_body_id, mut new_body) in new_bodies {
+            if rng.gen_range(0.0..1.0) <= SYNDROME_WHEN_BORN_FROM_PROCREATION_CHANCE {
+                new_body.syndromes.insert(
+                    *[Syndrome::Dementia, Syndrome::VisualSnow]
+                        .iter()
+                        .choose(rng)
+                        .unwrap(),
+                );
+            }
             bodies.insert(new_body_id, new_body);
         }
 
@@ -645,6 +708,7 @@ async fn main() {
                                     WHITE,
                                 );
                             }
+
                             if show_info {
                                 draw_circle_lines(
                                     body.pos.x,

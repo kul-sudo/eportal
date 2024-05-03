@@ -1,7 +1,11 @@
-use std::{collections::HashMap, f32::consts::SQRT_2, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    f32::consts::SQRT_2,
+    time::Instant,
+};
 
 use macroquad::{
-    color::{Color, GREEN},
+    color::{Color, GREEN, RED},
     math::{Vec2, Vec3},
     rand::gen_range,
     shapes::{draw_circle, draw_line, draw_rectangle},
@@ -25,7 +29,19 @@ pub enum EatingStrategy {
     Active,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Virus {
+    Coronavirus,
+    Influenza,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Syndrome {
+    VisualSnow,
+    Dementia,
+}
+
+#[derive(Clone, PartialEq)]
 pub struct Body {
     pub pos: Vec2,
     pub energy: Option<f32>,
@@ -41,6 +57,8 @@ pub struct Body {
     /// When the body died due to a lack of energy if it did die in the first place.
     pub body_type: u16,
     pub lifespan: f32,
+    pub viruses: HashSet<Virus>,
+    pub syndromes: HashSet<Syndrome>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -108,6 +126,8 @@ impl Body {
             status: Status::Idle,
             body_type,
             lifespan: LIFESPAN,
+            viruses: HashSet::new(),
+            syndromes: HashSet::new(),
         }
     }
 
@@ -129,7 +149,7 @@ impl Body {
         }
     }
 
-    pub fn draw(self) {
+    pub fn draw(&self) {
         let side_length_half = OBJECT_RADIUS / SQRT_2;
 
         if self.is_alive() {
@@ -142,7 +162,11 @@ impl Body {
                         side_length,
                         side_length,
                         self.color,
-                    )
+                    );
+
+                    if !self.viruses.is_empty() || !self.syndromes.is_empty() {
+                        draw_circle(self.pos.x, self.pos.y, 5.0, RED)
+                    }
                 }
                 EatingStrategy::Passive => {
                     draw_circle(self.pos.x, self.pos.y, OBJECT_RADIUS, self.color)
