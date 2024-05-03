@@ -304,10 +304,15 @@ async fn main() {
             for virus in &body.viruses {
                 match virus {
                     Virus::Coronavirus => {
-                        body.energy = Some(body.energy.unwrap() - body.energy.unwrap() * 0.001);
+                        body.energy = Some(
+                            body.energy.unwrap()
+                                - body.energy.unwrap() * CORONAVIRUS_ENERGY_DECREASE,
+                        );
                     }
                     Virus::Influenza => {
-                        body.energy = Some(body.energy.unwrap() - body.energy.unwrap() * 0.0001);
+                        body.energy = Some(
+                            body.energy.unwrap() - body.energy.unwrap() * INFLUENZA_ENERGY_DECREASE,
+                        );
                     }
                 }
 
@@ -318,7 +323,10 @@ async fn main() {
                 match syndrome {
                     Syndrome::VisualSnow => {
                         body.vision_distance = Some(
-                            body.vision_distance.unwrap() - body.vision_distance.unwrap() * 0.0001,
+                            (body.vision_distance.unwrap()
+                                - body.vision_distance.unwrap()
+                                    * VISUAL_SNOW_VISION_DISTANCE_DECREASE)
+                                .max(VISUAL_SNOW_MIN_VISION_DISTANCE),
                         );
                     }
                     Syndrome::Dementia => {
@@ -587,12 +595,14 @@ async fn main() {
                                     match random_virus {
                                         Virus::Coronavirus => {
                                             body.speed = Some(
-                                                body.speed.unwrap() - body.speed.unwrap() * 0.5,
+                                                body.speed.unwrap()
+                                                    - body.speed.unwrap()
+                                                        * CORONAVIRUS_ENERGY_INITIAL_DECREASE,
                                             );
                                         }
                                         Virus::Influenza => {
                                             body.speed = Some(
-                                                body.speed.unwrap() - body.speed.unwrap() * 0.4,
+                                                body.speed.unwrap() - body.speed.unwrap() * INFLUENZA_ENERGY_INITIAL_DECREASE,
                                             )
                                         }
                                     }

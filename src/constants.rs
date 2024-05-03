@@ -31,10 +31,6 @@ pub const MIN_TO_REMOVE: usize = 500; // Bodies and plants are removed only it's
                                       // takes to delete them barely depends on their amount
 pub const IQ_INCREASE_CHANCE: f32 = 0.3;
 pub const MAX_IQ: u8 = 1;
-pub const CROSS_INFECTION_POINT: u64 = (CROSS_LIFESPAN as f32 * 0.8) as u64;
-pub const CROSS_INFECTION_CHANCE: f32 = 0.6;
-pub const SYNDROME_WHEN_BORN_FROM_PROCREATION_CHANCE: f32 = 0.1;
-pub const DEMENTIA_IQ_DECREASE_CHANCE: f32 = 0.01;
 
 // Spending energy
 pub const ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.00001;
@@ -42,7 +38,28 @@ pub const ENERGY_SPENT_CONST_FOR_IQ: f32 = 0.006;
 pub const ENERGY_SPENT_CONST_FOR_VISION_DISTANCE: f32 = 0.000008;
 pub const ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.0004;
 pub const CONST_FOR_LIFESPAN: f32 = 0.00001;
+
+// Viruses/Syndromes
 pub const CONST_LIFESPAN_SPENT_FOR_VIRUSES: f32 = 0.0001;
+pub const CROSS_INFECTION_POINT: u64 = (CROSS_LIFESPAN as f32 * 0.8) as u64;
+pub const CROSS_INFECTION_CHANCE: f32 = 0.6;
+pub const SYNDROME_WHEN_BORN_FROM_PROCREATION_CHANCE: f32 = 0.1;
+
+// Dementia
+pub const DEMENTIA_IQ_DECREASE_CHANCE: f32 = 0.08;
+
+// Visual snow
+pub const VISUAL_SNOW_VISION_DISTANCE_DECREASE: f32 = 0.01;
+pub const VISUAL_SNOW_MIN_VISION_DISTANCE: f32 =
+    AVERAGE_VISION_DISTANCE - AVERAGE_VISION_DISTANCE * DEVIATION * 0.4;
+
+// Coronavirus
+pub const CORONAVIRUS_ENERGY_DECREASE: f32 = 0.002;
+pub const CORONAVIRUS_ENERGY_INITIAL_DECREASE: f32 = 0.5;
+
+// Influenza
+pub const INFLUENZA_ENERGY_DECREASE: f32 = 0.001;
+pub const INFLUENZA_ENERGY_INITIAL_DECREASE: f32 = 0.4;
 
 // Death
 pub const CROSS_LIFESPAN: u64 = 35; // In seconds
