@@ -567,7 +567,9 @@ async fn main() {
 
                     match food.food_type {
                         FoodType::Body(viruses) => {
-                            body.get_viruses_from(viruses);
+                            if rng.gen_range(0.0..1.0) <= INFECTION_FROM_FOOD_CHANCE {
+                                body.get_viruses_from(viruses);
+                            }
                             removed_bodies.insert(food.id);
                         }
                         FoodType::Plant => {
@@ -599,8 +601,6 @@ async fn main() {
                         Body::new(
                             body.pos,
                             body.energy,
-                            body.speed,
-                            body.vision_distance,
                             body.eating_strategy,
                             body.division_threshold,
                             body.iq,
@@ -608,6 +608,8 @@ async fn main() {
                             body.color,
                             body.body_type,
                             Some(body.viruses.clone()),
+                            body.initial_speed,
+                            body.initial_vision_distance,
                             rng,
                         ),
                     );
@@ -674,17 +676,17 @@ async fn main() {
                                 draw_circle_lines(
                                     body.pos.x,
                                     body.pos.y,
-                                    body.vision_distance.unwrap().max(OBJECT_RADIUS * 2.0 + MIN_GAP),
+                                    body.vision_distance
+                                        .unwrap()
+                                        .max(OBJECT_RADIUS * 2.0 + MIN_GAP),
                                     2.0,
                                     body.color,
                                 );
 
                                 let to_display = format!(
-                                    "iq = {:?} max_iq = {:?} energy = {:?} lifespan = {:?} viruses = {:?}",
-                                    body.iq.unwrap(),
-                                    body.max_iq.unwrap(),
+                                    "energy = {:?} speed = {:?} viruses = {:?}",
                                     body.energy.unwrap().round(),
-                                    body.lifespan.round(),
+                                    body.speed.unwrap(),
                                     body.viruses
                                 );
                                 draw_text(

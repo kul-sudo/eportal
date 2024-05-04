@@ -48,6 +48,8 @@ pub struct Body {
     pub body_type: u16,
     pub lifespan: f32,
     pub viruses: HashMap<Virus, f32>,
+    pub initial_speed: Option<f32>,
+    pub initial_vision_distance: Option<f32>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -55,8 +57,6 @@ impl Body {
     pub fn new(
         pos: Vec2,
         energy: Option<f32>,
-        speed: Option<f32>,
-        vision_distance: Option<f32>,
         eating_strategy: EatingStrategy,
         division_threshold: Option<f32>,
         iq: Option<u8>,
@@ -64,24 +64,28 @@ impl Body {
         color: Color,
         body_type: u16,
         viruses: Option<HashMap<Virus, f32>>,
+        initial_speed: Option<f32>,
+        initial_vision_distance: Option<f32>,
         rng: &mut StdRng,
     ) -> Self {
-        Body {
+        let mut body = Body {
             pos,
             energy: Some(match energy {
                 Some(energy) => energy / 2.0,
                 None => get_with_deviation!(AVERAGE_ENERGY, rng),
             }),
-            speed: Some(get_with_deviation!(
-                match speed {
-                    Some(speed) => speed,
+            speed: None,
+            initial_speed: Some(get_with_deviation!(
+                match initial_speed {
+                    Some(initial_speed) => initial_speed,
                     None => AVERAGE_SPEED,
                 },
                 rng
             )),
-            vision_distance: Some(get_with_deviation!(
-                match vision_distance {
-                    Some(vision_distance) => vision_distance,
+            vision_distance: None,
+            initial_vision_distance: Some(get_with_deviation!(
+                match initial_vision_distance {
+                    Some(initial_vision_distance) => initial_vision_distance,
                     None => AVERAGE_VISION_DISTANCE,
                 },
                 rng
@@ -149,7 +153,11 @@ impl Body {
                     viruses
                 }
             },
-        }
+        };
+
+        body.speed = body.initial_speed;
+        body.vision_distance = body.initial_vision_distance;
+        body
     }
 
     pub fn is_alive(&self) -> bool {
@@ -293,14 +301,14 @@ pub fn randomly_spawn_body(
         Body::new(
             pos,
             None,
-            None,
-            None,
             eating_strategy,
             None,
             None,
             None,
             color,
             body_type as u16,
+            None,
+            None,
             None,
             rng,
         ),
