@@ -1,8 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    f32::consts::SQRT_2,
-    time::Instant,
-};
+use std::{collections::HashMap, f32::consts::SQRT_2, time::Instant};
 
 use macroquad::{
     color::{Color, GREEN, RED},
@@ -29,16 +25,10 @@ pub enum EatingStrategy {
     Active,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Virus {
-    Coronavirus,
-    Influenza,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Syndrome {
-    VisualSnow,
-    Dementia,
+    SpeedVirus,
+    VisionVirus,
 }
 
 #[derive(Clone, PartialEq)]
@@ -57,8 +47,7 @@ pub struct Body {
     /// When the body died due to a lack of energy if it did die in the first place.
     pub body_type: u16,
     pub lifespan: f32,
-    pub viruses: HashSet<Virus>,
-    pub syndromes: HashSet<Syndrome>,
+    pub viruses: HashMap<Virus, f32>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -74,6 +63,7 @@ impl Body {
         max_iq: Option<u8>,
         color: Color,
         body_type: u16,
+        viruses: Option<HashMap<Virus, f32>>,
         rng: &mut StdRng,
     ) -> Self {
         Body {
@@ -126,8 +116,39 @@ impl Body {
             status: Status::Idle,
             body_type,
             lifespan: LIFESPAN,
-            viruses: HashSet::new(),
-            syndromes: HashSet::new(),
+            viruses: match viruses {
+                Some(mut viruses) => {
+                    for energy_spent_for_healing in viruses.values_mut() {
+                        *energy_spent_for_healing = 0.0
+                    }
+
+                    viruses
+                }
+                None => {
+                    let mut viruses = HashMap::new();
+                    for virus in [Virus::SpeedVirus, Virus::VisionVirus] {
+                        if rng.gen_range(0.0..1.0)
+                            <= match virus {
+                                Virus::SpeedVirus => SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE,
+                                Virus::VisionVirus => VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE,
+                            }
+                        {
+                            viruses.insert(
+                                virus,
+                                rng.gen_range(
+                                    0.0..match virus {
+                                        Virus::SpeedVirus => SPEEDVIRUS_HEAL_ENERGY,
+                                        Virus::VisionVirus => VISIONVIRUS_HEAL_ENERGY,
+                                    },
+                                ), // Assuming the evolution
+                                   // theoretically starts before it starts being shown
+                            );
+                        }
+                    }
+
+                    viruses
+                }
+            },
         }
     }
 
@@ -163,10 +184,6 @@ impl Body {
                         side_length,
                         self.color,
                     );
-
-                    if !self.viruses.is_empty() || !self.syndromes.is_empty() {
-                        draw_circle(self.pos.x, self.pos.y, 5.0, RED)
-                    }
                 }
                 EatingStrategy::Passive => {
                     draw_circle(self.pos.x, self.pos.y, OBJECT_RADIUS, self.color)
@@ -190,6 +207,18 @@ impl Body {
                 2.0,
                 self.color,
             )
+        }
+
+        if !self.viruses.is_empty() {
+            draw_circle(self.pos.x, self.pos.y, 5.0, RED)
+        }
+    }
+
+    pub fn get_viruses_from(&mut self, viruses: HashMap<Virus, f32>) {
+        for virus in viruses.keys() {
+            if !self.viruses.contains_key(virus) {
+                self.viruses.insert(*virus, 0.0);
+            }
         }
     }
 }
@@ -216,7 +245,7 @@ pub fn randomly_spawn_body(
     } {}
 
     // Make sure the color is different enough
-    let real_color_gap = COLOR_GAP / ((BODIES_N + 1) as f32).powf(1.0 / 3.0);
+    let real_color_gap = COLOR_GAP / ((BODIES_N + 2) as f32).powf(1.0 / 3.0);
 
     let mut color = Color::from_rgba(
         gen_range(COLOR_MIN, COLOR_MAX),
@@ -231,6 +260,12 @@ pub fn randomly_spawn_body(
         z: GREEN.b,
     };
 
+    let red_rgb = Vec3 {
+        x: RED.r,
+        y: RED.g,
+        z: RED.b,
+    };
+
     while bodies.values().any(|body| {
         let current_body_rgb = Vec3 {
             x: body.color.r,
@@ -238,6 +273,7 @@ pub fn randomly_spawn_body(
             z: body.color.b,
         };
         current_body_rgb.distance(green_rgb) < real_color_gap
+            || current_body_rgb.distance(red_rgb) < real_color_gap
             || current_body_rgb.distance(Vec3 {
                 x: color.r,
                 y: color.g,
@@ -265,6 +301,7 @@ pub fn randomly_spawn_body(
             None,
             color,
             body_type as u16,
+            None,
             rng,
         ),
     );

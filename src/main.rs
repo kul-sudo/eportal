@@ -4,10 +4,12 @@
 #![feature(exclusive_range_pattern)]
 
 mod body;
+mod cells;
 mod constants;
 mod plant;
 
 use body::*;
+use cells::{Cell, Cells};
 use constants::*;
 use plant::{randomly_spawn_plant, Plant};
 
@@ -22,11 +24,11 @@ use std::{
 
 use macroquad::{
     camera::{set_camera, Camera2D},
-    color::{RED, WHITE},
+    color::WHITE,
     input::{is_key_down, is_key_pressed, is_mouse_button_pressed, mouse_position, KeyCode},
     math::{vec2, Rect, Vec2},
     miniquad::{window::set_fullscreen, MouseButton},
-    shapes::{draw_circle, draw_circle_lines, draw_line},
+    shapes::{draw_circle_lines, draw_line},
     text::{draw_text, measure_text},
     window::{next_frame, screen_height, screen_width, Conf},
 };
@@ -56,7 +58,7 @@ macro_rules! get_with_deviation {
 }
 
 enum FoodType {
-    Body(Status),
+    Body(HashMap<Virus, f32>),
     Plant,
 }
 
@@ -65,31 +67,6 @@ struct FoodInfo {
     food_type: FoodType,
     pos: Vec2,
     energy: f32,
-}
-
-#[derive(Eq, Hash, PartialEq, Clone, Debug)]
-pub struct Cell {
-    /// Row number (0..).
-    i: usize,
-    /// Column number (0..).
-    j: usize,
-}
-
-#[derive(Default, Debug)]
-pub struct Cells {
-    rows: usize,
-    columns: usize,
-    cell_width: f32,
-    cell_height: f32,
-}
-
-impl Cells {
-    fn get_cell_by_pos(&self, pos: Vec2) -> Cell {
-        Cell {
-            i: (pos.y / self.cell_height) as usize,
-            j: (pos.x / self.cell_width) as usize,
-        }
-    }
 }
 
 /// Set the camera zoom to where the mouse cursor is.
@@ -134,7 +111,6 @@ async fn main() {
     };
 
     let mut cells = Cells::default();
-
     cells.rows = CELL_ROWS;
     cells.columns = ((area_size.x * CELL_ROWS as f32) / area_size.y).round() as usize;
     cells.cell_width = area_size.x / cells.columns as f32;
@@ -264,10 +240,46 @@ async fn main() {
                 continue;
             }
 
+            // Viruses
+            for (virus, energy_spent_for_healing) in &mut body.viruses {
+                match virus {
+                    Virus::SpeedVirus => {
+                        body.speed = Some(
+                            body.speed.unwrap() - body.speed.unwrap() * SPEEDVIRUS_SPEED_DECREASE,
+                        );
+
+                        body.energy = Some(
+                            (body.energy.unwrap() - SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING).max(0.0),
+                        );
+                        *energy_spent_for_healing += SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING;
+                    }
+                    Virus::VisionVirus => {
+                        body.vision_distance = Some(
+                            body.vision_distance.unwrap()
+                                - body.vision_distance.unwrap()
+                                    * VISIONVIRUS_VISION_DISTANCE_DECREASE,
+                        );
+
+                        body.energy = Some(
+                            (body.energy.unwrap() - VISIONVIRUS_ENERGY_SPENT_FOR_HEALING).max(0.0),
+                        );
+                        *energy_spent_for_healing += VISIONVIRUS_ENERGY_SPENT_FOR_HEALING;
+                    }
+                }
+            }
+
+            body.viruses.retain(|virus, energy_spent_for_healing| {
+                *energy_spent_for_healing
+                    <= match virus {
+                        Virus::SpeedVirus => SPEEDVIRUS_HEAL_ENERGY,
+                        Virus::VisionVirus => VISIONVIRUS_HEAL_ENERGY,
+                    }
+            });
+
             // Handle lifespan
             if body.status != Status::Idle {
                 body.lifespan = (body.lifespan
-                    - CONST_FOR_LIFESPAN * body.speed.unwrap() * body.energy.unwrap())
+                    - CONST_FOR_LIFESPAN * body.speed.unwrap().powi(2) * body.energy.unwrap())
                 .max(0.0)
             }
 
@@ -291,7 +303,7 @@ async fn main() {
                 body.energy = Some(
                     body.energy.unwrap()
                         - ENERGY_SPENT_CONST_FOR_MOVEMENT
-                            * body.speed.unwrap()
+                            * body.speed.unwrap().powi(2)
                             * body.energy.unwrap(),
                 )
             }
@@ -299,42 +311,6 @@ async fn main() {
             if body.energy <= Some(0.0) {
                 removed_bodies.insert(*body_id);
                 continue;
-            }
-
-            for virus in &body.viruses {
-                match virus {
-                    Virus::Coronavirus => {
-                        body.energy = Some(
-                            body.energy.unwrap()
-                                - body.energy.unwrap() * CORONAVIRUS_ENERGY_DECREASE,
-                        );
-                    }
-                    Virus::Influenza => {
-                        body.energy = Some(
-                            body.energy.unwrap() - body.energy.unwrap() * INFLUENZA_ENERGY_DECREASE,
-                        );
-                    }
-                }
-
-                body.lifespan -= CONST_LIFESPAN_SPENT_FOR_VIRUSES
-            }
-
-            for syndrome in &body.syndromes {
-                match syndrome {
-                    Syndrome::VisualSnow => {
-                        body.vision_distance = Some(
-                            (body.vision_distance.unwrap()
-                                - body.vision_distance.unwrap()
-                                    * VISUAL_SNOW_VISION_DISTANCE_DECREASE)
-                                .max(VISUAL_SNOW_MIN_VISION_DISTANCE),
-                        );
-                    }
-                    Syndrome::Dementia => {
-                        if rng.gen_range(0.0..1.0) <= DEMENTIA_IQ_DECREASE_CHANCE {
-                            body.iq = Some(body.iq.unwrap().saturating_sub(1));
-                        }
-                    }
-                };
             }
 
             // Escape
@@ -346,6 +322,15 @@ async fn main() {
                         && Some(body.pos.distance(other_body.pos)) <= body.vision_distance
                 })
                 .collect::<Vec<_>>();
+
+            for (_, other_body) in &bodies_within_vision_distance {
+                if other_body.is_alive()
+                    && body.pos.distance(other_body.pos) <= OBJECT_RADIUS * 2.0
+                    && rng.gen_range(0.0..1.0) <= PROXIMITY_INFECTION_CHANCE
+                {
+                    body.get_viruses_from(other_body.viruses.clone());
+                }
+            }
 
             if let Some((closest_chasing_body_id, closest_chasing_body)) =
                 bodies_within_vision_distance
@@ -416,12 +401,12 @@ async fn main() {
                         .partial_cmp(&body.pos.distance(b.pos))
                         .unwrap()
                 }) {
-                Some(closest_cross) => {
+                Some((closest_cross_id, closest_cross)) => {
                     food = Some(FoodInfo {
-                        id: *closest_cross.0,
-                        food_type: FoodType::Body(closest_cross.1.status),
-                        pos: closest_cross.1.pos,
-                        energy: closest_cross.1.energy.unwrap(),
+                        id: **closest_cross_id,
+                        food_type: FoodType::Body(closest_cross.viruses.clone()),
+                        pos: closest_cross.pos,
+                        energy: closest_cross.energy.unwrap(),
                     })
                 }
                 None => {
@@ -519,52 +504,53 @@ async fn main() {
                                     .partial_cmp(&body.pos.distance(b.pos))
                                     .unwrap()
                             }) {
-                            Some(closest_plant) => {
+                            Some((closest_plant_id, closest_plant)) => {
                                 food = Some(FoodInfo {
-                                    id: **closest_plant.0,
+                                    id: **closest_plant_id,
                                     food_type: FoodType::Plant,
-                                    pos: closest_plant.1.pos,
+                                    pos: closest_plant.pos,
                                     energy: PLANT_ENERGY,
                                 })
                             }
                             None => {
                                 // Find the closest body
-                                if let Some(closest_body) = bodies_within_vision_distance
-                                    .iter()
-                                    .filter(|(other_body_id, other_body)| {
-                                        body.body_type != other_body.body_type
-                                            && body.energy > other_body.energy
-                                            && other_body.is_alive()
-                                            && {
-                                                let iq = body.iq.unwrap();
+                                if let Some((closest_body_id, closest_body)) =
+                                    bodies_within_vision_distance
+                                        .iter()
+                                        .filter(|(other_body_id, other_body)| {
+                                            body.body_type != other_body.body_type
+                                                && body.energy > other_body.energy
+                                                && other_body.is_alive()
+                                                && {
+                                                    let iq = body.iq.unwrap();
 
-                                                if (1..7).contains(&iq) {
-                                                    bodies_within_vision_distance_of_my_type
-                                                        .iter()
-                                                        .all(|(_, other_body)| {
-                                                            other_body.status
-                                                                != Status::FollowingTarget((
-                                                                    **other_body_id,
-                                                                    other_body.pos,
-                                                                ))
-                                                        })
-                                                } else {
-                                                    true
+                                                    if (1..7).contains(&iq) {
+                                                        bodies_within_vision_distance_of_my_type
+                                                            .iter()
+                                                            .all(|(_, other_body)| {
+                                                                other_body.status
+                                                                    != Status::FollowingTarget((
+                                                                        **other_body_id,
+                                                                        other_body.pos,
+                                                                    ))
+                                                            })
+                                                    } else {
+                                                        true
+                                                    }
                                                 }
-                                            }
-                                    })
-                                    .min_by(|(_, a), (_, b)| {
-                                        body.pos
-                                            .distance(a.pos)
-                                            .partial_cmp(&body.pos.distance(b.pos))
-                                            .unwrap()
-                                    })
+                                        })
+                                        .min_by(|(_, a), (_, b)| {
+                                            body.pos
+                                                .distance(a.pos)
+                                                .partial_cmp(&body.pos.distance(b.pos))
+                                                .unwrap()
+                                        })
                                 {
                                     food = Some(FoodInfo {
-                                        id: *closest_body.0,
-                                        food_type: FoodType::Body(closest_body.1.status),
-                                        pos: closest_body.1.pos,
-                                        energy: closest_body.1.energy.unwrap(),
+                                        id: **closest_body_id,
+                                        food_type: FoodType::Body(closest_body.viruses.clone()),
+                                        pos: closest_body.pos,
+                                        energy: closest_body.energy.unwrap(),
                                     })
                                 }
                             }
@@ -580,36 +566,8 @@ async fn main() {
                     body.pos = food.pos;
 
                     match food.food_type {
-                        FoodType::Body(status) => {
-                            if let Status::Dead(death_time) = status {
-                                // Infection from eating too old of a cross
-                                // Syndrome don't come from that, so they're handled in a different
-                                // place
-                                if death_time.elapsed().as_secs() >= CROSS_INFECTION_POINT
-                                    && rng.gen_range(0.0..1.0) <= CROSS_INFECTION_CHANCE
-                                {
-                                    let random_virus = *[Virus::Influenza, Virus::Coronavirus]
-                                        .iter()
-                                        .choose(rng)
-                                        .unwrap();
-                                    match random_virus {
-                                        Virus::Coronavirus => {
-                                            body.speed = Some(
-                                                body.speed.unwrap()
-                                                    - body.speed.unwrap()
-                                                        * CORONAVIRUS_ENERGY_INITIAL_DECREASE,
-                                            );
-                                        }
-                                        Virus::Influenza => {
-                                            body.speed = Some(
-                                                body.speed.unwrap() - body.speed.unwrap() * INFLUENZA_ENERGY_INITIAL_DECREASE,
-                                            )
-                                        }
-                                    }
-
-                                    body.viruses.insert(random_virus);
-                                }
-                            }
+                        FoodType::Body(viruses) => {
+                            body.get_viruses_from(viruses);
                             removed_bodies.insert(food.id);
                         }
                         FoodType::Plant => {
@@ -649,6 +607,7 @@ async fn main() {
                             body.max_iq,
                             body.color,
                             body.body_type,
+                            Some(body.viruses.clone()),
                             rng,
                         ),
                     );
@@ -683,15 +642,7 @@ async fn main() {
             }
         }
 
-        for (new_body_id, mut new_body) in new_bodies {
-            if rng.gen_range(0.0..1.0) <= SYNDROME_WHEN_BORN_FROM_PROCREATION_CHANCE {
-                new_body.syndromes.insert(
-                    *[Syndrome::Dementia, Syndrome::VisualSnow]
-                        .iter()
-                        .choose(rng)
-                        .unwrap(),
-                );
-            }
+        for (new_body_id, new_body) in new_bodies {
             bodies.insert(new_body_id, new_body);
         }
 
@@ -723,17 +674,18 @@ async fn main() {
                                 draw_circle_lines(
                                     body.pos.x,
                                     body.pos.y,
-                                    body.vision_distance.unwrap(),
+                                    body.vision_distance.unwrap().max(OBJECT_RADIUS * 2.0 + MIN_GAP),
                                     2.0,
                                     body.color,
                                 );
 
                                 let to_display = format!(
-                                    "iq = {:?} \n max_iq = {:?} \n energy = {:?} lifespan = {:?}",
+                                    "iq = {:?} max_iq = {:?} energy = {:?} lifespan = {:?} viruses = {:?}",
                                     body.iq.unwrap(),
                                     body.max_iq.unwrap(),
                                     body.energy.unwrap().round(),
-                                    body.lifespan.round()
+                                    body.lifespan.round(),
+                                    body.viruses
                                 );
                                 draw_text(
                                     &to_display,
@@ -779,12 +731,6 @@ async fn main() {
             // but more rarely
             if removed_plants.len() > MIN_TO_REMOVE {
                 for (plant_id, plant_pos) in &removed_plants {
-                    // println!(
-                    //     "{:?} {:?} {:?}",
-                    //     &cells.get_cell_by_pos(*plant_pos),
-                    //     plant_pos,
-                    //     cells
-                    // );
                     let plants_in_cell =
                         plants.get_mut(&cells.get_cell_by_pos(*plant_pos)).unwrap();
                     plants_in_cell.remove(plant_id);

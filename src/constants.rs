@@ -23,7 +23,7 @@ pub const AVERAGE_SPEED: f32 = 1.5;
 // Evolution process
 pub const PLANT_ENERGY: f32 = 100.0;
 pub const MIN_GAP: f32 = 3.0;
-pub const COLOR_GAP: f32 = 0.65; // Depends on COLOR_MIN and COLOR_MAX
+pub const COLOR_GAP: f32 = 0.63; // Depends on COLOR_MIN and COLOR_MAX
 pub const PLANTS_N_FOR_ONE_STEP: usize = 8; // Mid-game
 pub const PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 pub const MIN_TO_REMOVE: usize = 500; // Bodies and plants are removed only it's needed to remove
@@ -38,28 +38,20 @@ pub const ENERGY_SPENT_CONST_FOR_IQ: f32 = 0.006;
 pub const ENERGY_SPENT_CONST_FOR_VISION_DISTANCE: f32 = 0.000008;
 pub const ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.0004;
 pub const CONST_FOR_LIFESPAN: f32 = 0.00001;
+pub const PROXIMITY_INFECTION_CHANCE: f32 = 0.08;
 
-// Viruses/Syndromes
-pub const CONST_LIFESPAN_SPENT_FOR_VIRUSES: f32 = 0.0001;
-pub const CROSS_INFECTION_POINT: u64 = (CROSS_LIFESPAN as f32 * 0.8) as u64;
-pub const CROSS_INFECTION_CHANCE: f32 = 0.6;
-pub const SYNDROME_WHEN_BORN_FROM_PROCREATION_CHANCE: f32 = 0.1;
+// Viruses
+// SpeedVirus
+pub const SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE: f32 = 0.1;
+pub const SPEEDVIRUS_SPEED_DECREASE: f32 = 0.0001;
+pub const SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING: f32 = 0.08;
+pub const SPEEDVIRUS_HEAL_ENERGY: f32 = 50.0;
 
-// Dementia
-pub const DEMENTIA_IQ_DECREASE_CHANCE: f32 = 0.08;
-
-// Visual snow
-pub const VISUAL_SNOW_VISION_DISTANCE_DECREASE: f32 = 0.01;
-pub const VISUAL_SNOW_MIN_VISION_DISTANCE: f32 =
-    AVERAGE_VISION_DISTANCE - AVERAGE_VISION_DISTANCE * DEVIATION * 0.4;
-
-// Coronavirus
-pub const CORONAVIRUS_ENERGY_DECREASE: f32 = 0.002;
-pub const CORONAVIRUS_ENERGY_INITIAL_DECREASE: f32 = 0.5;
-
-// Influenza
-pub const INFLUENZA_ENERGY_DECREASE: f32 = 0.001;
-pub const INFLUENZA_ENERGY_INITIAL_DECREASE: f32 = 0.4;
+// VisionVirus
+pub const VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE: f32 = 0.8;
+pub const VISIONVIRUS_VISION_DISTANCE_DECREASE: f32 = 0.0001;
+pub const VISIONVIRUS_ENERGY_SPENT_FOR_HEALING: f32 = 0.08;
+pub const VISIONVIRUS_HEAL_ENERGY: f32 = 50.0;
 
 // Death
 pub const CROSS_LIFESPAN: u64 = 35; // In seconds
