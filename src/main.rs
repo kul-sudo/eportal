@@ -244,25 +244,16 @@ async fn main() {
             for (virus, energy_spent_for_healing) in &mut body.viruses {
                 match virus {
                     Virus::SpeedVirus => {
-                        body.speed = Some(
-                            body.speed.unwrap() - body.speed.unwrap() * SPEEDVIRUS_SPEED_DECREASE,
-                        );
+                        body.speed -= body.speed * SPEEDVIRUS_SPEED_DECREASE;
 
-                        body.energy = Some(
-                            (body.energy.unwrap() - SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING).max(0.0),
-                        );
+                        body.energy -= SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING.max(0.0);
                         *energy_spent_for_healing += SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING;
                     }
                     Virus::VisionVirus => {
-                        body.vision_distance = Some(
-                            body.vision_distance.unwrap()
-                                - body.vision_distance.unwrap()
-                                    * VISIONVIRUS_VISION_DISTANCE_DECREASE,
-                        );
+                        body.vision_distance -=
+                            body.vision_distance * VISIONVIRUS_VISION_DISTANCE_DECREASE;
 
-                        body.energy = Some(
-                            (body.energy.unwrap() - VISIONVIRUS_ENERGY_SPENT_FOR_HEALING).max(0.0),
-                        );
+                        body.energy -= VISIONVIRUS_ENERGY_SPENT_FOR_HEALING.max(0.0);
                         *energy_spent_for_healing += VISIONVIRUS_ENERGY_SPENT_FOR_HEALING;
                     }
                 }
@@ -278,37 +269,27 @@ async fn main() {
 
             // Handle lifespan
             if body.status != Status::Idle {
-                body.lifespan = (body.lifespan
-                    - CONST_FOR_LIFESPAN * body.speed.unwrap().powi(2) * body.energy.unwrap())
-                .max(0.0)
+                body.lifespan =
+                    (body.lifespan - CONST_FOR_LIFESPAN * body.speed.powi(2) * body.energy).max(0.0)
             }
 
             // Handle if dead to become a cross
-            if body.energy < Some(MIN_ENERGY) || body_id.elapsed().as_secs_f32() > body.lifespan {
+            if body.energy < MIN_ENERGY || body_id.elapsed().as_secs_f32() > body.lifespan {
                 body.status = Status::Dead(Instant::now());
                 continue;
             }
 
             // Handle the energy
             // The mass is proportional to the energy; to keep the mass up, energy is spent
-            body.energy = Some(
-                body.energy.unwrap()
-                    - ENERGY_SPENT_CONST_FOR_MASS * body.energy.unwrap()
-                    - ENERGY_SPENT_CONST_FOR_IQ * body.iq.unwrap() as f32
-                    - ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
-                        * body.vision_distance.unwrap().powi(2),
-            );
+            body.energy -= ENERGY_SPENT_CONST_FOR_MASS * body.energy
+                - ENERGY_SPENT_CONST_FOR_IQ * body.iq as f32
+                - ENERGY_SPENT_CONST_FOR_VISION_DISTANCE * body.vision_distance.powi(2);
 
             if body.status != Status::Idle {
-                body.energy = Some(
-                    body.energy.unwrap()
-                        - ENERGY_SPENT_CONST_FOR_MOVEMENT
-                            * body.speed.unwrap().powi(2)
-                            * body.energy.unwrap(),
-                )
+                body.energy -= ENERGY_SPENT_CONST_FOR_MOVEMENT * body.speed.powi(2) * body.energy;
             }
 
-            if body.energy <= Some(0.0) {
+            if body.energy <= 0.0 {
                 removed_bodies.insert(*body_id);
                 continue;
             }
@@ -319,7 +300,7 @@ async fn main() {
                 .filter(|(other_body_id, other_body)| {
                     body_id != *other_body_id
                         && !removed_bodies.contains(other_body_id)
-                        && Some(body.pos.distance(other_body.pos)) <= body.vision_distance
+                        && body.pos.distance(other_body.pos) <= body.vision_distance
                 })
                 .collect::<Vec<_>>();
 
@@ -358,9 +339,9 @@ async fn main() {
 
                 let distance_to_closest_chasing_body = body.pos.distance(closest_chasing_body.pos);
 
-                body.pos.x -= ((closest_chasing_body.pos.x - body.pos.x) * body.speed.unwrap())
+                body.pos.x -= ((closest_chasing_body.pos.x - body.pos.x) * body.speed)
                     / distance_to_closest_chasing_body;
-                body.pos.y -= ((closest_chasing_body.pos.y - body.pos.y) * body.speed.unwrap())
+                body.pos.y -= ((closest_chasing_body.pos.y - body.pos.y) * body.speed)
                     / distance_to_closest_chasing_body;
 
                 body.wrap(area_size);
@@ -381,9 +362,7 @@ async fn main() {
                 .iter()
                 .filter(|(cross_id, cross)| {
                     body.body_type != cross.body_type && !cross.is_alive() && {
-                        let iq = body.iq.unwrap();
-
-                        if (1..7).contains(&iq) {
+                        if (1..7).contains(&body.iq) {
                             bodies_within_vision_distance_of_my_type.iter().all(
                                 |(other_body_id, _)| {
                                     bodies_shot_for_statuses.get(other_body_id).unwrap().status
@@ -406,7 +385,7 @@ async fn main() {
                         id: **closest_cross_id,
                         food_type: FoodType::Body(closest_cross.viruses.clone()),
                         pos: closest_cross.pos,
-                        energy: closest_cross.energy.unwrap(),
+                        energy: closest_cross.energy,
                     })
                 }
                 None => {
@@ -415,7 +394,7 @@ async fn main() {
 
                     // Using these for ease of development
                     let (a, b) = (body.pos.x, body.pos.y);
-                    let r = body.vision_distance.unwrap();
+                    let r = body.vision_distance;
                     let (w, h) = (cells.cell_width, cells.cell_height);
                     let (m, n) = (cells.columns, cells.rows);
 
@@ -467,7 +446,7 @@ async fn main() {
 
                             for (plant_id, plant) in plants_shot.get(&Cell { i, j }).unwrap() {
                                 if fully_covered
-                                    || Some(body.pos.distance(plant.pos)) <= body.vision_distance
+                                    || body.pos.distance(plant.pos) <= body.vision_distance
                                 {
                                     visible_plants.insert(plant_id, plant);
                                 }
@@ -478,9 +457,7 @@ async fn main() {
                             .iter()
                             .filter(|(plant_id, plant)| {
                                 !removed_plants.contains(&(***plant_id, plant.pos)) && {
-                                    let iq = body.iq.unwrap();
-
-                                    if (1..7).contains(&iq) {
+                                    if (1..7).contains(&body.iq) {
                                         bodies_within_vision_distance_of_my_type.iter().all(
                                             |(other_body_id, _)| {
                                                 bodies_shot_for_statuses
@@ -522,9 +499,7 @@ async fn main() {
                                                 && body.energy > other_body.energy
                                                 && other_body.is_alive()
                                                 && {
-                                                    let iq = body.iq.unwrap();
-
-                                                    if (1..7).contains(&iq) {
+                                                    if (1..7).contains(&body.iq) {
                                                         bodies_within_vision_distance_of_my_type
                                                             .iter()
                                                             .all(|(_, other_body)| {
@@ -550,7 +525,7 @@ async fn main() {
                                         id: **closest_body_id,
                                         food_type: FoodType::Body(closest_body.viruses.clone()),
                                         pos: closest_body.pos,
-                                        energy: closest_body.energy.unwrap(),
+                                        energy: closest_body.energy,
                                     })
                                 }
                             }
@@ -561,8 +536,8 @@ async fn main() {
 
             if let Some(food) = food {
                 let distance_to_food = body.pos.distance(food.pos);
-                if Some(distance_to_food) <= body.speed {
-                    body.energy = Some(body.energy.unwrap() + food.energy);
+                if distance_to_food <= body.speed {
+                    body.energy += food.energy;
                     body.pos = food.pos;
 
                     match food.food_type {
@@ -584,10 +559,8 @@ async fn main() {
                     body.status = Status::FollowingTarget((food.id, food.pos));
                     bodies_shot_for_statuses.get_mut(body_id).unwrap().status = body.status;
 
-                    body.pos.x +=
-                        ((food.pos.x - body.pos.x) * body.speed.unwrap()) / distance_to_food;
-                    body.pos.y +=
-                        ((food.pos.y - body.pos.y) * body.speed.unwrap()) / distance_to_food;
+                    body.pos.x += ((food.pos.x - body.pos.x) * body.speed) / distance_to_food;
+                    body.pos.y += ((food.pos.y - body.pos.y) * body.speed) / distance_to_food;
 
                     continue;
                 }
@@ -600,16 +573,16 @@ async fn main() {
                         Instant::now(),
                         Body::new(
                             body.pos,
-                            body.energy,
+                            Some(body.energy),
                             body.eating_strategy,
-                            body.division_threshold,
-                            body.iq,
-                            body.max_iq,
+                            Some(body.division_threshold),
+                            Some(body.iq),
+                            Some(body.max_iq),
                             body.color,
                             body.body_type,
                             Some(body.viruses.clone()),
-                            body.initial_speed,
-                            body.initial_vision_distance,
+                            Some(body.initial_speed),
+                            Some(body.initial_vision_distance),
                             rng,
                         ),
                     );
@@ -626,8 +599,8 @@ async fn main() {
                     if !matches!(body.status, Status::Walking(..)) {
                         let walking_angle: f32 = rng.gen_range(0.0..2.0 * PI);
                         let pos_deviation = Vec2 {
-                            x: body.speed.unwrap() * walking_angle.cos(),
-                            y: body.speed.unwrap() * walking_angle.sin(),
+                            x: body.speed * walking_angle.cos(),
+                            y: body.speed * walking_angle.sin(),
                         };
 
                         body.status = Status::Walking(pos_deviation);
@@ -676,17 +649,15 @@ async fn main() {
                                 draw_circle_lines(
                                     body.pos.x,
                                     body.pos.y,
-                                    body.vision_distance
-                                        .unwrap()
-                                        .max(OBJECT_RADIUS * 2.0 + MIN_GAP),
+                                    body.vision_distance.max(OBJECT_RADIUS * 2.0 + MIN_GAP),
                                     2.0,
                                     body.color,
                                 );
 
                                 let to_display = format!(
                                     "energy = {:?} speed = {:?} viruses = {:?}",
-                                    body.energy.unwrap().round(),
-                                    body.speed.unwrap(),
+                                    body.energy.round(),
+                                    body.speed,
                                     body.viruses
                                 );
                                 draw_text(

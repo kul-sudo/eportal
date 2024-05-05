@@ -34,22 +34,22 @@ pub enum Virus {
 #[derive(Clone, PartialEq)]
 pub struct Body {
     pub pos: Vec2,
-    pub energy: Option<f32>,
-    pub speed: Option<f32>,
-    pub vision_distance: Option<f32>,
+    pub energy: f32,
+    pub speed: f32,
+    pub vision_distance: f32,
     pub eating_strategy: EatingStrategy,
     /// The body procreates after a specific level of energy has been reached.
-    pub division_threshold: Option<f32>,
-    pub iq: Option<u8>,
-    pub max_iq: Option<u8>,
+    pub division_threshold: f32,
+    pub iq: u8,
+    pub max_iq: u8,
     pub color: Color,
     pub status: Status,
     /// When the body died due to a lack of energy if it did die in the first place.
     pub body_type: u16,
     pub lifespan: f32,
     pub viruses: HashMap<Virus, f32>,
-    pub initial_speed: Option<f32>,
-    pub initial_vision_distance: Option<f32>,
+    pub initial_speed: f32,
+    pub initial_vision_distance: f32,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -68,37 +68,41 @@ impl Body {
         initial_vision_distance: Option<f32>,
         rng: &mut StdRng,
     ) -> Self {
-        let mut body = Body {
+        let speed = get_with_deviation!(
+            match initial_speed {
+                Some(initial_speed) => initial_speed,
+                None => AVERAGE_SPEED,
+            },
+            rng
+        );
+
+        let vision_distance = get_with_deviation!(
+            match initial_vision_distance {
+                Some(initial_vision_distance) => initial_vision_distance,
+                None => AVERAGE_VISION_DISTANCE,
+            },
+            rng
+        );
+
+        Body {
             pos,
-            energy: Some(match energy {
+            energy: match energy {
                 Some(energy) => energy / 2.0,
                 None => get_with_deviation!(AVERAGE_ENERGY, rng),
-            }),
-            speed: None,
-            initial_speed: Some(get_with_deviation!(
-                match initial_speed {
-                    Some(initial_speed) => initial_speed,
-                    None => AVERAGE_SPEED,
-                },
-                rng
-            )),
-            vision_distance: None,
-            initial_vision_distance: Some(get_with_deviation!(
-                match initial_vision_distance {
-                    Some(initial_vision_distance) => initial_vision_distance,
-                    None => AVERAGE_VISION_DISTANCE,
-                },
-                rng
-            )),
+            },
+            speed,
+            initial_speed: speed,
+            vision_distance,
+            initial_vision_distance: vision_distance,
             eating_strategy,
-            division_threshold: Some(get_with_deviation!(
+            division_threshold: get_with_deviation!(
                 match division_threshold {
                     Some(division_threshold) => division_threshold,
                     None => AVERAGE_DIVISION_THRESHOLD,
                 },
                 rng
-            )),
-            iq: Some(match iq {
+            ),
+            iq: match iq {
                 Some(iq) => {
                     if rng.gen_range(0.0..1.0) < IQ_INCREASE_CHANCE {
                         if Some(iq) == max_iq {
@@ -111,11 +115,11 @@ impl Body {
                     }
                 }
                 None => 0,
-            }),
-            max_iq: Some(match max_iq {
+            },
+            max_iq: match max_iq {
                 Some(max_iq) => max_iq,
                 None => (0..MAX_IQ + 1).choose(rng).unwrap(),
-            }),
+            },
             color,
             status: Status::Idle,
             body_type,
@@ -153,11 +157,7 @@ impl Body {
                     viruses
                 }
             },
-        };
-
-        body.speed = body.initial_speed;
-        body.vision_distance = body.initial_vision_distance;
-        body
+        }
     }
 
     pub fn is_alive(&self) -> bool {
