@@ -246,14 +246,14 @@ async fn main() {
                     Virus::SpeedVirus => {
                         body.speed -= body.speed * SPEEDVIRUS_SPEED_DECREASE;
 
-                        body.energy -= SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING.max(0.0);
+                        body.energy = (body.energy - SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING).max(0.0);
                         *energy_spent_for_healing += SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING;
                     }
                     Virus::VisionVirus => {
                         body.vision_distance -=
                             body.vision_distance * VISIONVIRUS_VISION_DISTANCE_DECREASE;
 
-                        body.energy -= VISIONVIRUS_ENERGY_SPENT_FOR_HEALING.max(0.0);
+                        body.energy = (body.energy - VISIONVIRUS_ENERGY_SPENT_FOR_HEALING).max(0.0);
                         *energy_spent_for_healing += VISIONVIRUS_ENERGY_SPENT_FOR_HEALING;
                     }
                 }
@@ -282,8 +282,8 @@ async fn main() {
             // Handle the energy
             // The mass is proportional to the energy; to keep the mass up, energy is spent
             body.energy -= ENERGY_SPENT_CONST_FOR_MASS * body.energy
-                - ENERGY_SPENT_CONST_FOR_IQ * body.iq as f32
-                - ENERGY_SPENT_CONST_FOR_VISION_DISTANCE * body.vision_distance.powi(2);
+                + ENERGY_SPENT_CONST_FOR_IQ * body.iq as f32
+                + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE * body.vision_distance.powi(2);
 
             if body.status != Status::Idle {
                 body.energy -= ENERGY_SPENT_CONST_FOR_MOVEMENT * body.speed.powi(2) * body.energy;

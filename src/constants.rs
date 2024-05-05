@@ -1,7 +1,8 @@
 use std::f32::consts::SQRT_3;
 
 // Base
-pub const CELL_ROWS: usize = 120;
+pub const CELL_ROWS: usize = 89; // May be needed to be changed when the perfect values for the
+                                 // evolution process have been determined
 pub const BODIES_N: usize = 800;
 pub const PLANTS_N: usize = 20000;
 pub const PASSIVE_CHANCE: f32 = 0.3;
@@ -15,7 +16,7 @@ pub const LIFESPAN: f32 = 240.0;
 
 // Average spawn attributes
 pub const AVERAGE_ENERGY: f32 = 1500.0;
-pub const AVERAGE_DIVISION_THRESHOLD: f32 = 2600.0;
+pub const AVERAGE_DIVISION_THRESHOLD: f32 = 2300.0;
 
 pub const AVERAGE_VISION_DISTANCE: f32 = 100.0;
 pub const AVERAGE_SPEED: f32 = 1.5;
@@ -29,23 +30,24 @@ pub const PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 pub const MIN_TO_REMOVE: usize = 500; // Bodies and plants are removed only it's needed to remove
                                       // more of them than this constant. That's because when the amount of object to remove, the time it
                                       // takes to delete them barely depends on their amount
-pub const IQ_INCREASE_CHANCE: f32 = 0.3;
+pub const IQ_INCREASE_CHANCE: f32 = 0.0;
 pub const MAX_IQ: u8 = 1;
 
 // Spending energy
-pub const ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.00001;
+pub const ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.0001;
 pub const ENERGY_SPENT_CONST_FOR_IQ: f32 = 0.006;
-pub const ENERGY_SPENT_CONST_FOR_VISION_DISTANCE: f32 = 0.000008;
-pub const ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.0001;
-pub const CONST_FOR_LIFESPAN: f32 = 0.00001;
+pub const ENERGY_SPENT_CONST_FOR_VISION_DISTANCE: f32 = 0.00001;
+pub const ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.0002;
+pub const CONST_FOR_LIFESPAN: f32 = 0.000005;
+
+// Viruses
 pub const PROXIMITY_INFECTION_CHANCE: f32 = 0.009;
 pub const INFECTION_FROM_FOOD_CHANCE: f32 = 0.3;
 
-// Viruses
 // SpeedVirus
-pub const SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE: f32 = 0.1;
+pub const SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE: f32 = 0.00;
 pub const SPEEDVIRUS_SPEED_DECREASE: f32 = 0.001;
-pub const SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING: f32 = 0.001;
+pub const SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING: f32 = 0.1;
 pub const SPEEDVIRUS_HEAL_ENERGY: f32 = 220.0;
 
 // VisionVirus
