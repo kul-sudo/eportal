@@ -543,7 +543,7 @@ async fn main() {
                     match food.food_type {
                         FoodType::Body(viruses) => {
                             if rng.gen_range(0.0..1.0) <= INFECTION_FROM_FOOD_CHANCE {
-                                body.get_viruses_from(viruses);
+                            body.get_viruses_from(viruses);
                             }
                             removed_bodies.insert(food.id);
                         }
