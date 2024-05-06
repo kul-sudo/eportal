@@ -309,8 +309,16 @@ async fn main() {
             if let Some((closest_chasing_body_id, closest_chasing_body)) =
                 bodies_within_vision_distance
                     .iter()
-                    .filter(|(other_body_id, _)| {
-                        if let Status::FollowingTarget(other_body_target) =
+                    .filter(|(other_body_id, other_body)| {
+                        (if body.iq >= 2
+                            && bodies_within_vision_distance
+                                .iter()
+                                .any(|(_, other_body)| other_body.speed > body.speed)
+                        {
+                            other_body.speed > body.speed
+                        } else {
+                            true
+                        }) && if let Status::FollowingTarget(other_body_target) =
                             bodies_shot_for_statuses.get(other_body_id).unwrap().status
                         {
                             other_body_target.0 == *body_id
@@ -355,7 +363,7 @@ async fn main() {
                 .iter()
                 .filter(|(cross_id, cross)| {
                     body.body_type != cross.body_type && !cross.is_alive() && {
-                        if (1..7).contains(&body.iq) {
+                        if body.iq >= 1 {
                             bodies_within_vision_distance_of_my_type.iter().all(
                                 |(other_body_id, _)| {
                                     bodies_shot_for_statuses.get(other_body_id).unwrap().status
@@ -450,7 +458,7 @@ async fn main() {
                             .iter()
                             .filter(|(plant_id, plant)| {
                                 !removed_plants.contains(&(***plant_id, plant.pos)) && {
-                                    if (1..7).contains(&body.iq) {
+                                    if body.iq >= 1 {
                                         bodies_within_vision_distance_of_my_type.iter().all(
                                             |(other_body_id, _)| {
                                                 bodies_shot_for_statuses
@@ -492,7 +500,7 @@ async fn main() {
                                                 && body.energy > other_body.energy
                                                 && other_body.is_alive()
                                                 && {
-                                                    if (1..7).contains(&body.iq) {
+                                                    if body.iq >= 1 {
                                                         bodies_within_vision_distance_of_my_type
                                                             .iter()
                                                             .all(|(_, other_body)| {

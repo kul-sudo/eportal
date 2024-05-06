@@ -118,7 +118,7 @@ impl Body {
             },
             max_iq: match max_iq {
                 Some(max_iq) => max_iq,
-                None => (0..MAX_IQ + 1).choose(rng).unwrap(),
+                None => (0..=MAX_IQ).choose(rng).unwrap(),
             },
             color,
             status: Status::Idle,

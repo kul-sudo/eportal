@@ -31,7 +31,7 @@ pub const MIN_TO_REMOVE: usize = 500; // Bodies and plants are removed only it's
                                       // more of them than this constant. That's because when the amount of object to remove, the time it
                                       // takes to delete them barely depends on their amount
 pub const IQ_INCREASE_CHANCE: f32 = 0.3;
-pub const MAX_IQ: u8 = 1;
+pub const MAX_IQ: u8 = 2;
 
 // Spending energy
 pub const ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.0001;
