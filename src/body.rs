@@ -231,10 +231,10 @@ impl Body {
                 self.viruses.insert(*virus, 0.0);
                 match virus {
                     Virus::SpeedVirus => self.speed -= self.speed * SPEEDVIRUS_SPEED_DECREASE,
-                    Virus::VisionVirus => 
+                    Virus::VisionVirus => {
                         self.vision_distance -=
                             self.vision_distance * VISIONVIRUS_VISION_DISTANCE_DECREASE
-                    
+                    }
                 }
             }
         }

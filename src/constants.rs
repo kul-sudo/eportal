@@ -30,12 +30,12 @@ pub const PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 pub const MIN_TO_REMOVE: usize = 500; // Bodies and plants are removed only it's needed to remove
                                       // more of them than this constant. That's because when the amount of object to remove, the time it
                                       // takes to delete them barely depends on their amount
-pub const IQ_INCREASE_CHANCE: f32 = 0.3;
-pub const MAX_IQ: u8 = 2;
+pub const IQ_INCREASE_CHANCE: f32 = 0.4;
+pub const MAX_IQ: u8 = 3;
 
 // Spending energy
 pub const ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.0001;
-pub const ENERGY_SPENT_CONST_FOR_IQ: f32 = 0.006;
+pub const ENERGY_SPENT_CONST_FOR_IQ: f32 = 0.0008;
 pub const ENERGY_SPENT_CONST_FOR_VISION_DISTANCE: f32 = 0.00001;
 pub const ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.0002;
 pub const CONST_FOR_LIFESPAN: f32 = 0.000005;

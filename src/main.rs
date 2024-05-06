@@ -310,7 +310,7 @@ async fn main() {
                 bodies_within_vision_distance
                     .iter()
                     .filter(|(other_body_id, other_body)| {
-                        (if body.iq >= 2
+                        (if body.iq >= 3
                             && bodies_within_vision_distance
                                 .iter()
                                 .any(|(_, other_body)| other_body.speed > body.speed)
@@ -364,15 +364,30 @@ async fn main() {
                 .filter(|(cross_id, cross)| {
                     body.body_type != cross.body_type && !cross.is_alive() && {
                         if body.iq >= 1 {
-                            bodies_within_vision_distance_of_my_type.iter().all(
+                            return bodies_within_vision_distance_of_my_type.iter().all(
                                 |(other_body_id, _)| {
                                     bodies_shot_for_statuses.get(other_body_id).unwrap().status
                                         != Status::FollowingTarget((**cross_id, cross.pos))
                                 },
-                            )
-                        } else {
-                            true
+                            );
+                        };
+
+                        if body.iq >= 2 {
+                            let distance = body.pos.distance(cross.pos);
+                            let time = distance / body.speed;
+                            let spent_energy = time
+                                * ENERGY_SPENT_CONST_FOR_MOVEMENT
+                                * body.speed.powi(2)
+                                * body.energy
+                                + ENERGY_SPENT_CONST_FOR_MASS * body.energy
+                                + ENERGY_SPENT_CONST_FOR_IQ * body.iq as f32
+                                + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
+                                    * body.vision_distance.powi(2);
+
+                            return body.energy - spent_energy > MIN_ENERGY;
                         }
+
+                        true
                     }
                 })
                 .min_by(|(_, a), (_, b)| {
@@ -458,9 +473,25 @@ async fn main() {
                             .iter()
                             .filter(|(plant_id, plant)| {
                                 !removed_plants.contains(&(***plant_id, plant.pos)) && {
+                                    if body.iq >= 2 {
+                                        let distance = body.pos.distance(plant.pos);
+                                        let time = distance / body.speed;
+                                        let spent_energy = time
+                                            * ENERGY_SPENT_CONST_FOR_MOVEMENT
+                                            * body.speed.powi(2)
+                                            * body.energy
+                                            + ENERGY_SPENT_CONST_FOR_MASS * body.energy
+                                            + ENERGY_SPENT_CONST_FOR_IQ * body.iq as f32
+                                            + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
+                                                * body.vision_distance.powi(2);
+
+                                        return body.energy - spent_energy > MIN_ENERGY;
+                                    };
+
                                     if body.iq >= 1 {
-                                        bodies_within_vision_distance_of_my_type.iter().all(
-                                            |(other_body_id, _)| {
+                                        return bodies_within_vision_distance_of_my_type
+                                            .iter()
+                                            .all(|(other_body_id, _)| {
                                                 bodies_shot_for_statuses
                                                     .get(other_body_id)
                                                     .unwrap()
@@ -469,11 +500,10 @@ async fn main() {
                                                         ***plant_id,
                                                         plant.pos,
                                                     ))
-                                            },
-                                        )
-                                    } else {
-                                        true
+                                            });
                                     }
+
+                                    true
                                 }
                             })
                             .min_by(|(_, a), (_, b)| {
@@ -499,9 +529,10 @@ async fn main() {
                                             body.body_type != other_body.body_type
                                                 && body.energy > other_body.energy
                                                 && other_body.is_alive()
-                                                && {
+                                                && (
+                                        {
                                                     if body.iq >= 1 {
-                                                        bodies_within_vision_distance_of_my_type
+                                                        return bodies_within_vision_distance_of_my_type
                                                             .iter()
                                                             .all(|(_, other_body)| {
                                                                 other_body.status
@@ -510,10 +541,27 @@ async fn main() {
                                                                         other_body.pos,
                                                                     ))
                                                             })
-                                                    } else {
-                                                        true
-                                                    }
+                                            }
+
+                                            if body.iq >= 2 {
+                                                let delta = body.speed - other_body.speed;
+                                                if delta <= 0.0 {
+                                                    return false
                                                 }
+                                            let distance = body.pos.distance(other_body.pos);
+                                            let time = distance /delta;
+                                            let spent_energy = time
+                                                * ENERGY_SPENT_CONST_FOR_MOVEMENT
+                                                * body.speed.powi(2)
+                                                * body.energy
+                                        + ENERGY_SPENT_CONST_FOR_MASS * body.energy
+                + ENERGY_SPENT_CONST_FOR_IQ * body.iq as f32
+                + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE * body.vision_distance.powi(2);
+
+                                            return body.energy - spent_energy > MIN_ENERGY;
+                                            }
+                                                true
+                                        })
                                         })
                                         .min_by(|(_, a), (_, b)| {
                                             body.pos
