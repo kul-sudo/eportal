@@ -244,15 +244,10 @@ async fn main() {
             for (virus, energy_spent_for_healing) in &mut body.viruses {
                 match virus {
                     Virus::SpeedVirus => {
-                        body.speed -= body.speed * SPEEDVIRUS_SPEED_DECREASE;
-
                         body.energy = (body.energy - SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING).max(0.0);
                         *energy_spent_for_healing += SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING;
                     }
                     Virus::VisionVirus => {
-                        body.vision_distance -=
-                            body.vision_distance * VISIONVIRUS_VISION_DISTANCE_DECREASE;
-
                         body.energy = (body.energy - VISIONVIRUS_ENERGY_SPENT_FOR_HEALING).max(0.0);
                         *energy_spent_for_healing += VISIONVIRUS_ENERGY_SPENT_FOR_HEALING;
                     }
@@ -305,11 +300,9 @@ async fn main() {
                 .collect::<Vec<_>>();
 
             for (_, other_body) in &bodies_within_vision_distance {
-                if other_body.is_alive()
-                    && body.pos.distance(other_body.pos) <= OBJECT_RADIUS * 2.0
-                    && rng.gen_range(0.0..1.0) <= PROXIMITY_INFECTION_CHANCE
+                if other_body.is_alive() && body.pos.distance(other_body.pos) <= OBJECT_RADIUS * 2.0
                 {
-                    body.get_viruses_from(other_body.viruses.clone());
+                    body.get_viruses(other_body.viruses.clone());
                 }
             }
 
@@ -542,9 +535,7 @@ async fn main() {
 
                     match food.food_type {
                         FoodType::Body(viruses) => {
-                            if rng.gen_range(0.0..1.0) <= INFECTION_FROM_FOOD_CHANCE {
-                            body.get_viruses_from(viruses);
-                            }
+                            body.get_viruses(viruses);
                             removed_bodies.insert(food.id);
                         }
                         FoodType::Plant => {
@@ -649,16 +640,14 @@ async fn main() {
                                 draw_circle_lines(
                                     body.pos.x,
                                     body.pos.y,
-                                    body.vision_distance.max(OBJECT_RADIUS * 2.0 + MIN_GAP),
+                                    body.vision_distance,
                                     2.0,
                                     body.color,
                                 );
 
                                 let to_display = format!(
-                                    "energy = {:?} speed = {:?} viruses = {:?}",
-                                    body.energy.round(),
-                                    body.speed,
-                                    body.viruses
+                                    "max_iq = {:?} iq = {:?} energy = {:?}",
+                                    body.max_iq, body.iq, body.energy
                                 );
                                 draw_text(
                                     &to_display,

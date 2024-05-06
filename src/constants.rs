@@ -30,7 +30,7 @@ pub const PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 pub const MIN_TO_REMOVE: usize = 500; // Bodies and plants are removed only it's needed to remove
                                       // more of them than this constant. That's because when the amount of object to remove, the time it
                                       // takes to delete them barely depends on their amount
-pub const IQ_INCREASE_CHANCE: f32 = 0.0;
+pub const IQ_INCREASE_CHANCE: f32 = 0.3;
 pub const MAX_IQ: u8 = 1;
 
 // Spending energy
@@ -41,20 +41,17 @@ pub const ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.0002;
 pub const CONST_FOR_LIFESPAN: f32 = 0.000005;
 
 // Viruses
-pub const PROXIMITY_INFECTION_CHANCE: f32 = 0.9;
-pub const INFECTION_FROM_FOOD_CHANCE: f32 = 0.8;
-
 // SpeedVirus
 pub const SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE: f32 = 0.12;
-pub const SPEEDVIRUS_SPEED_DECREASE: f32 = 0.001;
-pub const SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING: f32 = 0.03;
-pub const SPEEDVIRUS_HEAL_ENERGY: f32 = 250.0;
+pub const SPEEDVIRUS_SPEED_DECREASE: f32 = 0.7;
+pub const SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING: f32 = 0.08;
+pub const SPEEDVIRUS_HEAL_ENERGY: f32 = 280.0;
 
 // VisionVirus
-pub const VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE: f32 = 0.00;
-pub const VISIONVIRUS_VISION_DISTANCE_DECREASE: f32 = 0.0001;
+pub const VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE: f32 = 0.1;
+pub const VISIONVIRUS_VISION_DISTANCE_DECREASE: f32 = 0.7;
 pub const VISIONVIRUS_ENERGY_SPENT_FOR_HEALING: f32 = 0.08;
-pub const VISIONVIRUS_HEAL_ENERGY: f32 = 50.0;
+pub const VISIONVIRUS_HEAL_ENERGY: f32 = 280.5;
 
 // Death
 pub const CROSS_LIFESPAN: u64 = 35; // In seconds

@@ -84,7 +84,7 @@ impl Body {
             rng
         );
 
-        Body {
+        let mut body = Body {
             pos,
             energy: match energy {
                 Some(energy) => energy / 2.0,
@@ -157,7 +157,10 @@ impl Body {
                     viruses
                 }
             },
-        }
+        };
+
+        body.get_viruses(body.viruses.clone());
+        body
     }
 
     pub fn is_alive(&self) -> bool {
@@ -222,10 +225,17 @@ impl Body {
         }
     }
 
-    pub fn get_viruses_from(&mut self, viruses: HashMap<Virus, f32>) {
+    pub fn get_viruses(&mut self, viruses: HashMap<Virus, f32>) {
         for virus in viruses.keys() {
             if !self.viruses.contains_key(virus) {
                 self.viruses.insert(*virus, 0.0);
+                match virus {
+                    Virus::SpeedVirus => self.speed -= self.speed * SPEEDVIRUS_SPEED_DECREASE,
+                    Virus::VisionVirus => 
+                        self.vision_distance -=
+                            self.vision_distance * VISIONVIRUS_VISION_DISTANCE_DECREASE
+                    
+                }
             }
         }
     }
