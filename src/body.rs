@@ -2,13 +2,18 @@ use std::{collections::HashMap, f32::consts::SQRT_2, time::Instant};
 
 use macroquad::{
     color::{Color, GREEN, RED},
-    math::{Vec2, Vec3},
+    math::{vec2, Vec2, Vec3},
     rand::gen_range,
     shapes::{draw_circle, draw_line, draw_rectangle},
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng};
 
-use crate::{constants::*, get_with_deviation};
+use crate::{
+    constants::*,
+    get_with_deviation,
+    smart_drawing::{DrawingStrategy, RectangleCorner, SEARCH_SEQUENCE},
+    zoom::Zoom,
+};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Status {
@@ -238,6 +243,105 @@ impl Body {
                 }
             }
         }
+    }
+
+    pub fn get_drawing_strategy(&self, zoom: Zoom) -> DrawingStrategy {
+        let mut drawing_strategy = DrawingStrategy::default();
+        let mut target_line = None;
+
+        let mut rectangle_corners = HashMap::with_capacity(4);
+        for corner in [
+            RectangleCorner::TopRight,
+            RectangleCorner::TopLeft,
+            RectangleCorner::BottomRight,
+            RectangleCorner::BottomLeft,
+        ] {
+            let (i, j) = match corner {
+                RectangleCorner::TopRight => (1.0, 1.0),
+                RectangleCorner::TopLeft => (-1.0, 1.0),
+                RectangleCorner::BottomRight => (1.0, -1.0),
+                RectangleCorner::BottomLeft => (-1.0, -1.0),
+            };
+
+            rectangle_corners.insert(
+                corner,
+                vec2(
+                    zoom.center_pos.unwrap().x + i * zoom.width / 2.0,
+                    zoom.center_pos.unwrap().y + j * zoom.height / 2.0,
+                ),
+            );
+        }
+
+        // Step 1
+        if (self.pos.x - zoom.center_pos.unwrap().x).abs() <= zoom.width / 2.0 + OBJECT_RADIUS
+            && (self.pos.y - zoom.center_pos.unwrap().y).abs() <= zoom.height / 2.0 + OBJECT_RADIUS
+        {
+            drawing_strategy.body = true;
+            drawing_strategy.vision_distance = true;
+
+            if let Status::FollowingTarget((_, target_pos)) = self.status {
+                if (target_pos.x - zoom.center_pos.unwrap().x).abs() < zoom.width / 2.0
+                    && (target_pos.y - zoom.center_pos.unwrap().y).abs() < zoom.height / 2.0
+                {
+                    target_line = Some(true);
+                }
+            }
+        } else {
+            drawing_strategy.body = false;
+
+            for (i, j) in SEARCH_SEQUENCE {
+                if DrawingStrategy::circle_segment_intersection(
+                    self.pos,
+                    self.vision_distance,
+                    *rectangle_corners.get(&i).unwrap(),
+                    *rectangle_corners.get(&j).unwrap(),
+                ) {
+                    drawing_strategy.vision_distance = true;
+                    break;
+                }
+            }
+        }
+
+        // Step 3
+        match target_line {
+            Some(_) => {
+                if drawing_strategy.body {
+                    target_line = None;
+                } else {
+                    if !drawing_strategy.vision_distance {
+                        if self.vision_distance > zoom.diagonal {
+                            target_line = None;
+                        } else {
+                            target_line = Some(false)
+                        }
+                    }
+                }
+            }
+            None => {
+                for (i, j) in SEARCH_SEQUENCE {
+                    if let Status::FollowingTarget((_, target_pos)) = self.status {
+                        target_line = Some(false);
+                        if DrawingStrategy::segments_intersect(
+                            self.pos,
+                            target_pos,
+                            *rectangle_corners.get(&i).unwrap(),
+                            *rectangle_corners.get(&j).unwrap(),
+                        ) {
+                            target_line = Some(true);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Status::FollowingTarget(_) = self.status {
+            drawing_strategy.target_line = target_line.unwrap();
+        } else {
+            drawing_strategy.target_line = false;
+        }
+
+        drawing_strategy
     }
 }
 

@@ -1,17 +1,19 @@
 #![allow(internal_features)]
 #![feature(core_intrinsics)]
 #![feature(more_float_constants)]
-#![feature(exclusive_range_pattern)]
 
 mod body;
 mod cells;
 mod constants;
 mod plant;
+mod smart_drawing;
+mod zoom;
 
 use body::*;
 use cells::{Cell, Cells};
 use constants::*;
 use plant::{randomly_spawn_plant, Plant};
+use zoom::{default_camera, get_zoom_target, Zoom};
 
 use std::{
     collections::{HashMap, HashSet},
@@ -23,30 +25,16 @@ use std::{
 };
 
 use macroquad::{
-    camera::{set_camera, Camera2D},
+    camera::Camera2D,
     color::WHITE,
     input::{is_key_down, is_key_pressed, is_mouse_button_pressed, mouse_position, KeyCode},
-    math::{vec2, Rect, Vec2},
+    math::{Rect, Vec2},
     miniquad::{window::set_fullscreen, MouseButton},
     shapes::{draw_circle_lines, draw_line},
     text::{draw_text, measure_text},
     window::{next_frame, screen_height, screen_width, Conf},
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng, SeedableRng};
-
-/// Adjust the coordinates according to the borders.
-macro_rules! adjusted_coordinates {
-    ($pos:expr, $area_size:expr) => {
-        Vec2 {
-            x: ($pos.x * MAX_ZOOM)
-                .max($area_size.x / MAX_ZOOM / 2.0)
-                .min($area_size.x * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
-            y: ($pos.y * MAX_ZOOM)
-                .max($area_size.y / MAX_ZOOM / 2.0)
-                .min($area_size.y * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
-        }
-    };
-}
 
 /// Used for getting specific values with deviations.
 #[macro_export]
@@ -67,23 +55,6 @@ struct FoodInfo {
     food_type: FoodType,
     pos: Vec2,
     energy: f32,
-}
-
-/// Set the camera zoom to where the mouse cursor is.
-fn get_zoom_target(camera: &mut Camera2D, area_size: Vec2) {
-    let (x, y) = mouse_position();
-    let target = adjusted_coordinates!(Vec2 { x, y }, area_size);
-
-    camera.target = target;
-    camera.zoom = vec2(MAX_ZOOM / area_size.x * 2.0, MAX_ZOOM / area_size.y * 2.0);
-    set_camera(camera);
-}
-
-/// Reset the camera zoom.
-fn default_camera(camera: &mut Camera2D, area_size: Vec2) {
-    camera.target = vec2(area_size.x / 2.0, area_size.y / 2.0);
-    camera.zoom = vec2(MIN_ZOOM / area_size.x * 2.0, MIN_ZOOM / area_size.y * 2.0);
-    set_camera(camera);
 }
 
 fn window_conf() -> Conf {
@@ -160,11 +131,22 @@ async fn main() {
     // The timer needed for the FPS
     let mut last_updated = Instant::now();
 
+    let width = MAX_ZOOM / area_size.x * 2.0;
+    let height = MAX_ZOOM / area_size.y * 2.0;
+    let mut zoom = Zoom {
+        width,
+        height,
+        diagonal: (width.powi(2) + height.powi(2)).sqrt(),
+        center_pos: None,
+        mouse_pos: None,
+    };
+
     loop {
         // Handle the left mouse button click for zooming in/out
         if unlikely(is_mouse_button_pressed(MouseButton::Left)) {
             if zoom_mode {
                 default_camera(&mut camera, area_size);
+                zoom.mouse_pos = None;
             }
 
             zoom_mode = !zoom_mode
@@ -177,7 +159,20 @@ async fn main() {
         let is_draw_prevented = is_key_down(KeyCode::Space);
 
         if zoom_mode {
-            get_zoom_target(&mut camera, area_size);
+            // There's no reason to zoom in again if the mouse position hasn't been changed
+            let current_mouse_pos = Vec2::from(mouse_position());
+            match zoom.mouse_pos {
+                Some(mouse_pos) => {
+                    if mouse_pos != current_mouse_pos {
+                        zoom.mouse_pos = Some(current_mouse_pos);
+                        get_zoom_target(&mut camera, area_size, &mut zoom);
+                    }
+                }
+                None => {
+                    zoom.mouse_pos = Some(current_mouse_pos);
+                    get_zoom_target(&mut camera, area_size, &mut zoom);
+                }
+            }
         }
 
         let mut only_plants: HashMap<&Instant, &Plant> = HashMap::new();
@@ -529,8 +524,7 @@ async fn main() {
                                             body.body_type != other_body.body_type
                                                 && body.energy > other_body.energy
                                                 && other_body.is_alive()
-                                                && (
-                                        {
+                                                && ({
                                                     if body.iq >= 1 {
                                                         return bodies_within_vision_distance_of_my_type
                                                             .iter()
@@ -541,27 +535,31 @@ async fn main() {
                                                                         other_body.pos,
                                                                     ))
                                                             })
-                                            }
+                                                    }
 
-                                            if body.iq >= 2 {
-                                                let delta = body.speed - other_body.speed;
-                                                if delta <= 0.0 {
-                                                    return false
-                                                }
-                                            let distance = body.pos.distance(other_body.pos);
-                                            let time = distance /delta;
-                                            let spent_energy = time
-                                                * ENERGY_SPENT_CONST_FOR_MOVEMENT
-                                                * body.speed.powi(2)
-                                                * body.energy
-                                        + ENERGY_SPENT_CONST_FOR_MASS * body.energy
-                + ENERGY_SPENT_CONST_FOR_IQ * body.iq as f32
-                + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE * body.vision_distance.powi(2);
+                                                    if body.iq >= 2 {
+                                                        let delta = body.speed - other_body.speed;
+                                                        if delta <= 0.0 {
+                                                            return false;
+                                                        }
+                                                        let distance =
+                                                            body.pos.distance(other_body.pos);
+                                                        let time = distance / delta;
+                                                        let spent_energy = time
+                                                            * ENERGY_SPENT_CONST_FOR_MOVEMENT
+                                                            * body.speed.powi(2)
+                                                            * body.energy
+                                                            + ENERGY_SPENT_CONST_FOR_MASS
+                                                                * body.energy
+                                                            + ENERGY_SPENT_CONST_FOR_IQ
+                                                                * body.iq as f32
+                                                            + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
+                                                                * body.vision_distance.powi(2);
 
-                                            return body.energy - spent_energy > MIN_ENERGY;
-                                            }
-                                                true
-                                        })
+                                                        return body.energy - spent_energy > MIN_ENERGY;
+                                                    }
+                                                    true
+                                                })
                                         })
                                         .min_by(|(_, a), (_, b)| {
                                             body.pos
@@ -681,44 +679,67 @@ async fn main() {
                 for (body_id, body) in &bodies {
                     if !removed_bodies.contains(body_id) {
                         if zoom_mode && body.is_alive() {
-                            if let Status::FollowingTarget((_, target_pos)) = body.status {
-                                draw_line(
-                                    body.pos.x,
-                                    body.pos.y,
-                                    target_pos.x,
-                                    target_pos.y,
-                                    2.0,
-                                    WHITE,
-                                );
+                            // if body.pos.distance(zoom.center_pos.unwrap())
+                            //     < body.vision_distance + zoom.diagonal / 2.0
+                            // {
+                            //     // for (i, j) in SEARCH_SEQUENCE {
+                            //     //     if DrawingStrategy::circle_segment_intersection(body.pos, body.vision_distance, , p2)
+                            //     // }
+                            // }
+
+                            let drawing_strategy = body.get_drawing_strategy(zoom);
+
+                            if drawing_strategy.target_line {
+                                if let Status::FollowingTarget((_, target_pos)) = body.status {
+                                    draw_line(
+                                        body.pos.x,
+                                        body.pos.y,
+                                        target_pos.x,
+                                        target_pos.y,
+                                        2.0,
+                                        WHITE,
+                                    );
+                                }
                             }
 
                             if show_info {
-                                draw_circle_lines(
-                                    body.pos.x,
-                                    body.pos.y,
-                                    body.vision_distance,
-                                    2.0,
-                                    body.color,
-                                );
+                                if drawing_strategy.vision_distance {
+                                    draw_circle_lines(
+                                        body.pos.x,
+                                        body.pos.y,
+                                        body.vision_distance,
+                                        2.0,
+                                        body.color,
+                                    );
+                                }
 
-                                let to_display = format!(
-                                    "max_iq = {:?} iq = {:?} energy = {:?}",
-                                    body.max_iq, body.iq, body.energy
-                                );
-                                draw_text(
-                                    &to_display,
-                                    body.pos.x
-                                        - measure_text(&to_display, None, BODY_INFO_FONT_SIZE, 1.0)
+                                if drawing_strategy.body {
+                                    body.draw();
+
+                                    let to_display = format!(
+                                        "max_iq = {:?} iq = {:?} energy = {:?}",
+                                        body.max_iq, body.iq, body.energy
+                                    );
+                                    draw_text(
+                                        &to_display,
+                                        body.pos.x
+                                            - measure_text(
+                                                &to_display,
+                                                None,
+                                                BODY_INFO_FONT_SIZE,
+                                                1.0,
+                                            )
                                             .width
-                                            / 2.0,
-                                    body.pos.y - OBJECT_RADIUS - MIN_GAP,
-                                    BODY_INFO_FONT_SIZE as f32,
-                                    WHITE,
-                                );
+                                                / 2.0,
+                                        body.pos.y - OBJECT_RADIUS - MIN_GAP,
+                                        BODY_INFO_FONT_SIZE as f32,
+                                        WHITE,
+                                    );
+                                }
                             }
+                        } else {
+                            body.draw();
                         }
-
-                        body.draw();
                     }
                 }
 
