@@ -4,7 +4,7 @@ use macroquad::{
     window::{screen_height, screen_width},
 };
 
-use crate::{MAX_ZOOM, MIN_ZOOM};
+use crate::{MAX_ZOOM, MIN_ZOOM, OBJECT_RADIUS};
 
 /// Adjust the coordinates according to the borders.
 macro_rules! adjusted_coordinates {
@@ -22,20 +22,37 @@ macro_rules! adjusted_coordinates {
 
 #[derive(Clone, Copy)]
 pub struct Zoom {
+    pub scaling_width: f32,
+    pub scaling_height: f32,
     pub width: f32,
     pub height: f32,
     pub diagonal: f32,
     pub center_pos: Option<Vec2>,
     pub mouse_pos: Option<Vec2>,
+    pub rect: Option<Rect>,
+    /// Normal rect size + OBJECT_RADIUS * 2.0.
+    pub extended_rect: Option<Rect>,
 }
 
 /// Set the camera zoom to where the mouse cursor is.
 pub fn get_zoom_target(camera: &mut Camera2D, area_size: Vec2, zoom: &mut Zoom) {
     zoom.center_pos = Some(adjusted_coordinates!(zoom.mouse_pos.unwrap(), area_size));
+    zoom.rect = Some(Rect::new(
+        zoom.center_pos.unwrap().x - zoom.width / 2.0,
+        zoom.center_pos.unwrap().y - zoom.height / 2.0,
+        zoom.width,
+        zoom.height,
+    ));
 
-    // camera.viewport = Some((300, 300, 1920, 1080));
-    camera.target = zoom.center_pos.unwrap();
-    camera.zoom = vec2(zoom.width, zoom.height);
+    zoom.extended_rect = Some(Rect::new(
+        zoom.center_pos.unwrap().x - zoom.width / 2.0,
+        zoom.center_pos.unwrap().y - zoom.height / 2.0,
+        zoom.width + OBJECT_RADIUS * 2.0,
+        zoom.height + OBJECT_RADIUS * 2.0,
+    ));
+
+    // camera.target = zoom.center_pos.unwrap();
+    // camera.zoom = vec2(zoom.width, zoom.height);
     set_camera(camera);
 }
 

@@ -28,7 +28,7 @@ use macroquad::{
     camera::Camera2D,
     color::WHITE,
     input::{is_key_down, is_key_pressed, is_mouse_button_pressed, mouse_position, KeyCode},
-    math::{Rect, Vec2},
+    math::{vec2, Rect, Vec2},
     miniquad::{window::set_fullscreen, MouseButton},
     shapes::{draw_circle_lines, draw_line},
     text::{draw_text, measure_text},
@@ -131,14 +131,18 @@ async fn main() {
     // The timer needed for the FPS
     let mut last_updated = Instant::now();
 
-    let width = MAX_ZOOM / area_size.x * 2.0;
-    let height = MAX_ZOOM / area_size.y * 2.0;
+    let scaling_width = MAX_ZOOM / area_size.x * 2.0;
+    let scaling_height = MAX_ZOOM / area_size.y * 2.0;
     let mut zoom = Zoom {
-        width,
-        height,
-        diagonal: (width.powi(2) + height.powi(2)).sqrt(),
+        scaling_width,
+        scaling_height,
+        width: screen_width() / MAX_ZOOM * OBJECT_RADIUS,
+        height: screen_height() / MAX_ZOOM * OBJECT_RADIUS,
+        diagonal: (scaling_width.powi(2) + scaling_height.powi(2)).sqrt(),
         center_pos: None,
         mouse_pos: None,
+        rect: None,
+        extended_rect: None,
     };
 
     loop {
@@ -147,6 +151,10 @@ async fn main() {
             if zoom_mode {
                 default_camera(&mut camera, area_size);
                 zoom.mouse_pos = None;
+            } else {
+                zoom.rect = None;
+                zoom.extended_rect = None;
+                zoom.rect = None;
             }
 
             zoom_mode = !zoom_mode

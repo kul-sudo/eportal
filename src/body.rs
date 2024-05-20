@@ -1,10 +1,11 @@
-use std::{collections::HashMap, f32::consts::SQRT_2, time::Instant};
+use std::{collections::HashMap, f32::consts::SQRT_2, intrinsics::unlikely, time::Instant};
 
 use macroquad::{
-    color::{Color, GREEN, RED},
-    math::{vec2, Vec2, Vec3},
+    color::{Color, GREEN, PURPLE, RED},
+    math::{vec2, Circle, Rect, Vec2, Vec3},
     rand::gen_range,
-    shapes::{draw_circle, draw_line, draw_rectangle},
+    shapes::{draw_circle, draw_line, draw_rectangle, draw_rectangle_lines},
+    window::{screen_height, screen_width},
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng};
 
@@ -247,7 +248,8 @@ impl Body {
 
     pub fn get_drawing_strategy(&self, zoom: Zoom) -> DrawingStrategy {
         let mut drawing_strategy = DrawingStrategy::default();
-        let mut target_line = None;
+        let mut target_line = None; // It hasn't been decided yet whether it's needed to draw a
+                                    // line
 
         let mut rectangle_corners = HashMap::with_capacity(4);
         for corner in [
@@ -266,53 +268,54 @@ impl Body {
             rectangle_corners.insert(
                 corner,
                 vec2(
-                    zoom.center_pos.unwrap().x + i * zoom.width / 2.0,
-                    zoom.center_pos.unwrap().y + j * zoom.height / 2.0,
+                    zoom.center_pos.unwrap().x + i * zoom.scaling_width / 2.0,
+                    zoom.center_pos.unwrap().y + j * zoom.scaling_height / 2.0,
                 ),
             );
         }
 
         // Step 1
-        if (self.pos.x - zoom.center_pos.unwrap().x).abs() <= zoom.width / 2.0 + OBJECT_RADIUS
-            && (self.pos.y - zoom.center_pos.unwrap().y).abs() <= zoom.height / 2.0 + OBJECT_RADIUS
-        {
+        draw_rectangle_lines(
+            zoom.center_pos.unwrap().x - zoom.width / 2.0,
+            zoom.center_pos.unwrap().y - zoom.height / 2.0,
+            zoom.width,
+            zoom.height,
+            50.0,
+            PURPLE,
+        );
+
+        if zoom.extended_rect.unwrap().contains(self.pos) {
+            // The body can be partially
+            // visible/hidden or completely visible.
             drawing_strategy.body = true;
             drawing_strategy.vision_distance = true;
 
             if let Status::FollowingTarget((_, target_pos)) = self.status {
-                if (target_pos.x - zoom.center_pos.unwrap().x).abs() < zoom.width / 2.0
-                    && (target_pos.y - zoom.center_pos.unwrap().y).abs() < zoom.height / 2.0
-                {
+                if zoom.rect.unwrap().contains(target_pos) {
                     target_line = Some(true);
                 }
             }
         } else {
             drawing_strategy.body = false;
-
-            for (i, j) in SEARCH_SEQUENCE {
-                if DrawingStrategy::circle_segment_intersection(
-                    self.pos,
-                    self.vision_distance,
-                    *rectangle_corners.get(&i).unwrap(),
-                    *rectangle_corners.get(&j).unwrap(),
-                ) {
-                    drawing_strategy.vision_distance = true;
-                    break;
-                }
-            }
+            drawing_strategy.vision_distance =
+                Circle::new(self.pos.x, self.pos.y, self.vision_distance)
+                    .overlaps_rect(&zoom.rect.unwrap());
         }
 
         // Step 3
         match target_line {
             Some(_) => {
-                if drawing_strategy.body {
-                    target_line = None;
-                } else {
-                    if !drawing_strategy.vision_distance {
-                        if self.vision_distance > zoom.diagonal {
-                            target_line = None;
+                if !drawing_strategy.body {
+                    if drawing_strategy.vision_distance {
+                        target_line = None;
+                    } else {
+                        target_line = if unlikely(self.vision_distance > zoom.diagonal)
+                        // It is very unlikely for the vision distance to be big enough to cover the
+                        // whole diagonal of the zoom area
+                        {
+                            None
                         } else {
-                            target_line = Some(false)
+                            Some(false)
                         }
                     }
                 }
