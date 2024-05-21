@@ -676,59 +676,87 @@ async fn main() {
 
         if is_draw_mode {
             if !is_draw_prevented {
-                for cell in plants.values() {
-                    for (plant_id, plant) in cell {
-                        if !removed_plants.contains(&(*plant_id, plant.pos)) {
-                            plant.draw();
-                        }
+                if zoom_mode {
+                    for plant in Plant::get_plants_to_draw(&cells, &zoom, &plants, &removed_plants)
+                    {
+                        plant.draw();
                     }
-                }
 
-                for (body_id, body) in &bodies {
-                    if zoom_mode && !removed_bodies.contains(body_id) {
-                        let drawing_strategy = body.get_drawing_strategy(zoom);
+                    // for cell in plants.values() {
+                    //     for (plant_id, plant) in cell {
+                    //         if !removed_plants.contains(&(*plant_id, plant.pos)) {
+                    //             plant.draw();
+                    //         }
+                    //     }
+                    // }
 
-                        if show_info {
-                            if drawing_strategy.vision_distance {
-                                draw_circle_lines(
-                                    body.pos.x,
-                                    body.pos.y,
-                                    body.vision_distance,
-                                    2.0,
-                                    body.color,
-                                );
-                            }
+                    for (body_id, body) in &bodies {
+                        if !removed_bodies.contains(body_id) {
+                            let drawing_strategy = body.get_drawing_strategy(zoom);
 
-                            if drawing_strategy.target_line {
-                                if let Status::FollowingTarget((_, target_pos)) = body.status {
-                                    draw_line(
+                            if show_info {
+                                if drawing_strategy.vision_distance {
+                                    draw_circle_lines(
                                         body.pos.x,
                                         body.pos.y,
-                                        target_pos.x,
-                                        target_pos.y,
+                                        body.vision_distance,
                                         2.0,
+                                        body.color,
+                                    );
+                                }
+
+                                if drawing_strategy.target_line {
+                                    if let Status::FollowingTarget((_, target_pos)) = body.status {
+                                        draw_line(
+                                            body.pos.x,
+                                            body.pos.y,
+                                            target_pos.x,
+                                            target_pos.y,
+                                            2.0,
+                                            WHITE,
+                                        );
+                                    }
+                                }
+
+                                if body.is_alive() {
+                                    let to_display = format!(
+                                        "max_iq = {:?} iq = {:?} energy = {:?}",
+                                        body.max_iq, body.iq, body.energy
+                                    );
+                                    draw_text(
+                                        &to_display,
+                                        body.pos.x
+                                            - measure_text(
+                                                &to_display,
+                                                None,
+                                                BODY_INFO_FONT_SIZE,
+                                                1.0,
+                                            )
+                                            .width
+                                                / 2.0,
+                                        body.pos.y - OBJECT_RADIUS - MIN_GAP,
+                                        BODY_INFO_FONT_SIZE as f32,
                                         WHITE,
                                     );
                                 }
                             }
 
-                            let to_display = format!(
-                                "max_iq = {:?} iq = {:?} energy = {:?}",
-                                body.max_iq, body.iq, body.energy
-                            );
-                            draw_text(
-                                &to_display,
-                                body.pos.x
-                                    - measure_text(&to_display, None, BODY_INFO_FONT_SIZE, 1.0)
-                                        .width
-                                        / 2.0,
-                                body.pos.y - OBJECT_RADIUS - MIN_GAP,
-                                BODY_INFO_FONT_SIZE as f32,
-                                WHITE,
-                            );
+                            if drawing_strategy.body {
+                                body.draw();
+                            }
                         }
+                    }
+                } else {
+                    for cell in plants.values() {
+                        for (plant_id, plant) in cell {
+                            if !removed_plants.contains(&(*plant_id, plant.pos)) {
+                                plant.draw();
+                            }
+                        }
+                    }
 
-                        if drawing_strategy.body {
+                    for (body_id, body) in &bodies {
+                        if !removed_bodies.contains(body_id) {
                             body.draw();
                         }
                     }

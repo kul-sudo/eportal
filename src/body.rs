@@ -1,10 +1,10 @@
 use std::{collections::HashMap, f32::consts::SQRT_2, intrinsics::unlikely, time::Instant};
 
 use macroquad::{
-    color::{Color, GREEN, RED},
+    color::{Color, GREEN, PURPLE, RED},
     math::{vec2, Circle, Vec2, Vec3},
     rand::gen_range,
-    shapes::{draw_circle, draw_line, draw_rectangle},
+    shapes::{draw_circle, draw_line, draw_rectangle, draw_rectangle_lines},
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng};
 
@@ -301,7 +301,6 @@ impl Body {
                 }
             }
         } else {
-
             if !self.is_alive() {
                 return drawing_strategy;
             }

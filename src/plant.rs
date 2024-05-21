@@ -1,16 +1,23 @@
+use core::f32;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
+    intrinsics::unreachable,
     time::{Duration, Instant},
 };
 
-use macroquad::{color::GREEN, math::Vec2, shapes::draw_triangle};
+use macroquad::{
+    color::GREEN,
+    math::{vec2, Vec2},
+    shapes::draw_triangle,
+};
 use rand::{rngs::StdRng, Rng};
 
 use crate::{
-    Body, Cell, Cells, COSINE_OF_30_DEGREES, MIN_GAP, OBJECT_RADIUS, PLANT_SPAWN_TIME_LIMIT,
+    zoom::Zoom, Body, Cell, Cells, CELL_ROWS, COSINE_OF_30_DEGREES, MIN_GAP, OBJECT_RADIUS,
+    PLANT_SPAWN_TIME_LIMIT,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Plant {
     pub pos: Vec2,
 }
@@ -32,6 +39,54 @@ impl Plant {
             },
             GREEN,
         );
+    }
+
+    pub fn get_plants_to_draw(
+        cells: &Cells,
+        zoom: &Zoom,
+        plants: &HashMap<Cell, HashMap<Instant, Plant>>,
+        removed_plants: &[(Instant, Vec2)],
+    ) -> Vec<Plant> {
+        let mut plants_to_draw = Vec::new();
+        let (i_min, i_max, j_min, j_max);
+
+        if let Some(extended_rect) = zoom.extended_rect {
+            i_min = ((extended_rect.center().y - extended_rect.h / 2.0) / cells.cell_height).floor()
+                as usize;
+            i_max = ((extended_rect.center().y + extended_rect.h / 2.0) / cells.cell_height).floor()
+                as usize;
+            j_min = ((extended_rect.center().x - extended_rect.w / 2.0) / cells.cell_width).floor()
+                as usize;
+            j_max = ((extended_rect.center().x + extended_rect.w / 2.0) / cells.cell_width).floor()
+                as usize;
+        } else {
+            unreachable!()
+        }
+
+        for i in i_min.max(0)..=i_max.min(cells.rows - 1) {
+            let i_is_on_border = i == i_min || i == i_max;
+
+            for j in j_min.max(0)..=j_max.min(cells.columns - 1) {
+                if !i_is_on_border && (j != j_min && j != j_max) {
+                    // The cell is fully within the rectangle
+                    for (plant_id, plant) in plants.get(&Cell { i, j }).unwrap() {
+                        if !removed_plants.contains(&(*plant_id, plant.pos)) {
+                            plants_to_draw.push(*plant);
+                        }
+                    }
+                } else {
+                    for (plant_id, plant) in plants.get(&Cell { i, j }).unwrap() {
+                        if !removed_plants.contains(&(*plant_id, plant.pos))
+                            && zoom.extended_rect.unwrap().contains(plant.pos)
+                        {
+                            plants_to_draw.push(*plant);
+                        }
+                    }
+                }
+            }
+        }
+
+        plants_to_draw
     }
 }
 
