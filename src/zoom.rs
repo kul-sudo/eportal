@@ -51,8 +51,8 @@ pub fn get_zoom_target(camera: &mut Camera2D, area_size: Vec2, zoom: &mut Zoom) 
         zoom.height + OBJECT_RADIUS * 2.0,
     ));
 
-    // camera.target = zoom.center_pos.unwrap();
-    // camera.zoom = vec2(zoom.width, zoom.height);
+    camera.target = zoom.center_pos.unwrap();
+    camera.zoom = vec2(zoom.scaling_width, zoom.scaling_height);
     set_camera(camera);
 }
 

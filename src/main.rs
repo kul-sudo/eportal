@@ -685,17 +685,19 @@ async fn main() {
                 }
 
                 for (body_id, body) in &bodies {
-                    if !removed_bodies.contains(body_id) {
-                        if zoom_mode && body.is_alive() {
-                            // if body.pos.distance(zoom.center_pos.unwrap())
-                            //     < body.vision_distance + zoom.diagonal / 2.0
-                            // {
-                            //     // for (i, j) in SEARCH_SEQUENCE {
-                            //     //     if DrawingStrategy::circle_segment_intersection(body.pos, body.vision_distance, , p2)
-                            //     // }
-                            // }
+                    if zoom_mode && !removed_bodies.contains(body_id) {
+                        let drawing_strategy = body.get_drawing_strategy(zoom);
 
-                            let drawing_strategy = body.get_drawing_strategy(zoom);
+                        if show_info {
+                            if drawing_strategy.vision_distance {
+                                draw_circle_lines(
+                                    body.pos.x,
+                                    body.pos.y,
+                                    body.vision_distance,
+                                    2.0,
+                                    body.color,
+                                );
+                            }
 
                             if drawing_strategy.target_line {
                                 if let Status::FollowingTarget((_, target_pos)) = body.status {
@@ -710,42 +712,23 @@ async fn main() {
                                 }
                             }
 
-                            if show_info {
-                                if drawing_strategy.vision_distance {
-                                    draw_circle_lines(
-                                        body.pos.x,
-                                        body.pos.y,
-                                        body.vision_distance,
-                                        2.0,
-                                        body.color,
-                                    );
-                                }
+                            let to_display = format!(
+                                "max_iq = {:?} iq = {:?} energy = {:?}",
+                                body.max_iq, body.iq, body.energy
+                            );
+                            draw_text(
+                                &to_display,
+                                body.pos.x
+                                    - measure_text(&to_display, None, BODY_INFO_FONT_SIZE, 1.0)
+                                        .width
+                                        / 2.0,
+                                body.pos.y - OBJECT_RADIUS - MIN_GAP,
+                                BODY_INFO_FONT_SIZE as f32,
+                                WHITE,
+                            );
+                        }
 
-                                if drawing_strategy.body {
-                                    body.draw();
-
-                                    let to_display = format!(
-                                        "max_iq = {:?} iq = {:?} energy = {:?}",
-                                        body.max_iq, body.iq, body.energy
-                                    );
-                                    draw_text(
-                                        &to_display,
-                                        body.pos.x
-                                            - measure_text(
-                                                &to_display,
-                                                None,
-                                                BODY_INFO_FONT_SIZE,
-                                                1.0,
-                                            )
-                                            .width
-                                                / 2.0,
-                                        body.pos.y - OBJECT_RADIUS - MIN_GAP,
-                                        BODY_INFO_FONT_SIZE as f32,
-                                        WHITE,
-                                    );
-                                }
-                            }
-                        } else {
+                        if drawing_strategy.body {
                             body.draw();
                         }
                     }
