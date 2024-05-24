@@ -28,7 +28,7 @@ use macroquad::{
     camera::Camera2D,
     color::WHITE,
     input::{is_key_down, is_key_pressed, is_mouse_button_pressed, mouse_position, KeyCode},
-    math::{vec2, Rect, Vec2},
+    math::{ Rect, Vec2},
     miniquad::{window::set_fullscreen, MouseButton},
     shapes::{draw_circle_lines, draw_line},
     text::{draw_text, measure_text},

@@ -1,7 +1,6 @@
 use macroquad::{
-    camera::{set_camera, Camera, Camera2D},
+    camera::{set_camera, Camera2D},
     math::{vec2, Rect, Vec2},
-    window::{screen_height, screen_width},
 };
 
 use crate::{MAX_ZOOM, MIN_ZOOM, OBJECT_RADIUS};

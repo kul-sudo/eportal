@@ -1,19 +1,13 @@
-use core::f32;
 use std::{
-    collections::{HashMap, HashSet},
-    intrinsics::unreachable,
+    collections::HashMap,
     time::{Duration, Instant},
 };
 
-use macroquad::{
-    color::GREEN,
-    math::{vec2, Vec2},
-    shapes::draw_triangle,
-};
+use macroquad::{color::GREEN, math::Vec2, shapes::draw_triangle};
 use rand::{rngs::StdRng, Rng};
 
 use crate::{
-    zoom::Zoom, Body, Cell, Cells, CELL_ROWS, COSINE_OF_30_DEGREES, MIN_GAP, OBJECT_RADIUS,
+    zoom::Zoom, Body, Cell, Cells, COSINE_OF_30_DEGREES, MIN_GAP, OBJECT_RADIUS,
     PLANT_SPAWN_TIME_LIMIT,
 };
 
@@ -101,13 +95,6 @@ pub fn randomly_spawn_plant(
 
     let mut pos = Vec2::default();
 
-    // let mut only_plants: HashMap<&Instant, &Plant> = HashMap::default();
-    // for cell in plants.values() {
-    //     for (plant_id, plant) in cell {
-    //         only_plants.insert(plant_id, plant);
-    //     }
-    // }
-
     // Make sure the position is far enough from the rest of the plants and bodies and the borders of the area
     while {
         // Make sure finding a suitable position doesn't exceed a specific time limit
@@ -123,9 +110,6 @@ pub fn randomly_spawn_plant(
             || bodies
                 .values()
                 .any(|body| body.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
-        // || only_plants
-        //     .values()
-        //     .any(|plant| plant.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
     } {}
 
     plants
