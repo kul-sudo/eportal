@@ -1,5 +1,6 @@
 use std::{collections::HashMap, f32::consts::SQRT_2, intrinsics::unlikely, time::Instant};
 
+use crate::ADAPTATION_SKILLS_COUNT;
 use macroquad::{
     color::{Color, GREEN, PURPLE, RED},
     math::{vec2, Circle, Vec2, Vec3},
@@ -7,6 +8,7 @@ use macroquad::{
     shapes::{draw_circle, draw_line, draw_rectangle, draw_rectangle_lines},
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng};
+use std::collections::HashSet;
 
 use crate::{
     constants::*,
@@ -36,6 +38,12 @@ pub enum Virus {
     VisionVirus,
 }
 
+pub enum AdaptationSkill {
+    DoNotCompeteWithRelatives,
+    SmartFoodChasing,
+    PrioritizeFasterChasers,
+}
+
 #[derive(Clone, PartialEq)]
 pub struct Body {
     pub pos: Vec2,
@@ -45,8 +53,7 @@ pub struct Body {
     pub eating_strategy: EatingStrategy,
     /// The body procreates after a specific level of energy has been reached.
     pub division_threshold: f32,
-    pub iq: u8,
-    pub max_iq: u8,
+    pub adapted_skills: HashSet<usize>,
     pub color: Color,
     pub status: Status,
     /// When the body died due to a lack of energy if it did die in the first place.
@@ -64,14 +71,14 @@ impl Body {
         energy: Option<f32>,
         eating_strategy: EatingStrategy,
         division_threshold: Option<f32>,
-        iq: Option<u8>,
-        max_iq: Option<u8>,
+        adapted_skills: Option<HashSet<usize>>,
         color: Color,
         body_type: u16,
         viruses: Option<HashMap<Virus, f32>>,
         initial_speed: Option<f32>,
         initial_vision_distance: Option<f32>,
         rng: &mut StdRng,
+        all_skills: &HashSet<usize>,
     ) -> Self {
         let speed = get_with_deviation!(
             match initial_speed {
@@ -107,23 +114,24 @@ impl Body {
                 },
                 rng
             ),
-            iq: match iq {
-                Some(iq) => {
-                    if rng.gen_range(0.0..1.0) < IQ_INCREASE_CHANCE {
-                        if Some(iq) == max_iq {
-                            iq
-                        } else {
-                            iq + 1
+            adapted_skills: match adapted_skills {
+                Some(mut adapted_skills) => {
+                    if adapted_skills.len() < unsafe { ADAPTATION_SKILLS_COUNT } {
+                        if rng.gen_range(0.0..1.0) <= NEW_SKILL_CHANCE {
+                            adapted_skills.insert(
+                                **all_skills
+                                    .difference(&adapted_skills)
+                                    .collect::<HashSet<_>>()
+                                    .iter()
+                                    .choose(rng)
+                                    .unwrap(),
+                            );
                         }
-                    } else {
-                        iq
                     }
+
+                    adapted_skills
                 }
-                None => 0,
-            },
-            max_iq: match max_iq {
-                Some(max_iq) => max_iq,
-                None => (0..=MAX_IQ).choose(rng).unwrap(),
+                None => HashSet::with_capacity(unsafe { ADAPTATION_SKILLS_COUNT }),
             },
             color,
             status: Status::Idle,
@@ -186,12 +194,14 @@ impl Body {
         }
     }
 
-    pub fn draw(&self, zoom: &Zoom) {
-        if let Some(extended_rect) = zoom.extended_rect {
-            if self.pos.distance(extended_rect.center())
-                >= self.vision_distance + zoom.diagonal_extended_rect / 2.0
-            {
-                return;
+    pub fn draw(&self, zoom: &Zoom, zoom_mode: bool) {
+        if zoom_mode {
+            if let Some(extended_rect) = zoom.extended_rect {
+                if self.pos.distance(extended_rect.center())
+                    >= self.vision_distance + zoom.diagonal_extended_rect / 2.0
+                {
+                    return;
+                }
             }
         }
 
@@ -374,6 +384,7 @@ pub fn randomly_spawn_body(
     eating_strategy: EatingStrategy,
     rng: &mut StdRng,
     body_type: usize,
+    all_skills: &HashSet<usize>,
 ) {
     let mut pos = Vec2::default();
 
@@ -440,13 +451,13 @@ pub fn randomly_spawn_body(
             eating_strategy,
             None,
             None,
-            None,
             color,
             body_type as u16,
             None,
             None,
             None,
             rng,
+            all_skills,
         ),
     );
 }

@@ -1,6 +1,7 @@
 #![allow(internal_features)]
 #![feature(core_intrinsics)]
 #![feature(more_float_constants)]
+#![feature(variant_count)]
 
 mod body;
 mod cells;
@@ -15,6 +16,8 @@ use constants::*;
 use plant::{randomly_spawn_plant, Plant};
 use zoom::{default_camera, get_zoom_target, Zoom};
 
+use body::AdaptationSkill;
+use std::mem::variant_count;
 use std::{
     collections::{HashMap, HashSet},
     env::consts::OS,
@@ -65,8 +68,20 @@ fn window_conf() -> Conf {
     }
 }
 
+pub static mut ADAPTATION_SKILLS_COUNT: usize = 0;
+
 #[macroquad::main(window_conf)]
 async fn main() {
+    // Pseudo-constants
+    let variant_count = variant_count::<AdaptationSkill>();
+    unsafe {
+        ADAPTATION_SKILLS_COUNT = variant_count;
+    }
+    let mut all_skills = HashSet::with_capacity(variant_count);
+    for i in 0..variant_count {
+        all_skills.insert(i);
+    }
+
     // Make the window fullscreen on Linux: for some reason, when the application has been built,
     // Arch Linux apparently doesn't have enough time to make it fullscreen
     if OS == "linux" {
@@ -120,6 +135,7 @@ async fn main() {
             },
             rng,
             i + 1,
+            &all_skills,
         );
     }
 
@@ -287,7 +303,7 @@ async fn main() {
             // Handle the energy
             // The mass is proportional to the energy; to keep the mass up, energy is spent
             body.energy -= ENERGY_SPENT_CONST_FOR_MASS * body.energy
-                + ENERGY_SPENT_CONST_FOR_IQ * body.iq as f32
+                + ENERGY_SPENT_CONST_FOR_SKILLS * body.adapted_skills.len() as f32
                 + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE * body.vision_distance.powi(2);
 
             if body.status != Status::Idle {
@@ -320,7 +336,9 @@ async fn main() {
                 bodies_within_vision_distance
                     .iter()
                     .filter(|(other_body_id, other_body)| {
-                        (if body.iq >= 3
+                        (if body
+                            .adapted_skills
+                            .contains(&(AdaptationSkill::PrioritizeFasterChasers as usize))
                             && bodies_within_vision_distance
                                 .iter()
                                 .any(|(_, other_body)| other_body.speed > body.speed)
@@ -373,7 +391,10 @@ async fn main() {
                 .iter()
                 .filter(|(cross_id, cross)| {
                     body.body_type != cross.body_type && !cross.is_alive() && {
-                        if body.iq >= 1 {
+                        if body
+                            .adapted_skills
+                            .contains(&(AdaptationSkill::DoNotCompeteWithRelatives as usize))
+                        {
                             return bodies_within_vision_distance_of_my_type.iter().all(
                                 |(other_body_id, _)| {
                                     bodies_shot_for_statuses.get(other_body_id).unwrap().status
@@ -382,7 +403,10 @@ async fn main() {
                             );
                         };
 
-                        if body.iq >= 2 {
+                        if body
+                            .adapted_skills
+                            .contains(&(AdaptationSkill::SmartFoodChasing as usize))
+                        {
                             let distance = body.pos.distance(cross.pos);
                             let time = distance / body.speed;
                             let spent_energy = time
@@ -390,7 +414,7 @@ async fn main() {
                                 * body.speed.powi(2)
                                 * body.energy
                                 + ENERGY_SPENT_CONST_FOR_MASS * body.energy
-                                + ENERGY_SPENT_CONST_FOR_IQ * body.iq as f32
+                                + ENERGY_SPENT_CONST_FOR_SKILLS * body.adapted_skills.len() as f32
                                 + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
                                     * body.vision_distance.powi(2);
 
@@ -483,7 +507,10 @@ async fn main() {
                             .iter()
                             .filter(|(plant_id, plant)| {
                                 !removed_plants.contains(&(***plant_id, plant.pos)) && {
-                                    if body.iq >= 2 {
+                                    if body
+                                        .adapted_skills
+                                        .contains(&(AdaptationSkill::SmartFoodChasing as usize))
+                                    {
                                         let distance = body.pos.distance(plant.pos);
                                         let time = distance / body.speed;
                                         let spent_energy = time
@@ -491,14 +518,17 @@ async fn main() {
                                             * body.speed.powi(2)
                                             * body.energy
                                             + ENERGY_SPENT_CONST_FOR_MASS * body.energy
-                                            + ENERGY_SPENT_CONST_FOR_IQ * body.iq as f32
+                                            + ENERGY_SPENT_CONST_FOR_SKILLS
+                                                * body.adapted_skills.len() as f32
                                             + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
                                                 * body.vision_distance.powi(2);
 
                                         return body.energy - spent_energy > MIN_ENERGY;
                                     };
 
-                                    if body.iq >= 1 {
+                                    if body.adapted_skills.contains(
+                                        &(AdaptationSkill::DoNotCompeteWithRelatives as usize),
+                                    ) {
                                         return bodies_within_vision_distance_of_my_type
                                             .iter()
                                             .all(|(other_body_id, _)| {
@@ -540,7 +570,7 @@ async fn main() {
                                                 && body.energy > other_body.energy
                                                 && other_body.is_alive()
                                                 && ({
-                                                    if body.iq >= 1 {
+                        if body.adapted_skills.contains(&(AdaptationSkill::DoNotCompeteWithRelatives as usize)) {
                                                         return bodies_within_vision_distance_of_my_type
                                                             .iter()
                                                             .all(|(_, other_body)| {
@@ -552,7 +582,7 @@ async fn main() {
                                                             })
                                                     }
 
-                                                    if body.iq >= 2 {
+                        if body.adapted_skills.contains(&(AdaptationSkill::SmartFoodChasing as usize)) {
                                                         let delta = body.speed - other_body.speed;
                                                         if delta <= 0.0 {
                                                             return false;
@@ -566,8 +596,8 @@ async fn main() {
                                                             * body.energy
                                                             + ENERGY_SPENT_CONST_FOR_MASS
                                                                 * body.energy
-                                                            + ENERGY_SPENT_CONST_FOR_IQ
-                                                                * body.iq as f32
+                                                            + ENERGY_SPENT_CONST_FOR_SKILLS
+                                                                * body.adapted_skills.len() as f32
                                                             + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
                                                                 * body.vision_distance.powi(2);
 
@@ -636,14 +666,14 @@ async fn main() {
                             Some(body.energy),
                             body.eating_strategy,
                             Some(body.division_threshold),
-                            Some(body.iq),
-                            Some(body.max_iq),
+                            Some(body.adapted_skills.clone()),
                             body.color,
                             body.body_type,
                             Some(body.viruses.clone()),
                             Some(body.initial_speed),
                             Some(body.initial_vision_distance),
                             rng,
+                            &all_skills,
                         ),
                     );
                 }
@@ -727,8 +757,8 @@ async fn main() {
 
                                 if body.is_alive() {
                                     let to_display = format!(
-                                        "max_iq = {:?} iq = {:?} energy = {:?}",
-                                        body.max_iq, body.iq, body.energy
+                                        "skills = {:?} energy = {:?}",
+                                        body.adapted_skills, body.energy
                                     );
                                     draw_text(
                                         &to_display,
@@ -749,7 +779,7 @@ async fn main() {
                             }
 
                             if drawing_strategy.body {
-                                body.draw(&zoom);
+                                body.draw(&zoom, zoom_mode);
                             }
                         }
                     }
@@ -764,7 +794,7 @@ async fn main() {
 
                     for (body_id, body) in &bodies {
                         if !removed_bodies.contains(body_id) {
-                            body.draw(&zoom);
+                            body.draw(&zoom, zoom_mode);
                         }
                     }
                 }
