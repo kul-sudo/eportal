@@ -25,12 +25,13 @@ pub struct Zoom {
     pub scaling_height: f32,
     pub width: f32,
     pub height: f32,
-    pub diagonal: f32,
     pub center_pos: Option<Vec2>,
     pub mouse_pos: Option<Vec2>,
     pub rect: Option<Rect>,
     /// Normal rect size + OBJECT_RADIUS * 2.0.
     pub extended_rect: Option<Rect>,
+    pub diagonal_rect: f32,
+    pub diagonal_extended_rect: f32,
 }
 
 /// Set the camera zoom to where the mouse cursor is.
@@ -44,8 +45,8 @@ pub fn get_zoom_target(camera: &mut Camera2D, area_size: Vec2, zoom: &mut Zoom) 
     ));
 
     zoom.extended_rect = Some(Rect::new(
-        zoom.center_pos.unwrap().x - zoom.width / 2.0,
-        zoom.center_pos.unwrap().y - zoom.height / 2.0,
+        zoom.center_pos.unwrap().x - zoom.width / 2.0 - OBJECT_RADIUS,
+        zoom.center_pos.unwrap().y - zoom.height / 2.0 - OBJECT_RADIUS,
         zoom.width + OBJECT_RADIUS * 2.0,
         zoom.height + OBJECT_RADIUS * 2.0,
     ));

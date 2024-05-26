@@ -1,4 +1,3 @@
-
 use macroquad::math::{vec2, Vec2};
 
 #[derive(Default)]

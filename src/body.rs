@@ -186,7 +186,15 @@ impl Body {
         }
     }
 
-    pub fn draw(&self) {
+    pub fn draw(&self, zoom: &Zoom) {
+        if let Some(extended_rect) = zoom.extended_rect {
+            if self.pos.distance(extended_rect.center())
+                >= self.vision_distance + zoom.diagonal_extended_rect / 2.0
+            {
+                return;
+            }
+        }
+
         let side_length_half = OBJECT_RADIUS / SQRT_2;
 
         if self.is_alive() {
@@ -267,8 +275,8 @@ impl Body {
             rectangle_corners.insert(
                 corner,
                 vec2(
-                    zoom.center_pos.unwrap().x + i * zoom.scaling_width / 2.0,
-                    zoom.center_pos.unwrap().y + j * zoom.scaling_height / 2.0,
+                    zoom.center_pos.unwrap().x + i * zoom.width / 2.0,
+                    zoom.center_pos.unwrap().y + j * zoom.height / 2.0,
                 ),
             );
         }
@@ -318,7 +326,7 @@ impl Body {
                 if drawing_strategy.vision_distance {
                     target_line = None;
                 } else {
-                    target_line = if unlikely(self.vision_distance > zoom.diagonal)
+                    target_line = if unlikely(self.vision_distance > zoom.diagonal_rect)
                     // It is very unlikely for the vision distance to be big enough to cover the
                     // whole diagonal of the zoom area
                     {

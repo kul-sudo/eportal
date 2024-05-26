@@ -28,7 +28,7 @@ use macroquad::{
     camera::Camera2D,
     color::WHITE,
     input::{is_key_down, is_key_pressed, is_mouse_button_pressed, mouse_position, KeyCode},
-    math::{ Rect, Vec2},
+    math::{Rect, Vec2},
     miniquad::{window::set_fullscreen, MouseButton},
     shapes::{draw_circle_lines, draw_line},
     text::{draw_text, measure_text},
@@ -133,16 +133,23 @@ async fn main() {
 
     let scaling_width = MAX_ZOOM / area_size.x * 2.0;
     let scaling_height = MAX_ZOOM / area_size.y * 2.0;
+    let rect_width = screen_width() / MAX_ZOOM * OBJECT_RADIUS;
+    let rect_height = screen_height() / MAX_ZOOM * OBJECT_RADIUS;
+
+    let extended_rect_width = rect_width + OBJECT_RADIUS * 2.0;
+    let extended_rect_height = rect_height + OBJECT_RADIUS * 2.0;
+
     let mut zoom = Zoom {
         scaling_width,
         scaling_height,
-        width: screen_width() / MAX_ZOOM * OBJECT_RADIUS,
-        height: screen_height() / MAX_ZOOM * OBJECT_RADIUS,
-        diagonal: (scaling_width.powi(2) + scaling_height.powi(2)).sqrt(),
+        width: rect_width,
+        height: rect_height,
         center_pos: None,
         mouse_pos: None,
         rect: None,
         extended_rect: None,
+        diagonal_rect: (rect_width.powi(2) + rect_height.powi(2)).sqrt(),
+        diagonal_extended_rect: (extended_rect_width.powi(2) + extended_rect_height.powi(2)).sqrt(),
     };
 
     loop {
@@ -742,7 +749,7 @@ async fn main() {
                             }
 
                             if drawing_strategy.body {
-                                body.draw();
+                                body.draw(&zoom);
                             }
                         }
                     }
@@ -757,7 +764,7 @@ async fn main() {
 
                     for (body_id, body) in &bodies {
                         if !removed_bodies.contains(body_id) {
-                            body.draw();
+                            body.draw(&zoom);
                         }
                     }
                 }
