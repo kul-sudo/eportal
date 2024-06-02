@@ -17,7 +17,7 @@ use plant::{randomly_spawn_plant, Plant};
 use zoom::{default_camera, get_zoom_target, Zoom};
 
 use body::AdaptationSkill;
-use std::mem::variant_count;
+use std::mem::{transmute, variant_count};
 use std::{
     collections::{HashMap, HashSet},
     env::consts::OS,
@@ -49,7 +49,7 @@ macro_rules! get_with_deviation {
 }
 
 enum FoodType {
-    Body(HashMap<Virus, f32>),
+    Body(HashMap<usize, f32>),
     Plant,
 }
 
@@ -69,18 +69,24 @@ fn window_conf() -> Conf {
 }
 
 pub static mut ADAPTATION_SKILLS_COUNT: usize = 0;
+pub static mut VIRUSES_COUNT: usize = 0;
 
 #[macroquad::main(window_conf)]
 async fn main() {
     // Pseudo-constants
-    let variant_count = variant_count::<AdaptationSkill>();
+    // Skills
+    let mut variant_count_ = variant_count::<AdaptationSkill>();
     unsafe {
-        ADAPTATION_SKILLS_COUNT = variant_count;
+        ADAPTATION_SKILLS_COUNT = variant_count_;
     }
-    let mut all_skills = HashSet::with_capacity(variant_count);
-    for i in 0..variant_count {
-        all_skills.insert(i);
+    let all_skills = (0..variant_count_).collect::<HashSet<_>>();
+
+    // Viruses
+    variant_count_ = variant_count::<Virus>();
+    unsafe {
+        VIRUSES_COUNT = variant_count_;
     }
+    let all_viruses = (0..variant_count_).collect::<HashSet<_>>();
 
     // Make the window fullscreen on Linux: for some reason, when the application has been built,
     // Arch Linux apparently doesn't have enough time to make it fullscreen
@@ -136,6 +142,7 @@ async fn main() {
             rng,
             i + 1,
             &all_skills,
+            &all_viruses,
         );
     }
 
@@ -226,9 +233,6 @@ async fn main() {
                 {
                     if !removed_plants.contains(&(*random_plant_id, random_plant.pos)) {
                         removed_plants.push((*random_plant_id, random_plant.pos));
-                        // if random_plant.pos.x > area_size.x || random_plant.pos.y > area_size.y {
-                        //     println!("{:?}", random_plant.pos);
-                        // }
                         break;
                     }
                 }
@@ -268,7 +272,7 @@ async fn main() {
 
             // Viruses
             for (virus, energy_spent_for_healing) in &mut body.viruses {
-                match virus {
+                match unsafe { transmute::<usize, Virus>(*virus) } {
                     Virus::SpeedVirus => {
                         body.energy = (body.energy - SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING).max(0.0);
                         *energy_spent_for_healing += SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING;
@@ -282,7 +286,7 @@ async fn main() {
 
             body.viruses.retain(|virus, energy_spent_for_healing| {
                 *energy_spent_for_healing
-                    <= match virus {
+                    <= match unsafe { transmute::<usize, Virus>(*virus) } {
                         Virus::SpeedVirus => SPEEDVIRUS_HEAL_ENERGY,
                         Virus::VisionVirus => VISIONVIRUS_HEAL_ENERGY,
                     }
@@ -325,12 +329,12 @@ async fn main() {
                 })
                 .collect::<Vec<_>>();
 
-            for (_, other_body) in &bodies_within_vision_distance {
-                if other_body.is_alive() && body.pos.distance(other_body.pos) <= OBJECT_RADIUS * 2.0
-                {
-                    body.get_viruses(other_body.viruses.clone());
-                }
-            }
+            // for (_, other_body) in &bodies_within_vision_distance {
+            //     if other_body.is_alive() && body.pos.distance(other_body.pos) <= OBJECT_RADIUS * 2.0
+            //     {
+            //         body.get_viruses(other_body.viruses.clone());
+            //     }
+            // }
 
             if let Some((closest_chasing_body_id, closest_chasing_body)) =
                 bodies_within_vision_distance
@@ -390,39 +394,45 @@ async fn main() {
             match bodies_within_vision_distance
                 .iter()
                 .filter(|(cross_id, cross)| {
-                    body.body_type != cross.body_type && !cross.is_alive() && {
-                        if body
-                            .adapted_skills
-                            .contains(&(AdaptationSkill::DoNotCompeteWithRelatives as usize))
-                        {
-                            return bodies_within_vision_distance_of_my_type.iter().all(
-                                |(other_body_id, _)| {
-                                    bodies_shot_for_statuses.get(other_body_id).unwrap().status
-                                        != Status::FollowingTarget((**cross_id, cross.pos))
-                                },
-                            );
-                        };
-
-                        if body
-                            .adapted_skills
-                            .contains(&(AdaptationSkill::SmartFoodChasing as usize))
-                        {
-                            let distance = body.pos.distance(cross.pos);
-                            let time = distance / body.speed;
-                            let spent_energy = time
-                                * ENERGY_SPENT_CONST_FOR_MOVEMENT
-                                * body.speed.powi(2)
-                                * body.energy
-                                + ENERGY_SPENT_CONST_FOR_MASS * body.energy
-                                + ENERGY_SPENT_CONST_FOR_SKILLS * body.adapted_skills.len() as f32
-                                + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
-                                    * body.vision_distance.powi(2);
-
-                            return body.energy - spent_energy > MIN_ENERGY;
+                    body.body_type != cross.body_type
+                        && !cross.is_alive()
+                        && {
+                            if body
+                                .adapted_skills
+                                .contains(&(AdaptationSkill::DoNotCompeteWithRelatives as usize))
+                            {
+                                bodies_within_vision_distance_of_my_type.iter().all(
+                                    |(other_body_id, _)| {
+                                        bodies_shot_for_statuses.get(other_body_id).unwrap().status
+                                            != Status::FollowingTarget((**cross_id, cross.pos))
+                                    },
+                                )
+                            } else {
+                                true
+                            }
                         }
+                        && {
+                            if body
+                                .adapted_skills
+                                .contains(&(AdaptationSkill::SmartFoodChasing as usize))
+                            {
+                                let distance = body.pos.distance(cross.pos);
+                                let time = distance / body.speed;
+                                let spent_energy = time
+                                    * ENERGY_SPENT_CONST_FOR_MOVEMENT
+                                    * body.speed.powi(2)
+                                    * body.energy
+                                    + ENERGY_SPENT_CONST_FOR_MASS * body.energy
+                                    + ENERGY_SPENT_CONST_FOR_SKILLS
+                                        * body.adapted_skills.len() as f32
+                                    + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
+                                        * body.vision_distance.powi(2);
 
-                        true
-                    }
+                                body.energy - spent_energy > MIN_ENERGY
+                            } else {
+                                true
+                            }
+                        }
                 })
                 .min_by(|(_, a), (_, b)| {
                     body.pos
@@ -506,45 +516,49 @@ async fn main() {
                         match visible_plants
                             .iter()
                             .filter(|(plant_id, plant)| {
-                                !removed_plants.contains(&(***plant_id, plant.pos)) && {
-                                    if body
-                                        .adapted_skills
-                                        .contains(&(AdaptationSkill::SmartFoodChasing as usize))
-                                    {
-                                        let distance = body.pos.distance(plant.pos);
-                                        let time = distance / body.speed;
-                                        let spent_energy = time
-                                            * ENERGY_SPENT_CONST_FOR_MOVEMENT
-                                            * body.speed.powi(2)
-                                            * body.energy
-                                            + ENERGY_SPENT_CONST_FOR_MASS * body.energy
-                                            + ENERGY_SPENT_CONST_FOR_SKILLS
-                                                * body.adapted_skills.len() as f32
-                                            + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
-                                                * body.vision_distance.powi(2);
+                                !removed_plants.contains(&(***plant_id, plant.pos))
+                                    && {
+                                        if body
+                                            .adapted_skills
+                                            .contains(&(AdaptationSkill::SmartFoodChasing as usize))
+                                        {
+                                            let distance = body.pos.distance(plant.pos);
+                                            let time = distance / body.speed;
+                                            let spent_energy = time
+                                                * ENERGY_SPENT_CONST_FOR_MOVEMENT
+                                                * body.speed.powi(2)
+                                                * body.energy
+                                                + ENERGY_SPENT_CONST_FOR_MASS * body.energy
+                                                + ENERGY_SPENT_CONST_FOR_SKILLS
+                                                    * body.adapted_skills.len() as f32
+                                                + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
+                                                    * body.vision_distance.powi(2);
 
-                                        return body.energy - spent_energy > MIN_ENERGY;
-                                    };
-
-                                    if body.adapted_skills.contains(
-                                        &(AdaptationSkill::DoNotCompeteWithRelatives as usize),
-                                    ) {
-                                        return bodies_within_vision_distance_of_my_type
-                                            .iter()
-                                            .all(|(other_body_id, _)| {
-                                                bodies_shot_for_statuses
-                                                    .get(other_body_id)
-                                                    .unwrap()
-                                                    .status
-                                                    != Status::FollowingTarget((
-                                                        ***plant_id,
-                                                        plant.pos,
-                                                    ))
-                                            });
+                                            body.energy - spent_energy > MIN_ENERGY
+                                        } else {
+                                            true
+                                        }
                                     }
-
-                                    true
-                                }
+                                    && {
+                                        if body.adapted_skills.contains(
+                                            &(AdaptationSkill::DoNotCompeteWithRelatives as usize),
+                                        ) {
+                                            bodies_within_vision_distance_of_my_type.iter().all(
+                                                |(other_body_id, _)| {
+                                                    bodies_shot_for_statuses
+                                                        .get(other_body_id)
+                                                        .unwrap()
+                                                        .status
+                                                        != Status::FollowingTarget((
+                                                            ***plant_id,
+                                                            plant.pos,
+                                                        ))
+                                                },
+                                            )
+                                        } else {
+                                            true
+                                        }
+                                    }
                             })
                             .min_by(|(_, a), (_, b)| {
                                 body.pos
@@ -569,9 +583,12 @@ async fn main() {
                                             body.body_type != other_body.body_type
                                                 && body.energy > other_body.energy
                                                 && other_body.is_alive()
-                                                && ({
-                        if body.adapted_skills.contains(&(AdaptationSkill::DoNotCompeteWithRelatives as usize)) {
-                                                        return bodies_within_vision_distance_of_my_type
+                                                && {
+                                                    if body.adapted_skills.contains(
+                                                        &(AdaptationSkill::DoNotCompeteWithRelatives
+                                                            as usize),
+                                                    ) {
+                                                        bodies_within_vision_distance_of_my_type
                                                             .iter()
                                                             .all(|(_, other_body)| {
                                                                 other_body.status
@@ -580,9 +597,15 @@ async fn main() {
                                                                         other_body.pos,
                                                                     ))
                                                             })
+                                                    } else {
+                                                        true
                                                     }
-
-                        if body.adapted_skills.contains(&(AdaptationSkill::SmartFoodChasing as usize)) {
+                                                }
+                                                && {
+                                                    if body.adapted_skills.contains(
+                                                        &(AdaptationSkill::SmartFoodChasing
+                                                            as usize),
+                                                    ) {
                                                         let delta = body.speed - other_body.speed;
                                                         if delta <= 0.0 {
                                                             return false;
@@ -601,10 +624,11 @@ async fn main() {
                                                             + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
                                                                 * body.vision_distance.powi(2);
 
-                                                        return body.energy - spent_energy > MIN_ENERGY;
+                                                        body.energy - spent_energy > MIN_ENERGY
+                                                    } else {
+                                                        true
                                                     }
-                                                    true
-                                                })
+                                                }
                                         })
                                         .min_by(|(_, a), (_, b)| {
                                             body.pos
@@ -639,10 +663,6 @@ async fn main() {
                         }
                         FoodType::Plant => {
                             removed_plants.push((food.id, food.pos));
-
-                            if food.pos.x > area_size.x || food.pos.y > area_size.y {
-                                println!("{:?}", food.pos);
-                            }
                         }
                     }
                 } else {
@@ -674,6 +694,7 @@ async fn main() {
                             Some(body.initial_vision_distance),
                             rng,
                             &all_skills,
+                            &all_viruses,
                         ),
                     );
                 }
@@ -757,8 +778,8 @@ async fn main() {
 
                                 if body.is_alive() {
                                     let to_display = format!(
-                                        "skills = {:?} energy = {:?}",
-                                        body.adapted_skills, body.energy
+                                        "skills = {:?} virses = {:?}",
+                                        body.adapted_skills, body.viruses
                                     );
                                     draw_text(
                                         &to_display,

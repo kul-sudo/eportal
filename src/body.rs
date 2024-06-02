@@ -1,14 +1,14 @@
-use std::{collections::HashMap, f32::consts::SQRT_2, intrinsics::unlikely, time::Instant};
-
-use crate::ADAPTATION_SKILLS_COUNT;
+use crate::{ADAPTATION_SKILLS_COUNT, VIRUSES_COUNT};
 use macroquad::{
-    color::{Color, GREEN, PURPLE, RED},
+    color::{Color, GREEN, RED},
     math::{vec2, Circle, Vec2, Vec3},
     rand::gen_range,
-    shapes::{draw_circle, draw_line, draw_rectangle, draw_rectangle_lines},
+    shapes::{draw_circle, draw_line, draw_rectangle},
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng};
 use std::collections::HashSet;
+use std::mem::transmute;
+use std::{collections::HashMap, f32::consts::SQRT_2, intrinsics::unlikely, time::Instant};
 
 use crate::{
     constants::*,
@@ -32,16 +32,18 @@ pub enum EatingStrategy {
     Active,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[allow(dead_code)]
+#[repr(usize)]
+#[derive(PartialEq, Hash)]
 pub enum Virus {
     SpeedVirus,
     VisionVirus,
 }
 
 pub enum AdaptationSkill {
-    DoNotCompeteWithRelatives,
-    SmartFoodChasing,
-    PrioritizeFasterChasers,
+    DoNotCompeteWithRelatives = 0,
+    SmartFoodChasing = 1,
+    PrioritizeFasterChasers = 2,
 }
 
 #[derive(Clone, PartialEq)]
@@ -59,7 +61,7 @@ pub struct Body {
     /// When the body died due to a lack of energy if it did die in the first place.
     pub body_type: u16,
     pub lifespan: f32,
-    pub viruses: HashMap<Virus, f32>,
+    pub viruses: HashMap<usize, f32>,
     pub initial_speed: f32,
     pub initial_vision_distance: f32,
 }
@@ -74,11 +76,12 @@ impl Body {
         adapted_skills: Option<HashSet<usize>>,
         color: Color,
         body_type: u16,
-        viruses: Option<HashMap<Virus, f32>>,
+        viruses: Option<HashMap<usize, f32>>,
         initial_speed: Option<f32>,
         initial_vision_distance: Option<f32>,
         rng: &mut StdRng,
         all_skills: &HashSet<usize>,
+        all_viruses: &HashSet<usize>,
     ) -> Self {
         let speed = get_with_deviation!(
             match initial_speed {
@@ -146,18 +149,19 @@ impl Body {
                     viruses
                 }
                 None => {
-                    let mut viruses = HashMap::new();
-                    for virus in [Virus::SpeedVirus, Virus::VisionVirus] {
+                    let mut viruses = HashMap::with_capacity(unsafe { VIRUSES_COUNT });
+                    for virus in all_viruses {
+                        let virus_cast = unsafe { transmute::<usize, Virus>(*virus) };
                         if rng.gen_range(0.0..1.0)
-                            <= match virus {
+                            <= match virus_cast {
                                 Virus::SpeedVirus => SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE,
                                 Virus::VisionVirus => VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE,
                             }
                         {
                             viruses.insert(
-                                virus,
+                                *virus,
                                 rng.gen_range(
-                                    0.0..match virus {
+                                    0.0..match virus_cast {
                                         Virus::SpeedVirus => SPEEDVIRUS_HEAL_ENERGY,
                                         Virus::VisionVirus => VISIONVIRUS_HEAL_ENERGY,
                                     },
@@ -172,6 +176,7 @@ impl Body {
             },
         };
 
+        // Applying the effect of the viruses
         body.get_viruses(body.viruses.clone());
         body
     }
@@ -248,17 +253,17 @@ impl Body {
         }
     }
 
-    pub fn get_viruses(&mut self, viruses: HashMap<Virus, f32>) {
+    pub fn get_viruses(&mut self, viruses: HashMap<usize, f32>) {
         for virus in viruses.keys() {
             if !self.viruses.contains_key(virus) {
                 self.viruses.insert(*virus, 0.0);
-                match virus {
+                match unsafe { transmute::<usize, Virus>(*virus) } {
                     Virus::SpeedVirus => self.speed -= self.speed * SPEEDVIRUS_SPEED_DECREASE,
                     Virus::VisionVirus => {
                         self.vision_distance -=
                             self.vision_distance * VISIONVIRUS_VISION_DISTANCE_DECREASE
                     }
-                }
+                };
             }
         }
     }
@@ -385,6 +390,7 @@ pub fn randomly_spawn_body(
     rng: &mut StdRng,
     body_type: usize,
     all_skills: &HashSet<usize>,
+    all_viruses: &HashSet<usize>,
 ) {
     let mut pos = Vec2::default();
 
@@ -458,6 +464,7 @@ pub fn randomly_spawn_body(
             None,
             rng,
             all_skills,
+            all_viruses,
         ),
     );
 }
