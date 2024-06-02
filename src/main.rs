@@ -146,9 +146,13 @@ async fn main() {
         );
     }
 
+    // Needs to be handled manually to avoid unwrapping all plants out of the cells
+    let mut plants_n = 0;
+
     // Spawn the plants
     for _ in 0..PLANTS_N {
-        randomly_spawn_plant(&bodies, &mut plants, rng, area_size, &cells)
+        randomly_spawn_plant(&bodies, &mut plants, rng, area_size, &cells);
+        plants_n += 1;
     }
 
     // The timer needed for the FPS
@@ -213,16 +217,9 @@ async fn main() {
             }
         }
 
-        let mut only_plants: HashMap<&Instant, &Plant> = HashMap::new();
-        for cell in plants.values() {
-            for (plant_id, plant) in cell {
-                only_plants.insert(plant_id, plant);
-            }
-        }
-
         // Remove plants
         let n_to_remove =
-            ((only_plants.len() - removed_plants.len()) as f32 * PART_OF_PLANTS_TO_REMOVE) as usize;
+            (plants_n as f32 * PART_OF_PLANTS_TO_REMOVE) as usize;
 
         for _ in 0..n_to_remove {
             loop {
@@ -233,6 +230,7 @@ async fn main() {
                 {
                     if !removed_plants.contains(&(*random_plant_id, random_plant.pos)) {
                         removed_plants.push((*random_plant_id, random_plant.pos));
+                        plants_n -= 1;
                         break;
                     }
                 }
@@ -250,7 +248,7 @@ async fn main() {
 
         // Due to certain borrowing rules, it's impossible to modify these during the loop,
         // so it'll be done after it
-        let mut new_bodies: HashMap<Instant, Body> = HashMap::with_capacity(bodies.len() * 2);
+        let mut new_bodies: HashMap<Instant, Body> = HashMap::with_capacity((bodies.len() - removed_bodies.len()) * 2);
         let bodies_shot = bodies.clone();
         let mut bodies_shot_for_statuses = bodies.clone();
 
@@ -663,6 +661,7 @@ async fn main() {
                         }
                         FoodType::Plant => {
                             removed_plants.push((food.id, food.pos));
+                            plants_n -= 1;
                         }
                     }
                 } else {

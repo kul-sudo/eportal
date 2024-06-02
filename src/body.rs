@@ -119,19 +119,18 @@ impl Body {
             ),
             adapted_skills: match adapted_skills {
                 Some(mut adapted_skills) => {
-                    if adapted_skills.len() < unsafe { ADAPTATION_SKILLS_COUNT } {
-                        if rng.gen_range(0.0..1.0) <= NEW_SKILL_CHANCE {
-                            adapted_skills.insert(
-                                **all_skills
-                                    .difference(&adapted_skills)
-                                    .collect::<HashSet<_>>()
-                                    .iter()
-                                    .choose(rng)
-                                    .unwrap(),
-                            );
-                        }
+                    if adapted_skills.len() < unsafe { ADAPTATION_SKILLS_COUNT }
+                        && rng.gen_range(0.0..1.0) <= NEW_SKILL_CHANCE
+                    {
+                        adapted_skills.insert(
+                            **all_skills
+                                .difference(&adapted_skills)
+                                .collect::<HashSet<_>>()
+                                .iter()
+                                .choose(rng)
+                                .unwrap(),
+                        );
                     }
-
                     adapted_skills
                 }
                 None => HashSet::with_capacity(unsafe { ADAPTATION_SKILLS_COUNT }),
