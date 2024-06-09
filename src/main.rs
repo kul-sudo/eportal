@@ -381,13 +381,13 @@ async fn main() {
                                 let distance = body.pos.distance(cross.pos);
                                 let time = distance / body.speed;
                                 let spent_energy = time
-                                    * unsafe {  ENERGY_SPENT_CONST_FOR_MOVEMENT}
+                                    * unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT }
                                     * body.speed.powi(2)
                                     * body.energy
-                                    + unsafe { ENERGY_SPENT_CONST_FOR_MASS} * body.energy
-                                    + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS
-                            }* body.adapted_skills.len() as f32
-                                    + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE}
+                                    + unsafe { ENERGY_SPENT_CONST_FOR_MASS } * body.energy
+                                    + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS }
+                                        * body.adapted_skills.len() as f32
+                                    + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE }
                                         * body.vision_distance.powi(2);
 
                                 body.energy - spent_energy > MIN_ENERGY

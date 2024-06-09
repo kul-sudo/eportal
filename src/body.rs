@@ -5,6 +5,7 @@ use macroquad::{
     rand::gen_range,
     shapes::{draw_circle, draw_line, draw_rectangle},
 };
+use rand::random;
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng};
 use std::collections::HashSet;
 use std::f32::consts::PI;
@@ -121,16 +122,22 @@ impl Body {
             adapted_skills: match adapted_skills {
                 Some(mut adapted_skills) => {
                     if adapted_skills.len() < unsafe { ADAPTATION_SKILLS_COUNT }
-                        && rng.gen_range(0.0..1.0) <= NEW_SKILL_CHANCE
+                        && rng.gen_range(0.0..1.0) <= unsafe { SKILLS_CHANGE_CHANCE }
                     {
-                        adapted_skills.insert(
-                            **all_skills
+                        if random::<bool>() {
+                            if let Some(random_skill) = all_skills
                                 .difference(&adapted_skills)
                                 .collect::<HashSet<_>>()
                                 .iter()
                                 .choose(rng)
-                                .unwrap(),
-                        );
+                            {
+                                adapted_skills.insert(**random_skill);
+                            }
+                        } else {
+                            if let Some(random_skill) = adapted_skills.clone().iter().choose(rng) {
+                                adapted_skills.remove(random_skill);
+                            }
+                        }
                     }
                     adapted_skills
                 }

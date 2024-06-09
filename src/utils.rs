@@ -13,6 +13,7 @@ struct BodyField {
     average_vision_distance: f32,
     average_energy: f32,
     average_division_threshold: f32,
+    skills_change_chance: f32,
 }
 
 #[derive(Deserialize)]
@@ -66,9 +67,13 @@ pub fn config_setup() {
     let viruses = config.viruses;
 
     unsafe {
+        // Body-related
         AVERAGE_VISION_DISTANCE = body.average_vision_distance;
         AVERAGE_ENERGY = body.average_energy;
         AVERAGE_DIVISION_THRESHOLD = body.average_division_threshold;
+        SKILLS_CHANGE_CHANCE = body.skills_change_chance;
+
+        // Virus-related
         SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE =
             viruses.speedvirus_first_generation_infection_chance;
         SPEEDVIRUS_SPEED_DECREASE = viruses.speedvirus_speed_decrease;
@@ -80,11 +85,13 @@ pub fn config_setup() {
         VISIONVIRUS_VISION_DISTANCE_DECREASE = viruses.visionvirus_vision_distance_decrease;
         VISIONVIRUS_ENERGY_SPENT_FOR_HEALING = viruses.visionvirus_energy_spent_for_healing;
         VISIONVIRUS_HEAL_ENERGY = viruses.visionvirus_heal_energy;
+
+        // Energy-related
         ENERGY_SPENT_CONST_FOR_MASS = energy.energy_spent_const_for_mass;
         ENERGY_SPENT_CONST_FOR_SKILLS = energy.energy_spent_const_for_skills;
         ENERGY_SPENT_CONST_FOR_VISION_DISTANCE = energy.energy_spent_const_for_vision_distance;
         ENERGY_SPENT_CONST_FOR_MOVEMENT = energy.energy_spent_const_for_movement;
-        CONST_FOR_LIFESPAN = energy.const_for_lifespan
+        CONST_FOR_LIFESPAN = energy.const_for_lifespan;
     };
 }
 

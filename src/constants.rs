@@ -1,7 +1,7 @@
 use std::f32::consts::SQRT_3;
 
 // TOML
-pub const CONFIG_FILE_NAME: &str = "config.toml";
+pub const CONFIG_FILE_NAME: &str = "../../config.toml";
 
 // Base
 pub const CELL_ROWS: usize = 89; // May be needed to be changed when the perfect values for the
@@ -33,7 +33,7 @@ pub const PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 pub const MIN_TO_REMOVE: usize = 500; // Bodies and plants are removed only it's needed to remove
                                       // more of them than this constant. That's because when the amount of object to remove, the time it
                                       // takes to delete them barely depends on their amount
-pub const NEW_SKILL_CHANCE: f32 = 0.07;
+pub static mut SKILLS_CHANGE_CHANCE: f32 = 0.07;
 
 // Spending energy
 pub static mut ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.0001;
