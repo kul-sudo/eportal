@@ -261,8 +261,9 @@ async fn main() {
 
             // Handle lifespan
             if body.status != Status::Idle {
-                body.lifespan =
-                    (body.lifespan - CONST_FOR_LIFESPAN * body.speed.powi(2) * body.energy).max(0.0)
+                body.lifespan = (body.lifespan
+                    - unsafe { CONST_FOR_LIFESPAN } * body.speed.powi(2) * body.energy)
+                    .max(0.0)
             }
 
             // Handle if dead to become a cross
@@ -273,12 +274,13 @@ async fn main() {
 
             // Handle the energy
             // The mass is proportional to the energy; to keep the mass up, energy is spent
-            body.energy -= ENERGY_SPENT_CONST_FOR_MASS * body.energy
-                + ENERGY_SPENT_CONST_FOR_SKILLS * body.adapted_skills.len() as f32
-                + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE * body.vision_distance.powi(2);
+            body.energy -= unsafe { ENERGY_SPENT_CONST_FOR_MASS } * body.energy
+                + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS } * body.adapted_skills.len() as f32
+                + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE } * body.vision_distance.powi(2);
 
             if body.status != Status::Idle {
-                body.energy -= ENERGY_SPENT_CONST_FOR_MOVEMENT * body.speed.powi(2) * body.energy;
+                body.energy -=
+                    unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT } * body.speed.powi(2) * body.energy;
             }
 
             if body.energy <= 0.0 {
@@ -379,13 +381,13 @@ async fn main() {
                                 let distance = body.pos.distance(cross.pos);
                                 let time = distance / body.speed;
                                 let spent_energy = time
-                                    * ENERGY_SPENT_CONST_FOR_MOVEMENT
+                                    * unsafe {  ENERGY_SPENT_CONST_FOR_MOVEMENT}
                                     * body.speed.powi(2)
                                     * body.energy
-                                    + ENERGY_SPENT_CONST_FOR_MASS * body.energy
-                                    + ENERGY_SPENT_CONST_FOR_SKILLS
-                                        * body.adapted_skills.len() as f32
-                                    + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
+                                    + unsafe { ENERGY_SPENT_CONST_FOR_MASS} * body.energy
+                                    + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS
+                            }* body.adapted_skills.len() as f32
+                                    + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE}
                                         * body.vision_distance.powi(2);
 
                                 body.energy - spent_energy > MIN_ENERGY
@@ -485,13 +487,14 @@ async fn main() {
                                             let distance = body.pos.distance(plant.pos);
                                             let time = distance / body.speed;
                                             let spent_energy = time
-                                                * ENERGY_SPENT_CONST_FOR_MOVEMENT
+                                                * unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT }
                                                 * body.speed.powi(2)
                                                 * body.energy
-                                                + ENERGY_SPENT_CONST_FOR_MASS * body.energy
-                                                + ENERGY_SPENT_CONST_FOR_SKILLS
+                                                + unsafe { ENERGY_SPENT_CONST_FOR_MASS }
+                                                    * body.energy
+                                                + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS }
                                                     * body.adapted_skills.len() as f32
-                                                + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
+                                                + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE }
                                                     * body.vision_distance.powi(2);
 
                                             body.energy - spent_energy > MIN_ENERGY
@@ -574,14 +577,14 @@ async fn main() {
                                                             body.pos.distance(other_body.pos);
                                                         let time = distance / delta;
                                                         let spent_energy = time
-                                                            * ENERGY_SPENT_CONST_FOR_MOVEMENT
+                                                            * unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT}
                                                             * body.speed.powi(2)
                                                             * body.energy
-                                                            + ENERGY_SPENT_CONST_FOR_MASS
+                                                            + unsafe { ENERGY_SPENT_CONST_FOR_MASS}
                                                                 * body.energy
-                                                            + ENERGY_SPENT_CONST_FOR_SKILLS
+                                                            + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS}
                                                                 * body.adapted_skills.len() as f32
-                                                            + ENERGY_SPENT_CONST_FOR_VISION_DISTANCE
+                                                            + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE}
                                                                 * body.vision_distance.powi(2);
 
                                                         body.energy - spent_energy > MIN_ENERGY
