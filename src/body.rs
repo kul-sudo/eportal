@@ -7,6 +7,7 @@ use macroquad::{
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng};
 use std::collections::HashSet;
+use std::f32::consts::PI;
 use std::mem::transmute;
 use std::{collections::HashMap, f32::consts::SQRT_2, intrinsics::unlikely, time::Instant};
 
@@ -188,7 +189,7 @@ impl Body {
         !matches!(self.status, Status::Dead(..))
     }
 
-    pub fn wrap(&mut self, area_size: Vec2) {
+    pub fn wrap(&mut self, area_size: &Vec2) {
         if self.pos.x >= area_size.x {
             self.pos.x = MIN_GAP;
         } else if self.pos.x <= 0.0 {
@@ -273,7 +274,7 @@ impl Body {
         }
     }
 
-    pub fn get_drawing_strategy(&self, zoom: Zoom) -> DrawingStrategy {
+    pub fn get_drawing_strategy(&self, zoom: &Zoom) -> DrawingStrategy {
         let mut drawing_strategy = DrawingStrategy::default();
         let mut target_line = None; // It hasn't been decided yet whether it's needed to draw a
                                     // line
@@ -367,10 +368,10 @@ impl Body {
                     (RectangleCorner::TopLeft, RectangleCorner::BottomLeft),
                 ] {
                     if DrawingStrategy::segments_intersect(
-                        self.pos,
-                        target_pos,
-                        *rectangle_corners.get(&i).unwrap(),
-                        *rectangle_corners.get(&j).unwrap(),
+                        &self.pos,
+                        &target_pos,
+                        rectangle_corners.get(&i).unwrap(),
+                        rectangle_corners.get(&j).unwrap(),
                     ) {
                         target_line = Some(true);
                         break;
@@ -384,6 +385,56 @@ impl Body {
         }
 
         drawing_strategy
+    }
+
+    pub fn handle_viruses(&mut self) {
+        for (virus, energy_spent_for_healing) in &mut self.viruses {
+            match unsafe { transmute::<usize, Virus>(*virus) } {
+                Virus::SpeedVirus => {
+                    self.energy =
+                        (self.energy - unsafe { SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING }).max(0.0);
+                    *energy_spent_for_healing += unsafe { SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING };
+                }
+                Virus::VisionVirus => {
+                    self.energy =
+                        (self.energy - unsafe { VISIONVIRUS_ENERGY_SPENT_FOR_HEALING }).max(0.0);
+                    *energy_spent_for_healing += unsafe { VISIONVIRUS_ENERGY_SPENT_FOR_HEALING };
+                }
+            }
+        }
+
+        self.viruses.retain(|virus, energy_spent_for_healing| {
+            *energy_spent_for_healing
+                <= match unsafe { transmute::<usize, Virus>(*virus) } {
+                    Virus::SpeedVirus => unsafe { SPEEDVIRUS_HEAL_ENERGY },
+                    Virus::VisionVirus => unsafe { VISIONVIRUS_HEAL_ENERGY },
+                }
+        });
+    }
+
+    /// Handle body-eaters walking & plant-eaters idle
+    pub fn handle_walking_idle(&mut self, area_size: &Vec2, rng: &mut StdRng) {
+        match self.eating_strategy {
+            EatingStrategy::Active => {
+                if !matches!(self.status, Status::Walking(..)) {
+                    let walking_angle: f32 = rng.gen_range(0.0..2.0 * PI);
+                    let pos_deviation = Vec2 {
+                        x: self.speed * walking_angle.cos(),
+                        y: self.speed * walking_angle.sin(),
+                    };
+
+                    self.status = Status::Walking(pos_deviation);
+                }
+
+                if let Status::Walking(pos_deviation) = self.status {
+                    self.pos.x += pos_deviation.x;
+                    self.pos.y += pos_deviation.y;
+                }
+
+                self.wrap(area_size);
+            }
+            EatingStrategy::Passive => self.status = Status::Idle,
+        }
     }
 }
 

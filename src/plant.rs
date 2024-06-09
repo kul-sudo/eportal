@@ -88,7 +88,7 @@ pub fn randomly_spawn_plant(
     bodies: &HashMap<Instant, Body>,
     plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,
     rng: &mut StdRng,
-    area_size: Vec2,
+    area_size: &Vec2,
     cells: &Cells,
 ) {
     let starting_point = Instant::now();
@@ -113,7 +113,7 @@ pub fn randomly_spawn_plant(
     } {}
 
     plants
-        .get_mut(&cells.get_cell_by_pos(pos))
+        .get_mut(&cells.get_cell_by_pos(&pos))
         .unwrap()
         .insert(Instant::now(), Plant { pos });
 }

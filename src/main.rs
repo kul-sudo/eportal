@@ -8,27 +8,24 @@ mod cells;
 mod constants;
 mod plant;
 mod smart_drawing;
+mod utils;
 mod zoom;
 
 use body::*;
 use cells::{Cell, Cells};
 use constants::*;
 use plant::{randomly_spawn_plant, Plant};
-use serde_derive::Deserialize;
-use std::fs::read_to_string;
 use zoom::{default_camera, get_zoom_target, Zoom};
 
 use body::AdaptationSkill;
-use std::mem::{transmute, variant_count};
 use std::{
     collections::{HashMap, HashSet},
     env::consts::OS,
-    f32::consts::PI,
     intrinsics::unlikely,
     thread::sleep,
     time::{Duration, Instant},
 };
-use toml::from_str;
+use utils::*;
 
 use macroquad::{
     camera::Camera2D,
@@ -71,86 +68,13 @@ fn window_conf() -> Conf {
     }
 }
 
-#[derive(Deserialize)]
-struct Config {
-    average_vision_distance: f32,
-    average_energy: f32,
-    average_division_threshold: f32,
-}
-
-#[derive(Deserialize)]
-struct Viruses {
-    speedvirus_first_generation_infection_chance: f32,
-    speedvirus_speed_decrease: f32,
-    speedvirus_energy_spent_for_healing: f32,
-    speedvirus_heal_energy: f32,
-
-    visionvirus_first_generation_infection_chance: f32,
-    visionvirus_vision_distance_decrease: f32,
-    visionvirus_energy_spent_for_healing: f32,
-    visionvirus_heal_energy: f32,
-}
-
-#[derive(Deserialize)]
-struct Data {
-    body: Config,
-    viruses: Viruses,
-}
-
 pub static mut ADAPTATION_SKILLS_COUNT: usize = 0;
 pub static mut VIRUSES_COUNT: usize = 0;
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let contents = match read_to_string(CONFIG_FILE_NAME) {
-        Ok(contents) => contents,
-        Err(_) => {
-            eprintln!("The config file hasn't been found.");
-            panic!();
-        }
-    };
-
-    let config: Data = match from_str(&contents) {
-        Ok(config) => config,
-        Err(_) => {
-            eprintln!("Unable to find the config file.");
-            panic!();
-        }
-    };
-
-    let body = config.body;
-    let viruses = config.viruses;
-    unsafe {
-        AVERAGE_VISION_DISTANCE = body.average_vision_distance;
-        AVERAGE_ENERGY = body.average_energy;
-        AVERAGE_DIVISION_THRESHOLD = body.average_division_threshold;
-        SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE =
-            viruses.speedvirus_first_generation_infection_chance;
-        SPEEDVIRUS_SPEED_DECREASE = viruses.speedvirus_speed_decrease;
-        SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING = viruses.speedvirus_energy_spent_for_healing;
-        SPEEDVIRUS_HEAL_ENERGY = viruses.speedvirus_heal_energy;
-
-        VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE =
-            viruses.visionvirus_first_generation_infection_chance;
-        VISIONVIRUS_VISION_DISTANCE_DECREASE = viruses.visionvirus_vision_distance_decrease;
-        VISIONVIRUS_ENERGY_SPENT_FOR_HEALING = viruses.visionvirus_energy_spent_for_healing;
-        VISIONVIRUS_HEAL_ENERGY = viruses.visionvirus_heal_energy;
-    };
-
-    // Pseudo-constants
-    // Skills
-    let mut variant_count_ = variant_count::<AdaptationSkill>();
-    unsafe {
-        ADAPTATION_SKILLS_COUNT = variant_count_;
-    }
-    let all_skills = (0..variant_count_).collect::<HashSet<_>>();
-
-    // Viruses
-    variant_count_ = variant_count::<Virus>();
-    unsafe {
-        VIRUSES_COUNT = variant_count_;
-    }
-    let all_viruses = (0..variant_count_).collect::<HashSet<_>>();
+    config_setup();
+    let (all_skills, all_viruses) = enum_consts();
 
     // Make the window fullscreen on Linux: for some reason, when the application has been built,
     // Arch Linux apparently doesn't have enough time to make it fullscreen
@@ -173,7 +97,7 @@ async fn main() {
     cells.cell_height = area_size.y / cells.rows as f32;
 
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.x, area_size.y));
-    default_camera(&mut camera, area_size);
+    default_camera(&mut camera, &area_size);
 
     let rng = &mut StdRng::from_entropy();
 
@@ -215,7 +139,7 @@ async fn main() {
 
     // Spawn the plants
     for _ in 0..PLANTS_N {
-        randomly_spawn_plant(&bodies, &mut plants, rng, area_size, &cells);
+        randomly_spawn_plant(&bodies, &mut plants, rng, &area_size, &cells);
         plants_n += 1;
     }
 
@@ -244,10 +168,10 @@ async fn main() {
     };
 
     loop {
-        // Handle the left mouse button click for zooming in/out
+        // Handle interactions
         if unlikely(is_mouse_button_pressed(MouseButton::Left)) {
             if zoom_mode {
-                default_camera(&mut camera, area_size);
+                default_camera(&mut camera, &area_size);
                 zoom.mouse_pos = None;
             } else {
                 zoom.rect = None;
@@ -271,12 +195,12 @@ async fn main() {
                 Some(mouse_pos) => {
                     if mouse_pos != current_mouse_pos {
                         zoom.mouse_pos = Some(current_mouse_pos);
-                        get_zoom_target(&mut camera, area_size, &mut zoom);
+                        get_zoom_target(&mut camera, &area_size, &mut zoom);
                     }
                 }
                 None => {
                     zoom.mouse_pos = Some(current_mouse_pos);
-                    get_zoom_target(&mut camera, area_size, &mut zoom);
+                    get_zoom_target(&mut camera, &area_size, &mut zoom);
                 }
             }
         }
@@ -302,7 +226,7 @@ async fn main() {
 
         // Spawn a plant in a random place with a specific chance
         for _ in 0..PLANTS_N_FOR_ONE_STEP {
-            randomly_spawn_plant(&bodies, &mut plants, rng, area_size, &cells)
+            randomly_spawn_plant(&bodies, &mut plants, rng, &area_size, &cells)
         }
 
         // Whether enough time has passed to draw a new frame
@@ -333,30 +257,7 @@ async fn main() {
             }
 
             // Viruses
-            for (virus, energy_spent_for_healing) in &mut body.viruses {
-                match unsafe { transmute::<usize, Virus>(*virus) } {
-                    Virus::SpeedVirus => {
-                        body.energy =
-                            (body.energy - unsafe { SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING }).max(0.0);
-                        *energy_spent_for_healing += unsafe { SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING };
-                    }
-                    Virus::VisionVirus => {
-                        body.energy = (body.energy
-                            - unsafe { VISIONVIRUS_ENERGY_SPENT_FOR_HEALING })
-                        .max(0.0);
-                        *energy_spent_for_healing +=
-                            unsafe { VISIONVIRUS_ENERGY_SPENT_FOR_HEALING };
-                    }
-                }
-            }
-
-            body.viruses.retain(|virus, energy_spent_for_healing| {
-                *energy_spent_for_healing
-                    <= match unsafe { transmute::<usize, Virus>(*virus) } {
-                        Virus::SpeedVirus => unsafe { SPEEDVIRUS_HEAL_ENERGY },
-                        Virus::VisionVirus => unsafe { VISIONVIRUS_HEAL_ENERGY },
-                    }
-            });
+            body.handle_viruses();
 
             // Handle lifespan
             if body.status != Status::Idle {
@@ -389,18 +290,11 @@ async fn main() {
             let bodies_within_vision_distance = bodies_shot
                 .iter()
                 .filter(|(other_body_id, other_body)| {
-                    body_id != *other_body_id
+                    &body_id != other_body_id
                         && !removed_bodies.contains(other_body_id)
                         && body.pos.distance(other_body.pos) <= body.vision_distance
                 })
                 .collect::<Vec<_>>();
-
-            // for (_, other_body) in &bodies_within_vision_distance {
-            //     if other_body.is_alive() && body.pos.distance(other_body.pos) <= OBJECT_RADIUS * 2.0
-            //     {
-            //         body.get_viruses(other_body.viruses.clone());
-            //     }
-            // }
 
             if let Some((closest_chasing_body_id, closest_chasing_body)) =
                 bodies_within_vision_distance
@@ -419,7 +313,7 @@ async fn main() {
                         }) && if let Status::FollowingTarget(other_body_target) =
                             bodies_shot_for_statuses.get(other_body_id).unwrap().status
                         {
-                            other_body_target.0 == *body_id
+                            &other_body_target.0 == body_id
                         } else {
                             false
                         }
@@ -443,7 +337,7 @@ async fn main() {
                 body.pos.y -= ((closest_chasing_body.pos.y - body.pos.y) * body.speed)
                     / distance_to_closest_chasing_body;
 
-                body.wrap(area_size);
+                body.wrap(&area_size);
 
                 continue;
             }
@@ -531,7 +425,7 @@ async fn main() {
                     let j_max = ((a + r) / w).floor().min(m as f32 - 1.0) as usize;
 
                     // Get the row going through the center of the body
-                    let body_i = cells.get_cell_by_pos(body.pos).i;
+                    let body_i = cells.get_cell_by_pos(&body.pos).i;
 
                     let (
                         (
@@ -771,28 +665,7 @@ async fn main() {
                 continue;
             }
 
-            // Handle body-eaters walking & plant-eaters idle
-            match body.eating_strategy {
-                EatingStrategy::Active => {
-                    if !matches!(body.status, Status::Walking(..)) {
-                        let walking_angle: f32 = rng.gen_range(0.0..2.0 * PI);
-                        let pos_deviation = Vec2 {
-                            x: body.speed * walking_angle.cos(),
-                            y: body.speed * walking_angle.sin(),
-                        };
-
-                        body.status = Status::Walking(pos_deviation);
-                    }
-
-                    if let Status::Walking(pos_deviation) = body.status {
-                        body.pos.x += pos_deviation.x;
-                        body.pos.y += pos_deviation.y;
-                    }
-
-                    body.wrap(area_size);
-                }
-                EatingStrategy::Passive => body.status = Status::Idle,
-            }
+            body.handle_walking_idle(&area_size, rng);
         }
 
         for (new_body_id, new_body) in new_bodies {
@@ -817,7 +690,7 @@ async fn main() {
 
                     for (body_id, body) in &bodies {
                         if !removed_bodies.contains(body_id) {
-                            let drawing_strategy = body.get_drawing_strategy(zoom);
+                            let drawing_strategy = body.get_drawing_strategy(&zoom);
 
                             if show_info {
                                 if drawing_strategy.vision_distance {
@@ -914,8 +787,7 @@ async fn main() {
             // but more rarely
             if removed_plants.len() > MIN_TO_REMOVE {
                 for (plant_id, plant_pos) in &removed_plants {
-                    let plants_in_cell =
-                        plants.get_mut(&cells.get_cell_by_pos(*plant_pos)).unwrap();
+                    let plants_in_cell = plants.get_mut(&cells.get_cell_by_pos(plant_pos)).unwrap();
                     plants_in_cell.remove(plant_id);
                 }
                 removed_plants.clear();
