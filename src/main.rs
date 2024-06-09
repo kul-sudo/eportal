@@ -14,6 +14,8 @@ use body::*;
 use cells::{Cell, Cells};
 use constants::*;
 use plant::{randomly_spawn_plant, Plant};
+use serde_derive::Deserialize;
+use std::fs::read_to_string;
 use zoom::{default_camera, get_zoom_target, Zoom};
 
 use body::AdaptationSkill;
@@ -26,6 +28,7 @@ use std::{
     thread::sleep,
     time::{Duration, Instant},
 };
+use toml::from_str;
 
 use macroquad::{
     camera::Camera2D,
@@ -68,11 +71,72 @@ fn window_conf() -> Conf {
     }
 }
 
+#[derive(Deserialize)]
+struct Config {
+    average_vision_distance: f32,
+    average_energy: f32,
+    average_division_threshold: f32,
+}
+
+#[derive(Deserialize)]
+struct Viruses {
+    speedvirus_first_generation_infection_chance: f32,
+    speedvirus_speed_decrease: f32,
+    speedvirus_energy_spent_for_healing: f32,
+    speedvirus_heal_energy: f32,
+
+    visionvirus_first_generation_infection_chance: f32,
+    visionvirus_vision_distance_decrease: f32,
+    visionvirus_energy_spent_for_healing: f32,
+    visionvirus_heal_energy: f32,
+}
+
+#[derive(Deserialize)]
+struct Data {
+    body: Config,
+    viruses: Viruses,
+}
+
 pub static mut ADAPTATION_SKILLS_COUNT: usize = 0;
 pub static mut VIRUSES_COUNT: usize = 0;
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    let contents = match read_to_string(CONFIG_FILE_NAME) {
+        Ok(contents) => contents,
+        Err(_) => {
+            eprintln!("The config file hasn't been found.");
+            panic!();
+        }
+    };
+
+    let config: Data = match from_str(&contents) {
+        Ok(config) => config,
+        Err(_) => {
+            eprintln!("Unable to find the config file.");
+            panic!();
+        }
+    };
+
+    let body = config.body;
+    let viruses = config.viruses;
+    unsafe {
+        AVERAGE_VISION_DISTANCE = body.average_vision_distance;
+        AVERAGE_ENERGY = body.average_energy;
+        AVERAGE_DIVISION_THRESHOLD = body.average_division_threshold;
+        SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE =
+            viruses.speedvirus_first_generation_infection_chance;
+        SPEEDVIRUS_SPEED_DECREASE = viruses.speedvirus_speed_decrease;
+        SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING = viruses.speedvirus_energy_spent_for_healing;
+        SPEEDVIRUS_HEAL_ENERGY = viruses.speedvirus_heal_energy;
+
+        VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE =
+            viruses.visionvirus_first_generation_infection_chance;
+        VISIONVIRUS_VISION_DISTANCE_DECREASE = viruses.visionvirus_vision_distance_decrease;
+        VISIONVIRUS_ENERGY_SPENT_FOR_HEALING = viruses.visionvirus_energy_spent_for_healing;
+        VISIONVIRUS_HEAL_ENERGY = viruses.visionvirus_heal_energy;
+    };
+
     // Pseudo-constants
     // Skills
     let mut variant_count_ = variant_count::<AdaptationSkill>();
@@ -218,8 +282,7 @@ async fn main() {
         }
 
         // Remove plants
-        let n_to_remove =
-            (plants_n as f32 * PART_OF_PLANTS_TO_REMOVE) as usize;
+        let n_to_remove = (plants_n as f32 * PART_OF_PLANTS_TO_REMOVE) as usize;
 
         for _ in 0..n_to_remove {
             loop {
@@ -248,7 +311,8 @@ async fn main() {
 
         // Due to certain borrowing rules, it's impossible to modify these during the loop,
         // so it'll be done after it
-        let mut new_bodies: HashMap<Instant, Body> = HashMap::with_capacity((bodies.len() - removed_bodies.len()) * 2);
+        let mut new_bodies: HashMap<Instant, Body> =
+            HashMap::with_capacity((bodies.len() - removed_bodies.len()) * 2);
         let bodies_shot = bodies.clone();
         let mut bodies_shot_for_statuses = bodies.clone();
 
@@ -272,12 +336,16 @@ async fn main() {
             for (virus, energy_spent_for_healing) in &mut body.viruses {
                 match unsafe { transmute::<usize, Virus>(*virus) } {
                     Virus::SpeedVirus => {
-                        body.energy = (body.energy - SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING).max(0.0);
-                        *energy_spent_for_healing += SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING;
+                        body.energy =
+                            (body.energy - unsafe { SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING }).max(0.0);
+                        *energy_spent_for_healing += unsafe { SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING };
                     }
                     Virus::VisionVirus => {
-                        body.energy = (body.energy - VISIONVIRUS_ENERGY_SPENT_FOR_HEALING).max(0.0);
-                        *energy_spent_for_healing += VISIONVIRUS_ENERGY_SPENT_FOR_HEALING;
+                        body.energy = (body.energy
+                            - unsafe { VISIONVIRUS_ENERGY_SPENT_FOR_HEALING })
+                        .max(0.0);
+                        *energy_spent_for_healing +=
+                            unsafe { VISIONVIRUS_ENERGY_SPENT_FOR_HEALING };
                     }
                 }
             }
@@ -285,8 +353,8 @@ async fn main() {
             body.viruses.retain(|virus, energy_spent_for_healing| {
                 *energy_spent_for_healing
                     <= match unsafe { transmute::<usize, Virus>(*virus) } {
-                        Virus::SpeedVirus => SPEEDVIRUS_HEAL_ENERGY,
-                        Virus::VisionVirus => VISIONVIRUS_HEAL_ENERGY,
+                        Virus::SpeedVirus => unsafe { SPEEDVIRUS_HEAL_ENERGY },
+                        Virus::VisionVirus => unsafe { VISIONVIRUS_HEAL_ENERGY },
                     }
             });
 

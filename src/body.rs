@@ -94,7 +94,7 @@ impl Body {
         let vision_distance = get_with_deviation!(
             match initial_vision_distance {
                 Some(initial_vision_distance) => initial_vision_distance,
-                None => AVERAGE_VISION_DISTANCE,
+                None => unsafe { AVERAGE_VISION_DISTANCE },
             },
             rng
         );
@@ -103,7 +103,7 @@ impl Body {
             pos,
             energy: match energy {
                 Some(energy) => energy / 2.0,
-                None => get_with_deviation!(AVERAGE_ENERGY, rng),
+                None => get_with_deviation!(unsafe { AVERAGE_ENERGY }, rng),
             },
             speed,
             initial_speed: speed,
@@ -113,7 +113,7 @@ impl Body {
             division_threshold: get_with_deviation!(
                 match division_threshold {
                     Some(division_threshold) => division_threshold,
-                    None => AVERAGE_DIVISION_THRESHOLD,
+                    None => unsafe { AVERAGE_DIVISION_THRESHOLD },
                 },
                 rng
             ),
@@ -153,16 +153,20 @@ impl Body {
                         let virus_cast = unsafe { transmute::<usize, Virus>(*virus) };
                         if rng.gen_range(0.0..1.0)
                             <= match virus_cast {
-                                Virus::SpeedVirus => SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE,
-                                Virus::VisionVirus => VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE,
+                                Virus::SpeedVirus => unsafe {
+                                    SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE
+                                },
+                                Virus::VisionVirus => unsafe {
+                                    VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE
+                                },
                             }
                         {
                             viruses.insert(
                                 *virus,
                                 rng.gen_range(
                                     0.0..match virus_cast {
-                                        Virus::SpeedVirus => SPEEDVIRUS_HEAL_ENERGY,
-                                        Virus::VisionVirus => VISIONVIRUS_HEAL_ENERGY,
+                                        Virus::SpeedVirus => unsafe { SPEEDVIRUS_HEAL_ENERGY },
+                                        Virus::VisionVirus => unsafe { VISIONVIRUS_HEAL_ENERGY },
                                     },
                                 ), // Assuming the evolution
                                    // theoretically starts before it starts being shown
@@ -257,10 +261,12 @@ impl Body {
             if !self.viruses.contains_key(virus) {
                 self.viruses.insert(*virus, 0.0);
                 match unsafe { transmute::<usize, Virus>(*virus) } {
-                    Virus::SpeedVirus => self.speed -= self.speed * SPEEDVIRUS_SPEED_DECREASE,
+                    Virus::SpeedVirus => {
+                        self.speed -= self.speed * unsafe { SPEEDVIRUS_SPEED_DECREASE }
+                    }
                     Virus::VisionVirus => {
                         self.vision_distance -=
-                            self.vision_distance * VISIONVIRUS_VISION_DISTANCE_DECREASE
+                            self.vision_distance * unsafe { VISIONVIRUS_VISION_DISTANCE_DECREASE }
                     }
                 };
             }

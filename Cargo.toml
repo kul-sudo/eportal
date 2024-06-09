@@ -6,6 +6,9 @@ edition = "2021"
 [dependencies]
 macroquad = "0.4.5"
 rand = { version = "0.8.5", features = ["std_rng"] }
+serde = "1.0.203"
+serde_derive = "1.0.203"
+toml = "0.8.14"
 [profile.release]
 opt-level = 3
 lto = true

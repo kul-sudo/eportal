@@ -1,5 +1,8 @@
 use std::f32::consts::SQRT_3;
 
+// TOML
+pub const CONFIG_FILE_NAME: &str = "config.toml";
+
 // Base
 pub const CELL_ROWS: usize = 89; // May be needed to be changed when the perfect values for the
                                  // evolution process have been determined
@@ -15,10 +18,10 @@ pub const MIN_ENERGY: f32 = 1000.0;
 pub const LIFESPAN: f32 = 240.0;
 
 // Average spawn attributes
-pub const AVERAGE_ENERGY: f32 = 1500.0;
-pub const AVERAGE_DIVISION_THRESHOLD: f32 = 2300.0;
+pub static mut AVERAGE_ENERGY: f32 = 1500.0;
+pub static mut AVERAGE_DIVISION_THRESHOLD: f32 = 2300.0;
 
-pub const AVERAGE_VISION_DISTANCE: f32 = 100.0;
+pub static mut AVERAGE_VISION_DISTANCE: f32 = 0.0; // 100.0
 pub const AVERAGE_SPEED: f32 = 1.5;
 
 // Evolution process
@@ -40,16 +43,16 @@ pub const ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.0002;
 pub const CONST_FOR_LIFESPAN: f32 = 0.000005;
 
 // SpeedVirus
-pub const SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE: f32 = 0.12;
-pub const SPEEDVIRUS_SPEED_DECREASE: f32 = 0.7;
-pub const SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING: f32 = 0.08;
-pub const SPEEDVIRUS_HEAL_ENERGY: f32 = 280.0;
+pub static mut SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE: f32 = 0.12;
+pub static mut SPEEDVIRUS_SPEED_DECREASE: f32 = 0.7;
+pub static mut SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING: f32 = 0.08;
+pub static mut SPEEDVIRUS_HEAL_ENERGY: f32 = 280.0;
 
 // VisionVirus
-pub const VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE: f32 = 0.1;
-pub const VISIONVIRUS_VISION_DISTANCE_DECREASE: f32 = 0.7;
-pub const VISIONVIRUS_ENERGY_SPENT_FOR_HEALING: f32 = 0.08;
-pub const VISIONVIRUS_HEAL_ENERGY: f32 = 280.5;
+pub static mut VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE: f32 = 0.1;
+pub static mut VISIONVIRUS_VISION_DISTANCE_DECREASE: f32 = 0.7;
+pub static mut VISIONVIRUS_ENERGY_SPENT_FOR_HEALING: f32 = 0.08;
+pub static mut VISIONVIRUS_HEAL_ENERGY: f32 = 280.5;
 
 // Death
 pub const CROSS_LIFESPAN: u64 = 35; // In seconds
