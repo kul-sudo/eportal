@@ -87,9 +87,9 @@ impl Plant {
 pub fn randomly_spawn_plant(
     bodies: &HashMap<Instant, Body>,
     plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,
-    rng: &mut StdRng,
     area_size: &Vec2,
     cells: &Cells,
+    rng: &mut StdRng,
 ) {
     let starting_point = Instant::now();
 

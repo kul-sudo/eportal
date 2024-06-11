@@ -43,9 +43,9 @@ pub enum Virus {
 }
 
 pub enum AdaptationSkill {
-    DoNotCompeteWithRelatives = 0,
-    SmartFoodChasing = 1,
-    PrioritizeFasterChasers = 2,
+    DoNotCompeteWithRelatives,
+    SmartFoodChasing,
+    PrioritizeFasterChasers,
 }
 
 #[derive(Clone, PartialEq)]
@@ -81,9 +81,9 @@ impl Body {
         viruses: Option<HashMap<usize, f32>>,
         initial_speed: Option<f32>,
         initial_vision_distance: Option<f32>,
-        rng: &mut StdRng,
         all_skills: &HashSet<usize>,
         all_viruses: &HashSet<usize>,
+        rng: &mut StdRng,
     ) -> Self {
         let speed = get_with_deviation!(
             match initial_speed {
@@ -419,7 +419,7 @@ impl Body {
         });
     }
 
-    /// Handle body-eaters walking & plant-eaters idle
+    /// Handle body-eaters walking & plant-eaters idle.
     pub fn handle_walking_idle(&mut self, area_size: &Vec2, rng: &mut StdRng) {
         match self.eating_strategy {
             EatingStrategy::Active => {
@@ -443,6 +443,77 @@ impl Body {
             EatingStrategy::Passive => self.status = Status::Idle,
         }
     }
+
+    /// Handle the energy. The function returns if the body has run out of energy.
+    pub fn handle_energy(
+        &mut self,
+        body_id: &Instant,
+        removed_bodies: &mut HashSet<Instant>,
+    ) -> bool {
+        // The mass is proportional to the energy; to keep the mass up, energy is spent 
+        self.energy -= unsafe { ENERGY_SPENT_CONST_FOR_MASS } * self.energy
+        + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS } * self.adapted_skills.len() as f32
+        + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE } * self.vision_distance.powi(2);
+
+        if self.status != Status::Idle {
+            self.energy -=
+            unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT } * self.speed.powi(2) * self.energy;
+        }
+
+        if self.energy <= 0.0 {
+            removed_bodies.insert(*body_id);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn handle_lifespan(&mut self) {
+        if self.status != Status::Idle {
+            self.lifespan = (self.lifespan
+                - unsafe { CONST_FOR_LIFESPAN } * self.speed.powi(2) * self.energy)
+                .max(0.0)
+        }
+    }
+
+    /// Handle procreation and return if one has happened.
+    pub fn handle_procreation(
+        &mut self,
+        body_id: &Instant,
+        new_bodies: &mut HashMap<Instant, Body>,
+        removed_bodies: &mut HashSet<Instant>,
+        all_skills: &HashSet<usize>,
+        all_viruses: &HashSet<usize>,
+        rng: &mut StdRng,
+    ) -> bool {
+        if self.energy > self.division_threshold {
+            for _ in 0..2 {
+                new_bodies.insert(
+                    Instant::now(),
+                    Body::new(
+                        self.pos,
+                        Some(self.energy),
+                        self.eating_strategy,
+                        Some(self.division_threshold),
+                        Some(self.adapted_skills.clone()),
+                        self.color,
+                        self.body_type,
+                        Some(self.viruses.clone()),
+                        Some(self.initial_speed),
+                        Some(self.initial_vision_distance),
+                        &all_skills,
+                        &all_viruses,
+                        rng,
+                    ),
+                );
+            }
+
+            removed_bodies.insert(*body_id);
+            true
+        } else {
+            false
+        }
+    }
 }
 
 /// Generate a random position until it suits certain creteria.
@@ -450,10 +521,10 @@ pub fn randomly_spawn_body(
     bodies: &mut HashMap<Instant, Body>,
     area_size: Vec2,
     eating_strategy: EatingStrategy,
-    rng: &mut StdRng,
     body_type: usize,
     all_skills: &HashSet<usize>,
     all_viruses: &HashSet<usize>,
+    rng: &mut StdRng,
 ) {
     let mut pos = Vec2::default();
 
@@ -525,9 +596,9 @@ pub fn randomly_spawn_body(
             None,
             None,
             None,
+            &all_skills,
+            &all_viruses,
             rng,
-            all_skills,
-            all_viruses,
         ),
     );
 }

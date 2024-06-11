@@ -99,7 +99,7 @@ async fn main() {
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.x, area_size.y));
     default_camera(&mut camera, &area_size);
 
-    let rng = &mut StdRng::from_entropy();
+    let mut rng = StdRng::from_entropy();
 
     let mut zoom_mode = false;
     let mut show_info = true;
@@ -127,10 +127,10 @@ async fn main() {
             } else {
                 EatingStrategy::Active
             },
-            rng,
             i + 1,
             &all_skills,
             &all_viruses,
+            &mut rng,
         );
     }
 
@@ -139,7 +139,7 @@ async fn main() {
 
     // Spawn the plants
     for _ in 0..PLANTS_N {
-        randomly_spawn_plant(&bodies, &mut plants, rng, &area_size, &cells);
+        randomly_spawn_plant(&bodies, &mut plants, &area_size, &cells, &mut rng);
         plants_n += 1;
     }
 
@@ -210,10 +210,10 @@ async fn main() {
 
         for _ in 0..n_to_remove {
             loop {
-                let random_cell = plants.iter().choose(rng).unwrap().0;
+                let random_cell = plants.iter().choose(&mut rng).unwrap().0;
 
                 if let Some((random_plant_id, random_plant)) =
-                    plants.get(random_cell).unwrap().iter().choose(rng)
+                    plants.get(random_cell).unwrap().iter().choose(&mut rng)
                 {
                     if !removed_plants.contains(&(*random_plant_id, random_plant.pos)) {
                         removed_plants.push((*random_plant_id, random_plant.pos));
@@ -226,7 +226,7 @@ async fn main() {
 
         // Spawn a plant in a random place with a specific chance
         for _ in 0..PLANTS_N_FOR_ONE_STEP {
-            randomly_spawn_plant(&bodies, &mut plants, rng, &area_size, &cells)
+            randomly_spawn_plant(&bodies, &mut plants, &area_size, &cells, &mut rng)
         }
 
         // Whether enough time has passed to draw a new frame
@@ -253,18 +253,12 @@ async fn main() {
                 if death_time.elapsed().as_secs() >= CROSS_LIFESPAN {
                     removed_bodies.insert(*body_id);
                 }
-                continue;
+                continue; 
             }
 
-            // Viruses
             body.handle_viruses();
 
-            // Handle lifespan
-            if body.status != Status::Idle {
-                body.lifespan = (body.lifespan
-                    - unsafe { CONST_FOR_LIFESPAN } * body.speed.powi(2) * body.energy)
-                    .max(0.0)
-            }
+            body.handle_lifespan();
 
             // Handle if dead to become a cross
             if body.energy < MIN_ENERGY || body_id.elapsed().as_secs_f32() > body.lifespan {
@@ -272,19 +266,7 @@ async fn main() {
                 continue;
             }
 
-            // Handle the energy
-            // The mass is proportional to the energy; to keep the mass up, energy is spent
-            body.energy -= unsafe { ENERGY_SPENT_CONST_FOR_MASS } * body.energy
-                + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS } * body.adapted_skills.len() as f32
-                + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE } * body.vision_distance.powi(2);
-
-            if body.status != Status::Idle {
-                body.energy -=
-                    unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT } * body.speed.powi(2) * body.energy;
-            }
-
-            if body.energy <= 0.0 {
-                removed_bodies.insert(*body_id);
+            if body.handle_energy(&body_id, &mut removed_bodies) {
                 continue;
             }
 
@@ -641,34 +623,18 @@ async fn main() {
             }
 
             // Procreate
-            if body.energy > body.division_threshold {
-                for _ in 0..2 {
-                    new_bodies.insert(
-                        Instant::now(),
-                        Body::new(
-                            body.pos,
-                            Some(body.energy),
-                            body.eating_strategy,
-                            Some(body.division_threshold),
-                            Some(body.adapted_skills.clone()),
-                            body.color,
-                            body.body_type,
-                            Some(body.viruses.clone()),
-                            Some(body.initial_speed),
-                            Some(body.initial_vision_distance),
-                            rng,
-                            &all_skills,
-                            &all_viruses,
-                        ),
-                    );
-                }
-
-                removed_bodies.insert(*body_id);
-
+            if body.handle_procreation(
+                &body_id,
+                &mut new_bodies,
+                &mut removed_bodies,
+                &all_skills,
+                &all_viruses,
+                &mut rng,
+            ) {
                 continue;
             }
 
-            body.handle_walking_idle(&area_size, rng);
+            body.handle_walking_idle(&area_size, &mut rng);
         }
 
         for (new_body_id, new_body) in new_bodies {
