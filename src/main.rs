@@ -167,6 +167,9 @@ async fn main() {
         diagonal_extended_rect: (extended_rect_width.powi(2) + extended_rect_height.powi(2)).sqrt(),
     };
 
+    let mut average_performance = 0.0;
+    let mut n = 0;
+
     loop {
         // Handle interactions
         if unlikely(is_mouse_button_pressed(MouseButton::Left)) {
@@ -242,7 +245,16 @@ async fn main() {
 
         let plants_shot = plants.clone();
 
+        let timestamp = Instant::now();
+
         for (body_id, body) in &mut bodies {
+            n += 1;
+            if n == 100000 {
+                println!("{}", average_performance / 100000.0);
+                n = 0;
+                average_performance = 0.0;
+            }
+
             // Handle if the body was eaten earlier
             if removed_bodies.contains(body_id) {
                 continue;
@@ -603,7 +615,7 @@ async fn main() {
 
                     match food.food_type {
                         FoodType::Body(viruses) => {
-                            body.get_viruses(viruses);
+                            body.get_viruses(&viruses);
                             removed_bodies.insert(food.id);
                         }
                         FoodType::Plant => {
@@ -636,6 +648,8 @@ async fn main() {
 
             body.handle_walking_idle(&area_size, &mut rng);
         }
+
+        average_performance += timestamp.elapsed().as_nanos() as f32 / (bodies.len() - removed_bodies.len()).pow(2) as f32;
 
         for (new_body_id, new_body) in new_bodies {
             bodies.insert(new_body_id, new_body);

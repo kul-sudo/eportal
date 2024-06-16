@@ -66,7 +66,7 @@ pub const MIN_ZOOM: f32 = 1.0;
 pub const BODY_INFO_FONT_SIZE: u16 = 17;
 
 // Math
-pub const COSINE_OF_30_DEGREES: f32 = SQRT_3 / 2.0;
+pub static COSINE_OF_30_DEGREES: f32 = SQRT_3 / 2.0;
 
 // Misc
 pub const FPS: u64 = 144;

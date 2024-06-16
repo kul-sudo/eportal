@@ -6,6 +6,7 @@ use serde_derive::Deserialize;
 use std::collections::HashSet;
 use std::fs::read_to_string;
 use std::mem::variant_count;
+use std::process::exit;
 use toml::from_str;
 
 #[derive(Deserialize)]
@@ -50,15 +51,15 @@ pub fn config_setup() {
         Ok(contents) => contents,
         Err(_) => {
             eprintln!("The config file hasn't been found.");
-            panic!();
+            exit(1);
         }
     };
 
     let config: Data = match from_str(&contents) {
         Ok(config) => config,
         Err(_) => {
-            eprintln!("Unable to find the config file.");
-            panic!();
+            eprintln!("The file style isn't correct.");
+            exit(1);
         }
     };
 

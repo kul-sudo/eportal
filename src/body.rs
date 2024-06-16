@@ -188,7 +188,9 @@ impl Body {
         };
 
         // Applying the effect of the viruses
-        body.get_viruses(body.viruses.clone());
+        for virus in body.viruses.clone().keys() {
+            body.apply_virus(virus);
+        }
         body
     }
 
@@ -264,21 +266,25 @@ impl Body {
         }
     }
 
-    pub fn get_viruses(&mut self, viruses: HashMap<usize, f32>) {
+    pub fn get_viruses(&mut self, viruses: &HashMap<usize, f32>) {
         for virus in viruses.keys() {
             if !self.viruses.contains_key(virus) {
                 self.viruses.insert(*virus, 0.0);
-                match unsafe { transmute::<usize, Virus>(*virus) } {
-                    Virus::SpeedVirus => {
-                        self.speed -= self.speed * unsafe { SPEEDVIRUS_SPEED_DECREASE }
-                    }
-                    Virus::VisionVirus => {
-                        self.vision_distance -=
-                            self.vision_distance * unsafe { VISIONVIRUS_VISION_DISTANCE_DECREASE }
-                    }
-                };
+                self.apply_virus(virus);
             }
         }
+    }
+
+    pub fn apply_virus(&mut self, virus: &usize) {
+        match unsafe { transmute::<usize, Virus>(*virus) } {
+            Virus::SpeedVirus => {
+                self.speed -= self.speed * unsafe { SPEEDVIRUS_SPEED_DECREASE }
+            }
+            Virus::VisionVirus => {
+                self.vision_distance -=
+                    self.vision_distance * unsafe { VISIONVIRUS_VISION_DISTANCE_DECREASE }
+            }
+        };
     }
 
     pub fn get_drawing_strategy(&self, zoom: &Zoom) -> DrawingStrategy {
