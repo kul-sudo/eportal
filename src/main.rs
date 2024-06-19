@@ -90,6 +90,11 @@ async fn main() {
         y: screen_height() * OBJECT_RADIUS,
     };
 
+
+    unsafe {
+        BODIES_N = (BODIES_N as f32 * ((area_size.x * area_size.y) / DEFAULT_AREA_SIZE)) as usize;
+    }
+
     let mut cells = Cells::default();
     cells.rows = CELL_ROWS;
     cells.columns = ((area_size.x * CELL_ROWS as f32) / area_size.y).round() as usize;
@@ -105,7 +110,7 @@ async fn main() {
     let mut show_info = true;
 
     // 'main_evolution_loop: loop {
-    let mut bodies: HashMap<Instant, Body> = HashMap::with_capacity(BODIES_N);
+    let mut bodies: HashMap<Instant, Body> = HashMap::with_capacity(unsafe {BODIES_N});
     let mut plants: HashMap<Cell, HashMap<Instant, Plant>> =
         HashMap::with_capacity(cells.rows * cells.columns);
     for i in 0..cells.rows {
@@ -118,7 +123,7 @@ async fn main() {
     let mut removed_bodies: HashSet<Instant> = HashSet::with_capacity(bodies.len());
 
     // Spawn the bodies
-    for i in 0..BODIES_N {
+    for i in 0..unsafe { BODIES_N } {
         randomly_spawn_body(
             &mut bodies,
             area_size,
@@ -167,8 +172,8 @@ async fn main() {
         diagonal_extended_rect: (extended_rect_width.powi(2) + extended_rect_height.powi(2)).sqrt(),
     };
 
-    let mut average_performance = 0.0;
-    let mut n = 0;
+    // let mut average_performance = 0.0;
+    // let mut n = 0;
 
     loop {
         // Handle interactions
@@ -245,15 +250,15 @@ async fn main() {
 
         let plants_shot = plants.clone();
 
-        let timestamp = Instant::now();
+        // let timestamp = Instant::now();
 
         for (body_id, body) in &mut bodies {
-            n += 1;
-            if n == 100000 {
-                println!("{}", average_performance / 100000.0);
-                n = 0;
-                average_performance = 0.0;
-            }
+            // n += 1;
+            // if n == 100000 {
+            //     println!("{}", average_performance / 100000.0);
+            //     n = 0;
+            //     average_performance = 0.0;
+            // }
 
             // Handle if the body was eaten earlier
             if removed_bodies.contains(body_id) {
@@ -649,7 +654,7 @@ async fn main() {
             body.handle_walking_idle(&area_size, &mut rng);
         }
 
-        average_performance += timestamp.elapsed().as_nanos() as f32 / (bodies.len() - removed_bodies.len()).pow(2) as f32;
+        // average_performance += timestamp.elapsed().as_nanos() as f32 / (bodies.len() - removed_bodies.len()).pow(2) as f32;
 
         for (new_body_id, new_body) in new_bodies {
             bodies.insert(new_body_id, new_body);

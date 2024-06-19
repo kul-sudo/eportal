@@ -6,8 +6,11 @@ pub const CONFIG_FILE_NAME: &str = "../../config.toml";
 // Base
 pub const CELL_ROWS: usize = 89; // May be needed to be changed when the perfect values for the
                                  // evolution process have been determined
-pub const BODIES_N: usize = 800;
+pub static mut BODIES_N: usize = 800;
+pub static DEFAULT_AREA_SIZE: f32 = 16800.0 * 10500.0;
+
 pub const PLANTS_N: usize = 20000;
+
 pub const PASSIVE_CHANCE: f32 = 0.3;
 pub const OBJECT_RADIUS: f32 = 10.0;
 /// Used for `get_with_deviation`.

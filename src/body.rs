@@ -546,7 +546,7 @@ pub fn randomly_spawn_body(
     } {}
 
     // Make sure the color is different enough
-    let real_color_gap = COLOR_GAP / ((BODIES_N + 2) as f32).powf(1.0 / 3.0);
+    let real_color_gap = COLOR_GAP / ((unsafe { BODIES_N } + 2) as f32).powf(1.0 / 3.0);
 
     let mut color = Color::from_rgba(
         gen_range(COLOR_MIN, COLOR_MAX),
