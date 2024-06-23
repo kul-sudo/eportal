@@ -388,16 +388,33 @@ async fn main() {
                         && {
                             if body
                                 .adapted_skills
-                                .contains(&(AdaptationSkill::SmartFoodChasing as usize))
+                                .contains(&(AdaptationSkill::AliveWhenArrived as usize))
                             {
-                                let distance = body.pos.distance(cross.pos);
-                                let time = distance / body.speed;
+                                let time = body.pos.distance(cross.pos) / body.speed;
 
                                 body.energy - body.get_spent_energy(&time) > MIN_ENERGY
                             } else {
                                 true
                             }
                         }
+                        && {
+                            if body
+                                .adapted_skills
+                                .contains(&(AdaptationSkill::ProfitableWhenArrived as usize))
+                            {
+                                let time = body.pos.distance(cross.pos) / body.speed;
+
+                                body.get_spent_energy(&time) < cross.energy
+                            } else {
+                                true
+                            }
+                        }
+
+                                                && body.handle_will_arive_first_body(
+                                                    &cross_id,
+                                                    &cross,
+                                                    &bodies_within_vision_distance,
+                                                )
                 })
                 .min_by(|(_, a), (_, b)| {
                     body.pos
@@ -485,10 +502,9 @@ async fn main() {
                                     && {
                                         if body
                                             .adapted_skills
-                                            .contains(&(AdaptationSkill::SmartFoodChasing as usize))
+                                            .contains(&(AdaptationSkill::AliveWhenArrived as usize))
                                         {
-                                            let distance = body.pos.distance(plant.pos);
-                                            let time = distance / body.speed;
+                                            let time = body.pos.distance(plant.pos) / body.speed;
 
                                             body.energy - body.get_spent_energy(&time) > MIN_ENERGY
                                         } else {
@@ -515,6 +531,22 @@ async fn main() {
                                             true
                                         }
                                     }
+                                    && {
+                                        if body.adapted_skills.contains(
+                                            &(AdaptationSkill::ProfitableWhenArrived as usize),
+                                        ) {
+                                            let time = body.pos.distance(plant.pos) / body.speed;
+
+                                            body.get_spent_energy(&time) < PLANT_ENERGY
+                                        } else {
+                                            true
+                                        }
+                                    }
+                                    && body.handle_will_arive_first_plant(
+                                        &plant_id,
+                                        &plant,
+                                        &bodies_within_vision_distance,
+                                    )
                             })
                             .min_by(|(_, a), (_, b)| {
                                 body.pos
@@ -541,6 +573,18 @@ async fn main() {
                                                 && other_body.is_alive()
                                                 && {
                                                     if body.adapted_skills.contains(
+                                                        &(AdaptationSkill::AvoidNewViruses
+                                                            as usize),
+                                                    ) {
+                                                        other_body.viruses.keys().all(|virus| {
+                                                            body.viruses.contains_key(&virus)
+                                                        })
+                                                    } else {
+                                                        true
+                                                    }
+                                                }
+                                                && {
+                                                    if body.adapted_skills.contains(
                                                         &(AdaptationSkill::DoNotCompeteWithRelatives
                                                             as usize),
                                                     ) {
@@ -559,7 +603,7 @@ async fn main() {
                                                 }
                                                 && {
                                                     if body.adapted_skills.contains(
-                                                        &(AdaptationSkill::SmartFoodChasing
+                                                        &(AdaptationSkill::AliveWhenArrived
                                                             as usize),
                                                     ) {
                                                         let delta = body.speed - other_body.speed;
@@ -576,6 +620,27 @@ async fn main() {
                                                         true
                                                     }
                                                 }
+                                                && {
+                                                    if body.adapted_skills.contains(
+                                                        &(AdaptationSkill::ProfitableWhenArrived
+                                                            as usize),
+                                                    ) {
+                                                        let distance =
+                                                            body.pos.distance(other_body.pos);
+                                                        let time = distance / body.speed;
+
+                                                        body.get_spent_energy(&time)
+                                                            < other_body.energy
+                                                                - other_body.get_spent_energy(&time)
+                                                    } else {
+                                                        true
+                                                    }
+                                                }
+                                                && body.handle_will_arive_first_body(
+                                                    &other_body_id,
+                                                    &other_body,
+                                                    &bodies_within_vision_distance,
+                                                )
                                         })
                                         .min_by(|(_, a), (_, b)| {
                                             body.pos

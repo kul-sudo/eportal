@@ -17,6 +17,7 @@ use crate::{
     get_with_deviation,
     smart_drawing::{DrawingStrategy, RectangleCorner},
     zoom::Zoom,
+    plant::Plant
 };
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -44,8 +45,11 @@ pub enum Virus {
 
 pub enum AdaptationSkill {
     DoNotCompeteWithRelatives,
-    SmartFoodChasing,
+    AliveWhenArrived,
+    ProfitableWhenArrived,
     PrioritizeFasterChasers,
+    AvoidNewViruses,
+    WillArriveFirst,
 }
 
 #[derive(Clone, PartialEq)]
@@ -313,15 +317,6 @@ impl Body {
         }
 
         // Step 1
-        // draw_rectangle_lines(
-        //     zoom.center_pos.unwrap().x - zoom.width / 2.0,
-        //     zoom.center_pos.unwrap().y - zoom.height / 2.0,
-        //     zoom.width,
-        //     zoom.height,
-        //     50.0,
-        //     PURPLE,
-        // );
-
         if zoom.extended_rect.unwrap().contains(self.pos) {
             // The body can be partially
             // visible/hidden or completely visible
@@ -611,5 +606,80 @@ impl Body {
                 rng,
             ),
         );
+    }
+
+    pub fn handle_will_arive_first_body(
+        &self,
+        other_body_id: &Instant,
+        other_body: &Body,
+        bodies_within_vision_distance: &Vec<(&Instant, &Body)>,
+    ) -> bool {
+        let mut other_body_speed = other_body.speed;
+
+        if self.is_alive() {
+            other_body_speed = 0.0;
+        }
+
+        if self
+            .adapted_skills
+            .contains(&(AdaptationSkill::WillArriveFirst as usize))
+        {
+            let delta = self.speed - other_body_speed;
+            if delta <= 0.0 {
+                return false;
+            }
+
+            let time = self.pos.distance(other_body.pos) / delta;
+
+            bodies_within_vision_distance
+                .iter()
+                .any(|(_, other_body_1)| {
+                    if let Status::FollowingTarget((target_id, _)) = other_body_1.status {
+                        &target_id == other_body_id && {
+                            let delta_1 = other_body_1.speed - other_body_speed;
+                            if delta_1 <= 0.0 {
+                                return false;
+                            }
+                            let time_1 = other_body_1.pos.distance(other_body.pos) / delta_1;
+
+                            time > time_1
+                        }
+                    } else {
+                        false
+                    }
+                })
+        } else {
+            true
+        }
+    }
+
+    pub fn handle_will_arive_first_plant(
+        &self,
+        plant_id: &Instant,
+        plant: &Plant,
+        bodies_within_vision_distance: &Vec<(&Instant, &Body)>,
+    ) -> bool {
+        if self
+            .adapted_skills
+            .contains(&(AdaptationSkill::WillArriveFirst as usize))
+        {
+            let time = self.pos.distance(plant.pos) / self.speed;
+
+            bodies_within_vision_distance
+                .iter()
+                .any(|(_, other_body_1)| {
+                    if let Status::FollowingTarget((target_id, _)) = other_body_1.status {
+                        &target_id == plant_id && {
+                            let time_1 = other_body_1.pos.distance(plant.pos) / other_body_1.speed;
+
+                            time > time_1
+                        }
+                    } else {
+                        false
+                    }
+                })
+        } else {
+            true
+        }
     }
 }
