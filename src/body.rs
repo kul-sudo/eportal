@@ -121,9 +121,7 @@ impl Body {
             ),
             adapted_skills: match adapted_skills {
                 Some(mut adapted_skills) => {
-                    if adapted_skills.len() < unsafe { ADAPTATION_SKILLS_COUNT }
-                        && rng.gen_range(0.0..1.0) <= unsafe { SKILLS_CHANGE_CHANCE }
-                    {
+                    if rng.gen_range(0.0..1.0) <= unsafe { SKILLS_CHANGE_CHANCE } {
                         if random::<bool>() {
                             if let Some(random_skill) = all_skills
                                 .difference(&adapted_skills)
@@ -139,6 +137,7 @@ impl Body {
                             }
                         }
                     }
+
                     adapted_skills
                 }
                 None => HashSet::with_capacity(unsafe { ADAPTATION_SKILLS_COUNT }),
@@ -277,9 +276,7 @@ impl Body {
 
     pub fn apply_virus(&mut self, virus: &usize) {
         match unsafe { transmute::<usize, Virus>(*virus) } {
-            Virus::SpeedVirus => {
-                self.speed -= self.speed * unsafe { SPEEDVIRUS_SPEED_DECREASE }
-            }
+            Virus::SpeedVirus => self.speed -= self.speed * unsafe { SPEEDVIRUS_SPEED_DECREASE },
             Virus::VisionVirus => {
                 self.vision_distance -=
                     self.vision_distance * unsafe { VISIONVIRUS_VISION_DISTANCE_DECREASE }
@@ -456,14 +453,14 @@ impl Body {
         body_id: &Instant,
         removed_bodies: &mut HashSet<Instant>,
     ) -> bool {
-        // The mass is proportional to the energy; to keep the mass up, energy is spent 
+        // The mass is proportional to the energy; to keep the mass up, energy is spent
         self.energy -= unsafe { ENERGY_SPENT_CONST_FOR_MASS } * self.energy
-        + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS } * self.adapted_skills.len() as f32
-        + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE } * self.vision_distance.powi(2);
+            + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS } * self.adapted_skills.len() as f32
+            + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE } * self.vision_distance.powi(2);
 
         if self.status != Status::Idle {
             self.energy -=
-            unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT } * self.speed.powi(2) * self.energy;
+                unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT } * self.speed.powi(2) * self.energy;
         }
 
         if self.energy <= 0.0 {
@@ -520,91 +517,99 @@ impl Body {
             false
         }
     }
-}
 
-/// Generate a random position until it suits certain creteria.
-pub fn randomly_spawn_body(
-    bodies: &mut HashMap<Instant, Body>,
-    area_size: Vec2,
-    eating_strategy: EatingStrategy,
-    body_type: usize,
-    all_skills: &HashSet<usize>,
-    all_viruses: &HashSet<usize>,
-    rng: &mut StdRng,
-) {
-    let mut pos = Vec2::default();
+    pub fn get_spent_energy(&self, time: &f32) -> f32 {
+        time * unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT } * self.speed.powi(2) * self.energy
+            + unsafe { ENERGY_SPENT_CONST_FOR_MASS } * self.energy
+            + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS } * self.adapted_skills.len() as f32
+            + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE } * self.vision_distance.powi(2)
+    }
 
-    // Make sure the position is far enough from the rest of the bodies and the borders of the area
-    while {
-        pos.x = rng.gen_range(0.0..area_size.x);
-        pos.y = rng.gen_range(0.0..area_size.y);
-        (pos.x <= OBJECT_RADIUS + MIN_GAP || pos.x >= area_size.x - OBJECT_RADIUS - MIN_GAP)
-            || (pos.y <= OBJECT_RADIUS + MIN_GAP || pos.y >= area_size.y - OBJECT_RADIUS - MIN_GAP)
-            || bodies
-                .values()
-                .any(|body| body.pos.distance(pos) < OBJECT_RADIUS * 2.0 + MIN_GAP)
-    } {}
+    /// Generate a random position until it suits certain creteria.
+    pub fn randomly_spawn_body(
+        bodies: &mut HashMap<Instant, Body>,
+        area_size: Vec2,
+        eating_strategy: EatingStrategy,
+        body_type: usize,
+        all_skills: &HashSet<usize>,
+        all_viruses: &HashSet<usize>,
+        rng: &mut StdRng,
+    ) {
+        let mut pos = Vec2::default();
 
-    // Make sure the color is different enough
-    let real_color_gap = COLOR_GAP / ((unsafe { BODIES_N } + 2) as f32).powf(1.0 / 3.0);
+        // Make sure the position is far enough from the rest of the bodies and the borders of the area
+        while {
+            pos.x = rng.gen_range(0.0..area_size.x);
+            pos.y = rng.gen_range(0.0..area_size.y);
+            (pos.x <= OBJECT_RADIUS + MIN_GAP || pos.x >= area_size.x - OBJECT_RADIUS - MIN_GAP)
+                || (pos.y <= OBJECT_RADIUS + MIN_GAP
+                    || pos.y >= area_size.y - OBJECT_RADIUS - MIN_GAP)
+                || bodies
+                    .values()
+                    .any(|body| body.pos.distance(pos) < OBJECT_RADIUS * 2.0 + MIN_GAP)
+        } {}
 
-    let mut color = Color::from_rgba(
-        gen_range(COLOR_MIN, COLOR_MAX),
-        gen_range(COLOR_MIN, COLOR_MAX),
-        gen_range(COLOR_MIN, COLOR_MAX),
-        255,
-    );
+        // Make sure the color is different enough
+        let real_color_gap = COLOR_GAP / ((BODIES_N + 2) as f32).powf(1.0 / 3.0);
 
-    let green_rgb = Vec3 {
-        x: GREEN.r,
-        y: GREEN.g,
-        z: GREEN.b,
-    };
-
-    let red_rgb = Vec3 {
-        x: RED.r,
-        y: RED.g,
-        z: RED.b,
-    };
-
-    while bodies.values().any(|body| {
-        let current_body_rgb = Vec3 {
-            x: body.color.r,
-            y: body.color.g,
-            z: body.color.b,
-        };
-        current_body_rgb.distance(green_rgb) < real_color_gap
-            || current_body_rgb.distance(red_rgb) < real_color_gap
-            || current_body_rgb.distance(Vec3 {
-                x: color.r,
-                y: color.g,
-                z: color.b,
-            }) < real_color_gap
-    }) {
-        color = Color::from_rgba(
+        let mut color = Color::from_rgba(
             gen_range(COLOR_MIN, COLOR_MAX),
             gen_range(COLOR_MIN, COLOR_MAX),
             gen_range(COLOR_MIN, COLOR_MAX),
             255,
-        )
-    }
+        );
 
-    bodies.insert(
-        Instant::now(),
-        Body::new(
-            pos,
-            None,
-            eating_strategy,
-            None,
-            None,
-            color,
-            body_type as u16,
-            None,
-            None,
-            None,
-            &all_skills,
-            &all_viruses,
-            rng,
-        ),
-    );
+        let green_rgb = Vec3 {
+            x: GREEN.r,
+            y: GREEN.g,
+            z: GREEN.b,
+        };
+
+        let red_rgb = Vec3 {
+            x: RED.r,
+            y: RED.g,
+            z: RED.b,
+        };
+
+        while bodies.values().any(|body| {
+            let current_body_rgb = Vec3 {
+                x: body.color.r,
+                y: body.color.g,
+                z: body.color.b,
+            };
+            current_body_rgb.distance(green_rgb) < real_color_gap
+                || current_body_rgb.distance(red_rgb) < real_color_gap
+                || current_body_rgb.distance(Vec3 {
+                    x: color.r,
+                    y: color.g,
+                    z: color.b,
+                }) < real_color_gap
+        }) {
+            color = Color::from_rgba(
+                gen_range(COLOR_MIN, COLOR_MAX),
+                gen_range(COLOR_MIN, COLOR_MAX),
+                gen_range(COLOR_MIN, COLOR_MAX),
+                255,
+            )
+        }
+
+        bodies.insert(
+            Instant::now(),
+            Body::new(
+                pos,
+                None,
+                eating_strategy,
+                None,
+                None,
+                color,
+                body_type as u16,
+                None,
+                None,
+                None,
+                &all_skills,
+                &all_viruses,
+                rng,
+            ),
+        );
+    }
 }

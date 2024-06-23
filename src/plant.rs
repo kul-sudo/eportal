@@ -82,38 +82,39 @@ impl Plant {
 
         plants_to_draw
     }
-}
 
-pub fn randomly_spawn_plant(
-    bodies: &HashMap<Instant, Body>,
-    plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,
-    area_size: &Vec2,
-    cells: &Cells,
-    rng: &mut StdRng,
-) {
-    let starting_point = Instant::now();
+    pub fn randomly_spawn_plant(
+        bodies: &HashMap<Instant, Body>,
+        plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,
+        area_size: &Vec2,
+        cells: &Cells,
+        rng: &mut StdRng,
+    ) {
+        let starting_point = Instant::now();
 
-    let mut pos = Vec2::default();
+        let mut pos = Vec2::default();
 
-    // Make sure the position is far enough from the rest of the plants and bodies and the borders of the area
-    while {
-        // Make sure finding a suitable position doesn't exceed a specific time limit
-        if starting_point.elapsed().as_nanos()
-            >= Duration::from_millis(PLANT_SPAWN_TIME_LIMIT).as_nanos()
-        {
-            return;
-        }
-        pos.x = rng.gen_range(0.0..area_size.x);
-        pos.y = rng.gen_range(0.0..area_size.y);
-        (pos.x <= OBJECT_RADIUS + MIN_GAP || pos.x >= area_size.x - OBJECT_RADIUS - MIN_GAP)
-            || (pos.y <= OBJECT_RADIUS + MIN_GAP || pos.y >= area_size.y - OBJECT_RADIUS - MIN_GAP)
-            || bodies
-                .values()
-                .any(|body| body.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
-    } {}
+        // Make sure the position is far enough from the rest of the plants and bodies and the borders of the area
+        while {
+            // Make sure finding a suitable position doesn't exceed a specific time limit
+            if starting_point.elapsed().as_nanos()
+                >= Duration::from_millis(PLANT_SPAWN_TIME_LIMIT).as_nanos()
+            {
+                return;
+            }
+            pos.x = rng.gen_range(0.0..area_size.x);
+            pos.y = rng.gen_range(0.0..area_size.y);
+            (pos.x <= OBJECT_RADIUS + MIN_GAP || pos.x >= area_size.x - OBJECT_RADIUS - MIN_GAP)
+                || (pos.y <= OBJECT_RADIUS + MIN_GAP
+                    || pos.y >= area_size.y - OBJECT_RADIUS - MIN_GAP)
+                || bodies
+                    .values()
+                    .any(|body| body.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
+        } {}
 
-    plants
-        .get_mut(&cells.get_cell_by_pos(&pos))
-        .unwrap()
-        .insert(Instant::now(), Plant { pos });
+        plants
+            .get_mut(&cells.get_cell_by_pos(&pos))
+            .unwrap()
+            .insert(Instant::now(), Plant { pos });
+    }
 }

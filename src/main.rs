@@ -14,7 +14,7 @@ mod zoom;
 use body::*;
 use cells::{Cell, Cells};
 use constants::*;
-use plant::{randomly_spawn_plant, Plant};
+use plant::Plant;
 use zoom::{default_camera, get_zoom_target, Zoom};
 
 use body::AdaptationSkill;
@@ -22,6 +22,7 @@ use std::{
     collections::{HashMap, HashSet},
     env::consts::OS,
     intrinsics::unlikely,
+    process::exit,
     thread::sleep,
     time::{Duration, Instant},
 };
@@ -90,9 +91,11 @@ async fn main() {
         y: screen_height() * OBJECT_RADIUS,
     };
 
-
+    // Adjust BODIES_N to the current
+    let ratio = (area_size.x * area_size.y) / DEFAULT_AREA_SPACE;
     unsafe {
-        BODIES_N = (BODIES_N as f32 * ((area_size.x * area_size.y) / DEFAULT_AREA_SIZE)) as usize;
+        PLANTS_N = (PLANTS_N as f32 * ratio) as usize;
+        PLANTS_N_FOR_ONE_STEP = (PLANTS_N_FOR_ONE_STEP as f32 * ratio) as usize;
     }
 
     let mut cells = Cells::default();
@@ -110,7 +113,7 @@ async fn main() {
     let mut show_info = true;
 
     // 'main_evolution_loop: loop {
-    let mut bodies: HashMap<Instant, Body> = HashMap::with_capacity(unsafe {BODIES_N});
+    let mut bodies: HashMap<Instant, Body> = HashMap::with_capacity(BODIES_N);
     let mut plants: HashMap<Cell, HashMap<Instant, Plant>> =
         HashMap::with_capacity(cells.rows * cells.columns);
     for i in 0..cells.rows {
@@ -123,8 +126,8 @@ async fn main() {
     let mut removed_bodies: HashSet<Instant> = HashSet::with_capacity(bodies.len());
 
     // Spawn the bodies
-    for i in 0..unsafe { BODIES_N } {
-        randomly_spawn_body(
+    for i in 0..BODIES_N {
+        Body::randomly_spawn_body(
             &mut bodies,
             area_size,
             if rng.gen_range(0.0..1.0) <= PASSIVE_CHANCE {
@@ -143,8 +146,8 @@ async fn main() {
     let mut plants_n = 0;
 
     // Spawn the plants
-    for _ in 0..PLANTS_N {
-        randomly_spawn_plant(&bodies, &mut plants, &area_size, &cells, &mut rng);
+    for _ in 0..unsafe { PLANTS_N } {
+        Plant::randomly_spawn_plant(&bodies, &mut plants, &area_size, &cells, &mut rng);
         plants_n += 1;
     }
 
@@ -176,6 +179,10 @@ async fn main() {
     // let mut n = 0;
 
     loop {
+        if unlikely(is_key_pressed(KeyCode::Escape)) {
+            exit(0);
+        }
+
         // Handle interactions
         if unlikely(is_mouse_button_pressed(MouseButton::Left)) {
             if zoom_mode {
@@ -233,8 +240,8 @@ async fn main() {
         }
 
         // Spawn a plant in a random place with a specific chance
-        for _ in 0..PLANTS_N_FOR_ONE_STEP {
-            randomly_spawn_plant(&bodies, &mut plants, &area_size, &cells, &mut rng)
+        for _ in 0..unsafe { PLANTS_N_FOR_ONE_STEP } {
+            Plant::randomly_spawn_plant(&bodies, &mut plants, &area_size, &cells, &mut rng)
         }
 
         // Whether enough time has passed to draw a new frame
@@ -270,7 +277,7 @@ async fn main() {
                 if death_time.elapsed().as_secs() >= CROSS_LIFESPAN {
                     removed_bodies.insert(*body_id);
                 }
-                continue; 
+                continue;
             }
 
             body.handle_viruses();
@@ -297,21 +304,11 @@ async fn main() {
                 })
                 .collect::<Vec<_>>();
 
-            if let Some((closest_chasing_body_id, closest_chasing_body)) =
-                bodies_within_vision_distance
+            if let Some((closest_chasing_body_id, closest_chasing_body)) = {
+                let mut chasers = bodies_within_vision_distance
                     .iter()
-                    .filter(|(other_body_id, other_body)| {
-                        (if body
-                            .adapted_skills
-                            .contains(&(AdaptationSkill::PrioritizeFasterChasers as usize))
-                            && bodies_within_vision_distance
-                                .iter()
-                                .any(|(_, other_body)| other_body.speed > body.speed)
-                        {
-                            other_body.speed > body.speed
-                        } else {
-                            true
-                        }) && if let Status::FollowingTarget(other_body_target) =
+                    .filter(|(other_body_id, _)| {
+                        if let Status::FollowingTarget(other_body_target) =
                             bodies_shot_for_statuses.get(other_body_id).unwrap().status
                         {
                             &other_body_target.0 == body_id
@@ -319,12 +316,28 @@ async fn main() {
                             false
                         }
                     })
-                    .min_by(|(_, a), (_, b)| {
-                        body.pos
-                            .distance(a.pos)
-                            .total_cmp(&body.pos.distance(b.pos))
-                    })
-            {
+                    .collect::<Vec<_>>();
+
+                if body
+                    .adapted_skills
+                    .contains(&(AdaptationSkill::PrioritizeFasterChasers as usize))
+                {
+                    if chasers
+                        .iter()
+                        .any(|(_, other_body)| other_body.speed > body.speed)
+                    {
+                        chasers.retain(|(_, other_body)| other_body.speed > body.speed)
+                    }
+                }
+
+                chasers
+            }
+            .iter()
+            .min_by(|(_, a), (_, b)| {
+                body.pos
+                    .distance(a.pos)
+                    .total_cmp(&body.pos.distance(b.pos))
+            }) {
                 body.status = Status::EscapingBody((
                     **closest_chasing_body_id,
                     closest_chasing_body.body_type,
@@ -333,10 +346,10 @@ async fn main() {
 
                 let distance_to_closest_chasing_body = body.pos.distance(closest_chasing_body.pos);
 
-                body.pos.x -= ((closest_chasing_body.pos.x - body.pos.x) * body.speed)
-                    / distance_to_closest_chasing_body;
-                body.pos.y -= ((closest_chasing_body.pos.y - body.pos.y) * body.speed)
-                    / distance_to_closest_chasing_body;
+                body.pos.x -= (closest_chasing_body.pos.x - body.pos.x)
+                    * (body.speed / distance_to_closest_chasing_body);
+                body.pos.y -= (closest_chasing_body.pos.y - body.pos.y)
+                    * (body.speed / distance_to_closest_chasing_body);
 
                 body.wrap(&area_size);
 
@@ -379,17 +392,8 @@ async fn main() {
                             {
                                 let distance = body.pos.distance(cross.pos);
                                 let time = distance / body.speed;
-                                let spent_energy = time
-                                    * unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT }
-                                    * body.speed.powi(2)
-                                    * body.energy
-                                    + unsafe { ENERGY_SPENT_CONST_FOR_MASS } * body.energy
-                                    + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS }
-                                        * body.adapted_skills.len() as f32
-                                    + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE }
-                                        * body.vision_distance.powi(2);
 
-                                body.energy - spent_energy > MIN_ENERGY
+                                body.energy - body.get_spent_energy(&time) > MIN_ENERGY
                             } else {
                                 true
                             }
@@ -485,18 +489,8 @@ async fn main() {
                                         {
                                             let distance = body.pos.distance(plant.pos);
                                             let time = distance / body.speed;
-                                            let spent_energy = time
-                                                * unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT }
-                                                * body.speed.powi(2)
-                                                * body.energy
-                                                + unsafe { ENERGY_SPENT_CONST_FOR_MASS }
-                                                    * body.energy
-                                                + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS }
-                                                    * body.adapted_skills.len() as f32
-                                                + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE }
-                                                    * body.vision_distance.powi(2);
 
-                                            body.energy - spent_energy > MIN_ENERGY
+                                            body.energy - body.get_spent_energy(&time) > MIN_ENERGY
                                         } else {
                                             true
                                         }
@@ -575,18 +569,9 @@ async fn main() {
                                                         let distance =
                                                             body.pos.distance(other_body.pos);
                                                         let time = distance / delta;
-                                                        let spent_energy = time
-                                                            * unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT}
-                                                            * body.speed.powi(2)
-                                                            * body.energy
-                                                            + unsafe { ENERGY_SPENT_CONST_FOR_MASS}
-                                                                * body.energy
-                                                            + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS}
-                                                                * body.adapted_skills.len() as f32
-                                                            + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE}
-                                                                * body.vision_distance.powi(2);
 
-                                                        body.energy - spent_energy > MIN_ENERGY
+                                                        body.energy - body.get_spent_energy(&time)
+                                                            > MIN_ENERGY
                                                     } else {
                                                         true
                                                     }
@@ -632,8 +617,8 @@ async fn main() {
                     body.status = Status::FollowingTarget((food.id, food.pos));
                     bodies_shot_for_statuses.get_mut(body_id).unwrap().status = body.status;
 
-                    body.pos.x += ((food.pos.x - body.pos.x) * body.speed) / distance_to_food;
-                    body.pos.y += ((food.pos.y - body.pos.y) * body.speed) / distance_to_food;
+                    body.pos.x += (food.pos.x - body.pos.x) * (body.speed / distance_to_food);
+                    body.pos.y += (food.pos.y - body.pos.y) * (body.speed / distance_to_food);
 
                     continue;
                 }
@@ -705,10 +690,7 @@ async fn main() {
                                 }
 
                                 if body.is_alive() {
-                                    let to_display = format!(
-                                        "skills = {:?} virses = {:?}",
-                                        body.adapted_skills, body.viruses
-                                    );
+                                    let to_display = format!("skills = {:?}", body.adapted_skills);
                                     draw_text(
                                         &to_display,
                                         body.pos.x
