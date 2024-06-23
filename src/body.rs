@@ -15,9 +15,9 @@ use std::{collections::HashMap, f32::consts::SQRT_2, intrinsics::unlikely, time:
 use crate::{
     constants::*,
     get_with_deviation,
+    plant::Plant,
     smart_drawing::{DrawingStrategy, RectangleCorner},
     zoom::Zoom,
-    plant::Plant
 };
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -606,6 +606,126 @@ impl Body {
                 rng,
             ),
         );
+    }
+
+    pub fn handle_profitable_when_arrived_body(
+        &self,
+        other_body: &Body,
+        target_immovable: bool,
+    ) -> bool {
+        if self
+            .adapted_skills
+            .contains(&(AdaptationSkill::ProfitableWhenArrived as usize))
+        {
+            let divisor;
+
+            divisor = if target_immovable {
+                self.speed
+            } else {
+                self.speed - other_body.speed
+            };
+
+            if divisor <= 0.0 {
+                return false;
+            }
+
+            let time = self.pos.distance(other_body.pos) / divisor;
+
+            self.get_spent_energy(&time) < other_body.energy
+        } else {
+            true
+        }
+    }
+
+    pub fn handle_profitable_when_arrived_plant(&self, plant: &Plant) -> bool {
+        if self
+            .adapted_skills
+            .contains(&(AdaptationSkill::ProfitableWhenArrived as usize))
+        {
+            let time = self.pos.distance(plant.pos) / self.speed;
+
+            self.get_spent_energy(&time) < PLANT_ENERGY
+        } else {
+            true
+        }
+    }
+
+    pub fn handle_alive_when_arrived_body(
+        &self,
+        other_body: &Body,
+        target_immovable: bool,
+    ) -> bool {
+        if self
+            .adapted_skills
+            .contains(&(AdaptationSkill::AliveWhenArrived as usize))
+        {
+            let divisor;
+
+            divisor = if target_immovable {
+                self.speed
+            } else {
+                self.speed - other_body.speed
+            };
+
+            if divisor <= 0.0 {
+                return false;
+            }
+
+            let time = self.pos.distance(other_body.pos) / divisor;
+
+            self.energy - self.get_spent_energy(&time) > MIN_ENERGY
+        } else {
+            true
+        }
+    }
+
+    pub fn handle_alive_when_arrived_plant(&self, plant: &Plant) -> bool {
+        if self
+            .adapted_skills
+            .contains(&(AdaptationSkill::AliveWhenArrived as usize))
+        {
+            let time = self.pos.distance(plant.pos) / self.speed;
+
+            self.energy - self.get_spent_energy(&time) > MIN_ENERGY
+        } else {
+            true
+        }
+    }
+
+    pub fn handle_avoid_new_viruses(&self, other_body: &Body) -> bool {
+        if self
+            .adapted_skills
+            .contains(&(AdaptationSkill::AvoidNewViruses as usize))
+        {
+            other_body
+                .viruses
+                .keys()
+                .all(|virus| self.viruses.contains_key(&virus))
+        } else {
+            true
+        }
+    }
+
+    pub fn handle_do_not_complete_with_relatives(
+        &self,
+        id: &Instant,
+        pos: &Vec2,
+        bodies_shot_for_statuses: &HashMap<Instant, Body>,
+        bodies_within_vision_distance_of_my_type: &Vec<&(&Instant, &Body)>,
+    ) -> bool {
+        if self
+            .adapted_skills
+            .contains(&(AdaptationSkill::DoNotCompeteWithRelatives as usize))
+        {
+            bodies_within_vision_distance_of_my_type
+                .iter()
+                .all(|(other_body_id, _)| {
+                    bodies_shot_for_statuses.get(other_body_id).unwrap().status
+                        != Status::FollowingTarget((*id, *pos))
+                })
+        } else {
+            true
+        }
     }
 
     pub fn handle_will_arive_first_body(

@@ -370,51 +370,19 @@ async fn main() {
                 .filter(|(cross_id, cross)| {
                     body.body_type != cross.body_type
                         && !cross.is_alive()
-                        && {
-                            if body
-                                .adapted_skills
-                                .contains(&(AdaptationSkill::DoNotCompeteWithRelatives as usize))
-                            {
-                                bodies_within_vision_distance_of_my_type.iter().all(
-                                    |(other_body_id, _)| {
-                                        bodies_shot_for_statuses.get(other_body_id).unwrap().status
-                                            != Status::FollowingTarget((**cross_id, cross.pos))
-                                    },
-                                )
-                            } else {
-                                true
-                            }
-                        }
-                        && {
-                            if body
-                                .adapted_skills
-                                .contains(&(AdaptationSkill::AliveWhenArrived as usize))
-                            {
-                                let time = body.pos.distance(cross.pos) / body.speed;
-
-                                body.energy - body.get_spent_energy(&time) > MIN_ENERGY
-                            } else {
-                                true
-                            }
-                        }
-                        && {
-                            if body
-                                .adapted_skills
-                                .contains(&(AdaptationSkill::ProfitableWhenArrived as usize))
-                            {
-                                let time = body.pos.distance(cross.pos) / body.speed;
-
-                                body.get_spent_energy(&time) < cross.energy
-                            } else {
-                                true
-                            }
-                        }
-
-                                                && body.handle_will_arive_first_body(
-                                                    &cross_id,
-                                                    &cross,
-                                                    &bodies_within_vision_distance,
-                                                )
+                        && body.handle_do_not_complete_with_relatives(
+                            &cross_id,
+                            &cross.pos,
+                            &bodies_shot_for_statuses,
+                            &bodies_within_vision_distance_of_my_type,
+                        )
+                        && body.handle_alive_when_arrived_body(&cross, true)
+                        && body.handle_profitable_when_arrived_body(&cross, true)
+                        && body.handle_will_arive_first_body(
+                            &cross_id,
+                            &cross,
+                            &bodies_within_vision_distance,
+                        )
                 })
                 .min_by(|(_, a), (_, b)| {
                     body.pos
@@ -499,49 +467,14 @@ async fn main() {
                             .iter()
                             .filter(|(plant_id, plant)| {
                                 !removed_plants.contains(&(***plant_id, plant.pos))
-                                    && {
-                                        if body
-                                            .adapted_skills
-                                            .contains(&(AdaptationSkill::AliveWhenArrived as usize))
-                                        {
-                                            let time = body.pos.distance(plant.pos) / body.speed;
-
-                                            body.energy - body.get_spent_energy(&time) > MIN_ENERGY
-                                        } else {
-                                            true
-                                        }
-                                    }
-                                    && {
-                                        if body.adapted_skills.contains(
-                                            &(AdaptationSkill::DoNotCompeteWithRelatives as usize),
-                                        ) {
-                                            bodies_within_vision_distance_of_my_type.iter().all(
-                                                |(other_body_id, _)| {
-                                                    bodies_shot_for_statuses
-                                                        .get(other_body_id)
-                                                        .unwrap()
-                                                        .status
-                                                        != Status::FollowingTarget((
-                                                            ***plant_id,
-                                                            plant.pos,
-                                                        ))
-                                                },
-                                            )
-                                        } else {
-                                            true
-                                        }
-                                    }
-                                    && {
-                                        if body.adapted_skills.contains(
-                                            &(AdaptationSkill::ProfitableWhenArrived as usize),
-                                        ) {
-                                            let time = body.pos.distance(plant.pos) / body.speed;
-
-                                            body.get_spent_energy(&time) < PLANT_ENERGY
-                                        } else {
-                                            true
-                                        }
-                                    }
+                                    && body.handle_alive_when_arrived_plant(&plant)
+                                    && body.handle_do_not_complete_with_relatives(
+                                        &plant_id,
+                                        &plant.pos,
+                                        &bodies_shot_for_statuses,
+                                        &bodies_within_vision_distance_of_my_type,
+                                    )
+                                    && body.handle_profitable_when_arrived_plant(&plant)
                                     && body.handle_will_arive_first_plant(
                                         &plant_id,
                                         &plant,
@@ -571,71 +504,21 @@ async fn main() {
                                             body.body_type != other_body.body_type
                                                 && body.energy > other_body.energy
                                                 && other_body.is_alive()
-                                                && {
-                                                    if body.adapted_skills.contains(
-                                                        &(AdaptationSkill::AvoidNewViruses
-                                                            as usize),
-                                                    ) {
-                                                        other_body.viruses.keys().all(|virus| {
-                                                            body.viruses.contains_key(&virus)
-                                                        })
-                                                    } else {
-                                                        true
-                                                    }
-                                                }
-                                                && {
-                                                    if body.adapted_skills.contains(
-                                                        &(AdaptationSkill::DoNotCompeteWithRelatives
-                                                            as usize),
-                                                    ) {
-                                                        bodies_within_vision_distance_of_my_type
-                                                            .iter()
-                                                            .all(|(_, other_body)| {
-                                                                other_body.status
-                                                                    != Status::FollowingTarget((
-                                                                        **other_body_id,
-                                                                        other_body.pos,
-                                                                    ))
-                                                            })
-                                                    } else {
-                                                        true
-                                                    }
-                                                }
-                                                && {
-                                                    if body.adapted_skills.contains(
-                                                        &(AdaptationSkill::AliveWhenArrived
-                                                            as usize),
-                                                    ) {
-                                                        let delta = body.speed - other_body.speed;
-                                                        if delta <= 0.0 {
-                                                            return false;
-                                                        }
-                                                        let distance =
-                                                            body.pos.distance(other_body.pos);
-                                                        let time = distance / delta;
-
-                                                        body.energy - body.get_spent_energy(&time)
-                                                            > MIN_ENERGY
-                                                    } else {
-                                                        true
-                                                    }
-                                                }
-                                                && {
-                                                    if body.adapted_skills.contains(
-                                                        &(AdaptationSkill::ProfitableWhenArrived
-                                                            as usize),
-                                                    ) {
-                                                        let distance =
-                                                            body.pos.distance(other_body.pos);
-                                                        let time = distance / body.speed;
-
-                                                        body.get_spent_energy(&time)
-                                                            < other_body.energy
-                                                                - other_body.get_spent_energy(&time)
-                                                    } else {
-                                                        true
-                                                    }
-                                                }
+                                                && body.handle_avoid_new_viruses(&other_body)
+                                                && body.handle_do_not_complete_with_relatives(
+                                                    &other_body_id,
+                                                    &other_body.pos,
+                                                    &bodies_shot_for_statuses,
+                                                    &bodies_within_vision_distance_of_my_type,
+                                                )
+                                                && body.handle_alive_when_arrived_body(
+                                                    &other_body,
+                                                    false,
+                                                )
+                                                && body.handle_profitable_when_arrived_body(
+                                                    &other_body,
+                                                    false,
+                                                )
                                                 && body.handle_will_arive_first_body(
                                                     &other_body_id,
                                                     &other_body,
@@ -717,14 +600,6 @@ async fn main() {
                     {
                         plant.draw();
                     }
-
-                    // for cell in plants.values() {
-                    //     for (plant_id, plant) in cell {
-                    //         if !removed_plants.contains(&(*plant_id, plant.pos)) {
-                    //             plant.draw();
-                    //         }
-                    //     }
-                    // }
 
                     for (body_id, body) in &bodies {
                         if !removed_bodies.contains(body_id) {
