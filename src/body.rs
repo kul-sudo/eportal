@@ -512,7 +512,7 @@ impl Body {
         }
     }
 
-    pub fn get_spent_energy(&self, time: &f32) -> f32 {
+    pub fn get_spent_energy(&self, time: f32) -> f32 {
         time * unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT } * self.speed.powi(2) * self.energy
             + unsafe { ENERGY_SPENT_CONST_FOR_MASS } * self.energy
             + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS } * self.adapted_skills.len() as f32
@@ -522,7 +522,7 @@ impl Body {
     /// Generate a random position until it suits certain creteria.
     pub fn randomly_spawn_body(
         bodies: &mut HashMap<Instant, Body>,
-        area_size: Vec2,
+        area_size: &Vec2,
         eating_strategy: EatingStrategy,
         body_type: usize,
         all_skills: &HashSet<usize>,
@@ -628,7 +628,7 @@ impl Body {
 
             let time = self.pos.distance(other_body.pos) / divisor;
 
-            self.get_spent_energy(&time) < other_body.energy
+            self.get_spent_energy(time) < other_body.energy
         } else {
             true
         }
@@ -641,7 +641,7 @@ impl Body {
         {
             let time = self.pos.distance(plant.pos) / self.speed;
 
-            self.get_spent_energy(&time) < PLANT_ENERGY
+            self.get_spent_energy(time) < PLANT_ENERGY
         } else {
             true
         }
@@ -668,7 +668,7 @@ impl Body {
 
             let time = self.pos.distance(other_body.pos) / divisor;
 
-            self.energy - self.get_spent_energy(&time) > MIN_ENERGY
+            self.energy - self.get_spent_energy(time) > MIN_ENERGY
         } else {
             true
         }
@@ -681,7 +681,7 @@ impl Body {
         {
             let time = self.pos.distance(plant.pos) / self.speed;
 
-            self.energy - self.get_spent_energy(&time) > MIN_ENERGY
+            self.energy - self.get_spent_energy(time) > MIN_ENERGY
         } else {
             true
         }

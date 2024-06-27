@@ -35,12 +35,12 @@ impl Plant {
         );
     }
 
-    pub fn get_plants_to_draw(
-        cells: &Cells,
-        zoom: &Zoom,
-        plants: &HashMap<Cell, HashMap<Instant, Plant>>,
-        removed_plants: &[(Instant, Vec2)],
-    ) -> Vec<Plant> {
+    pub fn get_plants_to_draw<'a>(
+        cells: &'a Cells,
+        zoom: &'a Zoom,
+        plants: &'a HashMap<Cell, HashMap<Instant, Plant>>,
+        removed_plants: &'a [(Instant, Vec2)],
+    ) -> Vec<&'a Plant> {
         let mut plants_to_draw = Vec::new();
         let (i_min, i_max, j_min, j_max);
 
@@ -65,7 +65,7 @@ impl Plant {
                     // The cell is fully within the rectangle
                     for (plant_id, plant) in plants.get(&Cell { i, j }).unwrap() {
                         if !removed_plants.contains(&(*plant_id, plant.pos)) {
-                            plants_to_draw.push(*plant);
+                            plants_to_draw.push(plant);
                         }
                     }
                 } else {
@@ -73,7 +73,7 @@ impl Plant {
                         if !removed_plants.contains(&(*plant_id, plant.pos))
                             && zoom.extended_rect.unwrap().contains(plant.pos)
                         {
-                            plants_to_draw.push(*plant);
+                            plants_to_draw.push(plant);
                         }
                     }
                 }

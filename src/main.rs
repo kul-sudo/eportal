@@ -129,7 +129,7 @@ async fn main() {
     for i in 0..BODIES_N {
         Body::randomly_spawn_body(
             &mut bodies,
-            area_size,
+            &area_size,
             if rng.gen_range(0.0..1.0) <= PASSIVE_CHANCE {
                 EatingStrategy::Passive
             } else {
@@ -320,13 +320,13 @@ async fn main() {
 
                 if body
                     .adapted_skills
-                    .contains(&(AdaptationSkill::PrioritizeFasterChasers as usize)) && chasers
+                    .contains(&(AdaptationSkill::PrioritizeFasterChasers as usize))
+                    && chasers
                         .iter()
                         .any(|(_, other_body)| other_body.speed > body.speed)
-                    {
-                        chasers.retain(|(_, other_body)| other_body.speed > body.speed)
-                    }
-
+                {
+                    chasers.retain(|(_, other_body)| other_body.speed > body.speed)
+                }
 
                 chasers
             }
@@ -510,12 +510,10 @@ async fn main() {
                                                     &bodies_within_vision_distance_of_my_type,
                                                 )
                                                 && body.handle_alive_when_arrived_body(
-                                                    other_body,
-                                                    false,
+                                                    other_body, false,
                                                 )
                                                 && body.handle_profitable_when_arrived_body(
-                                                    other_body,
-                                                    false,
+                                                    other_body, false,
                                                 )
                                                 && body.handle_will_arive_first_body(
                                                     other_body_id,
