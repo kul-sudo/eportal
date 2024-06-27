@@ -41,7 +41,7 @@ impl DrawingStrategy {
         }
 
         let p = vec2(dx / d, dy / d);
-        DrawingStrategy::segment_contains_point(p1, p2, &p)
-            && DrawingStrategy::segment_contains_point(p3, p4, &p)
+        DrawingStrategy::segment_contains_point(p1, p2, p)
+            && DrawingStrategy::segment_contains_point(p3, p4, p)
     }
 }

@@ -135,10 +135,9 @@ impl Body {
                             {
                                 adapted_skills.insert(**random_skill);
                             }
-                        } else {
-                            if let Some(random_skill) = adapted_skills.clone().iter().choose(rng) {
-                                adapted_skills.remove(random_skill);
-                            }
+                        } else if let Some(random_skill) = adapted_skills.clone().iter().choose(rng)
+                        {
+                            adapted_skills.remove(random_skill);
                         }
                     }
 
@@ -499,8 +498,8 @@ impl Body {
                         Some(self.viruses.clone()),
                         Some(self.initial_speed),
                         Some(self.initial_vision_distance),
-                        &all_skills,
-                        &all_viruses,
+                        all_skills,
+                        all_viruses,
                         rng,
                     ),
                 );
@@ -601,8 +600,8 @@ impl Body {
                 None,
                 None,
                 None,
-                &all_skills,
-                &all_viruses,
+                all_skills,
+                all_viruses,
                 rng,
             ),
         );
@@ -617,9 +616,7 @@ impl Body {
             .adapted_skills
             .contains(&(AdaptationSkill::ProfitableWhenArrived as usize))
         {
-            let divisor;
-
-            divisor = if target_immovable {
+            let divisor = if target_immovable {
                 self.speed
             } else {
                 self.speed - other_body.speed
@@ -659,9 +656,7 @@ impl Body {
             .adapted_skills
             .contains(&(AdaptationSkill::AliveWhenArrived as usize))
         {
-            let divisor;
-
-            divisor = if target_immovable {
+            let divisor = if target_immovable {
                 self.speed
             } else {
                 self.speed - other_body.speed
@@ -700,7 +695,7 @@ impl Body {
             other_body
                 .viruses
                 .keys()
-                .all(|virus| self.viruses.contains_key(&virus))
+                .all(|virus| self.viruses.contains_key(virus))
         } else {
             true
         }
@@ -711,7 +706,7 @@ impl Body {
         id: &Instant,
         pos: &Vec2,
         bodies_shot_for_statuses: &HashMap<Instant, Body>,
-        bodies_within_vision_distance_of_my_type: &Vec<&(&Instant, &Body)>,
+        bodies_within_vision_distance_of_my_type: &[&(&Instant, &Body)],
     ) -> bool {
         if self
             .adapted_skills
@@ -732,7 +727,7 @@ impl Body {
         &self,
         other_body_id: &Instant,
         other_body: &Body,
-        bodies_within_vision_distance: &Vec<(&Instant, &Body)>,
+        bodies_within_vision_distance: &[(&Instant, &Body)],
     ) -> bool {
         let mut other_body_speed = other_body.speed;
 
@@ -777,7 +772,7 @@ impl Body {
         &self,
         plant_id: &Instant,
         plant: &Plant,
-        bodies_within_vision_distance: &Vec<(&Instant, &Body)>,
+        bodies_within_vision_distance: &[(&Instant, &Body)],
     ) -> bool {
         if self
             .adapted_skills

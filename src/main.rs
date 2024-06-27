@@ -290,7 +290,7 @@ async fn main() {
                 continue;
             }
 
-            if body.handle_energy(&body_id, &mut removed_bodies) {
+            if body.handle_energy(body_id, &mut removed_bodies) {
                 continue;
             }
 
@@ -320,15 +320,13 @@ async fn main() {
 
                 if body
                     .adapted_skills
-                    .contains(&(AdaptationSkill::PrioritizeFasterChasers as usize))
-                {
-                    if chasers
+                    .contains(&(AdaptationSkill::PrioritizeFasterChasers as usize)) && chasers
                         .iter()
                         .any(|(_, other_body)| other_body.speed > body.speed)
                     {
                         chasers.retain(|(_, other_body)| other_body.speed > body.speed)
                     }
-                }
+
 
                 chasers
             }
@@ -371,16 +369,16 @@ async fn main() {
                     body.body_type != cross.body_type
                         && !cross.is_alive()
                         && body.handle_do_not_complete_with_relatives(
-                            &cross_id,
+                            cross_id,
                             &cross.pos,
                             &bodies_shot_for_statuses,
                             &bodies_within_vision_distance_of_my_type,
                         )
-                        && body.handle_alive_when_arrived_body(&cross, true)
-                        && body.handle_profitable_when_arrived_body(&cross, true)
+                        && body.handle_alive_when_arrived_body(cross, true)
+                        && body.handle_profitable_when_arrived_body(cross, true)
                         && body.handle_will_arive_first_body(
-                            &cross_id,
-                            &cross,
+                            cross_id,
+                            cross,
                             &bodies_within_vision_distance,
                         )
                 })
@@ -467,17 +465,17 @@ async fn main() {
                             .iter()
                             .filter(|(plant_id, plant)| {
                                 !removed_plants.contains(&(***plant_id, plant.pos))
-                                    && body.handle_alive_when_arrived_plant(&plant)
+                                    && body.handle_alive_when_arrived_plant(plant)
                                     && body.handle_do_not_complete_with_relatives(
-                                        &plant_id,
+                                        plant_id,
                                         &plant.pos,
                                         &bodies_shot_for_statuses,
                                         &bodies_within_vision_distance_of_my_type,
                                     )
-                                    && body.handle_profitable_when_arrived_plant(&plant)
+                                    && body.handle_profitable_when_arrived_plant(plant)
                                     && body.handle_will_arive_first_plant(
-                                        &plant_id,
-                                        &plant,
+                                        plant_id,
+                                        plant,
                                         &bodies_within_vision_distance,
                                     )
                             })
@@ -504,24 +502,24 @@ async fn main() {
                                             body.body_type != other_body.body_type
                                                 && body.energy > other_body.energy
                                                 && other_body.is_alive()
-                                                && body.handle_avoid_new_viruses(&other_body)
+                                                && body.handle_avoid_new_viruses(other_body)
                                                 && body.handle_do_not_complete_with_relatives(
-                                                    &other_body_id,
+                                                    other_body_id,
                                                     &other_body.pos,
                                                     &bodies_shot_for_statuses,
                                                     &bodies_within_vision_distance_of_my_type,
                                                 )
                                                 && body.handle_alive_when_arrived_body(
-                                                    &other_body,
+                                                    other_body,
                                                     false,
                                                 )
                                                 && body.handle_profitable_when_arrived_body(
-                                                    &other_body,
+                                                    other_body,
                                                     false,
                                                 )
                                                 && body.handle_will_arive_first_body(
-                                                    &other_body_id,
-                                                    &other_body,
+                                                    other_body_id,
+                                                    other_body,
                                                     &bodies_within_vision_distance,
                                                 )
                                         })
@@ -574,7 +572,7 @@ async fn main() {
 
             // Procreate
             if body.handle_procreation(
-                &body_id,
+                body_id,
                 &mut new_bodies,
                 &mut removed_bodies,
                 &all_skills,
