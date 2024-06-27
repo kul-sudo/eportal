@@ -10,6 +10,7 @@ pub const CELL_ROWS: usize = 89; // May be needed to be changed when the perfect
                                  // evolution process have been determined
 pub const BODIES_N: usize = 800;
 pub static mut PLANTS_N: usize = 20000;
+pub static mut MAX_PLANTS_IN_ONE_CELL: usize = 0;
 
 /// The recommended constants in config.toml have been detemined for this area space.
 pub static DEFAULT_AREA_SPACE: f32 = 1120.0 * OBJECT_RADIUS * 700.0 * OBJECT_RADIUS;

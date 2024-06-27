@@ -6,10 +6,7 @@ use std::{
 use macroquad::{color::GREEN, math::Vec2, shapes::draw_triangle};
 use rand::{rngs::StdRng, Rng};
 
-use crate::{
-    zoom::Zoom, Body, Cell, Cells, COSINE_OF_30_DEGREES, MIN_GAP, OBJECT_RADIUS,
-    PLANT_SPAWN_TIME_LIMIT,
-};
+use crate::{constants::*, zoom::Zoom, Body, Cell, Cells};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Plant {
@@ -107,6 +104,8 @@ impl Plant {
             (pos.x <= OBJECT_RADIUS + MIN_GAP || pos.x >= area_size.x - OBJECT_RADIUS - MIN_GAP)
                 || (pos.y <= OBJECT_RADIUS + MIN_GAP
                     || pos.y >= area_size.y - OBJECT_RADIUS - MIN_GAP)
+                || plants.get_mut(&cells.get_cell_by_pos(&pos)).unwrap().len()
+                    >= unsafe { MAX_PLANTS_IN_ONE_CELL }
                 || bodies
                     .values()
                     .any(|body| body.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)

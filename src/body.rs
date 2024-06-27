@@ -50,6 +50,8 @@ pub enum AdaptationSkill {
     PrioritizeFasterChasers,
     AvoidNewViruses,
     WillArriveFirst,
+    EatCrossesOfMyType,
+    AvoidInfectedCrosses,
 }
 
 #[derive(Clone, PartialEq)]
@@ -150,13 +152,7 @@ impl Body {
             body_type,
             lifespan: LIFESPAN,
             viruses: match viruses {
-                Some(mut viruses) => {
-                    for energy_spent_for_healing in viruses.values_mut() {
-                        *energy_spent_for_healing = 0.0
-                    }
-
-                    viruses
-                }
+                Some(viruses) => viruses,
                 None => {
                     let mut viruses = HashMap::with_capacity(unsafe { VIRUSES_COUNT });
                     for virus in all_viruses {
@@ -688,9 +684,16 @@ impl Body {
     }
 
     pub fn handle_avoid_new_viruses(&self, other_body: &Body) -> bool {
-        if self
-            .adapted_skills
-            .contains(&(AdaptationSkill::AvoidNewViruses as usize))
+        let is_alive = self.is_alive();
+
+        if (is_alive
+            && self
+                .adapted_skills
+                .contains(&(AdaptationSkill::AvoidNewViruses as usize)))
+            || (!is_alive
+                && self
+                    .adapted_skills
+                    .contains(&(AdaptationSkill::AvoidInfectedCrosses as usize)))
         {
             other_body
                 .viruses
@@ -796,5 +799,12 @@ impl Body {
         } else {
             true
         }
+    }
+
+    pub fn handle_eat_crosses_of_my_type(&self, cross: &Body) -> bool {
+        self.body_type != cross.body_type
+            || self
+                .adapted_skills
+                .contains(&(AdaptationSkill::EatCrossesOfMyType as usize))
     }
 }

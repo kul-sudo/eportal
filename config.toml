@@ -23,4 +23,3 @@ visionvirus_first_generation_infection_chance = 0.1 # 0.1
 visionvirus_vision_distance_decrease = 0.7 # 0.7
 visionvirus_energy_spent_for_healing = 0.04 # 0.04
 visionvirus_heal_energy = 280.5 # 280.5
-

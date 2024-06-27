@@ -40,6 +40,21 @@ use macroquad::{
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng, SeedableRng};
 
+/// Adjust the coordinates according to the borders.
+#[macro_export]
+macro_rules! adjusted_pos {
+    ($pos:expr, $area_size:expr) => {
+        Vec2 {
+            x: ($pos.x * MAX_ZOOM)
+                .max($area_size.x / MAX_ZOOM / 2.0)
+                .min($area_size.x * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
+            y: ($pos.y * MAX_ZOOM)
+                .max($area_size.y / MAX_ZOOM / 2.0)
+                .min($area_size.y * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
+        }
+    };
+}
+
 /// Used for getting specific values with deviations.
 #[macro_export]
 macro_rules! get_with_deviation {
@@ -104,6 +119,10 @@ async fn main() {
     cells.cell_width = area_size.x / cells.columns as f32;
     cells.cell_height = area_size.y / cells.rows as f32;
 
+    unsafe {
+        MAX_PLANTS_IN_ONE_CELL = 20;
+    }
+
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.x, area_size.y));
     default_camera(&mut camera, &area_size);
 
@@ -118,7 +137,10 @@ async fn main() {
         HashMap::with_capacity(cells.rows * cells.columns);
     for i in 0..cells.rows {
         for j in 0..cells.columns {
-            plants.insert(Cell { i, j }, HashMap::new());
+            plants.insert(
+                Cell { i, j },
+                HashMap::with_capacity(unsafe { MAX_PLANTS_IN_ONE_CELL }),
+            );
         }
     }
 
@@ -241,7 +263,8 @@ async fn main() {
 
         // Spawn a plant in a random place with a specific chance
         for _ in 0..unsafe { PLANTS_N_FOR_ONE_STEP } {
-            Plant::randomly_spawn_plant(&bodies, &mut plants, &area_size, &cells, &mut rng)
+            Plant::randomly_spawn_plant(&bodies, &mut plants, &area_size, &cells, &mut rng);
+            plants_n += 1;
         }
 
         // Whether enough time has passed to draw a new frame
@@ -366,8 +389,9 @@ async fn main() {
             match bodies_within_vision_distance
                 .iter()
                 .filter(|(cross_id, cross)| {
-                    body.body_type != cross.body_type
-                        && !cross.is_alive()
+                    !cross.is_alive()
+                        && body.handle_avoid_new_viruses(cross)
+                        && body.handle_eat_crosses_of_my_type(cross)
                         && body.handle_do_not_complete_with_relatives(
                             cross_id,
                             &cross.pos,
@@ -649,6 +673,17 @@ async fn main() {
                                 body.draw(&zoom, zoom_mode);
                             }
                         }
+
+                        let mouse_position = mouse_position();
+                        let pos = adjusted_pos!(
+                            Vec2 {
+                                x: mouse_position.0,
+                                y: mouse_position.1
+                            },
+                            area_size
+                        );
+
+                        draw_text(&format!("{}", plants_n as f32 / (cells.rows * cells.columns) as f32), pos.x, pos.y, 100.0, WHITE);
                     }
                 } else {
                     for cell in plants.values() {
@@ -666,39 +701,20 @@ async fn main() {
                     }
                 }
 
-                // draw_text(
-                //     &format!("Bodies alive {}", bodies.len()),
-                //     10.0,
-                //     20.0,
-                //     20.0,
-                //     WHITE,
-                // );
-
-                // if zoom_mode {
-                //     let mouse_position = mouse_position();
-                //     let (x, y) = adjusted_coordinates!(
-                //         mouse_position.0 + 25.0,
-                //         mouse_position.1 - 25.0,
-                //         area_size
-                //     );
-                //     draw_text("zoomed in", x, y, 10.0 * MAX_ZOOM, WHITE)
-                // }
-
                 last_updated = Instant::now();
             }
 
             next_frame().await;
 
-            // Removing by a key takes too long, so it's better to do it once
-            // but more rarely
-            if removed_plants.len() > MIN_TO_REMOVE {
-                for (plant_id, plant_pos) in &removed_plants {
-                    let plants_in_cell = plants.get_mut(&cells.get_cell_by_pos(plant_pos)).unwrap();
-                    plants_in_cell.remove(plant_id);
-                }
-                removed_plants.clear();
+            for (plant_id, plant_pos) in &removed_plants {
+                let plants_in_cell = plants.get_mut(&cells.get_cell_by_pos(plant_pos)).unwrap();
+                plants_in_cell.remove(plant_id);
             }
+            removed_plants.clear();
 
+            // If all the bodies that need to be removed were removed evenly across the program,
+            // reallocations would happen as frequently. It turns out it's nicer to look at the
+            // picture when it's done more rarely.
             if removed_bodies.len() > MIN_TO_REMOVE {
                 for body_id in &removed_bodies {
                     bodies.remove(body_id);

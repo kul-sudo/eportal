@@ -3,21 +3,7 @@ use macroquad::{
     math::{vec2, Rect, Vec2},
 };
 
-use crate::{MAX_ZOOM, MIN_ZOOM, OBJECT_RADIUS};
-
-/// Adjust the coordinates according to the borders.
-macro_rules! adjusted_coordinates {
-    ($pos:expr, $area_size:expr) => {
-        Vec2 {
-            x: ($pos.x * MAX_ZOOM)
-                .max($area_size.x / MAX_ZOOM / 2.0)
-                .min($area_size.x * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
-            y: ($pos.y * MAX_ZOOM)
-                .max($area_size.y / MAX_ZOOM / 2.0)
-                .min($area_size.y * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
-        }
-    };
-}
+use crate::{adjusted_pos, constants::*};
 
 #[derive(Clone, Copy)]
 pub struct Zoom {
@@ -36,7 +22,7 @@ pub struct Zoom {
 
 /// Set the camera zoom to where the mouse cursor is.
 pub fn get_zoom_target(camera: &mut Camera2D, area_size: &Vec2, zoom: &mut Zoom) {
-    zoom.center_pos = Some(adjusted_coordinates!(zoom.mouse_pos.unwrap(), area_size));
+    zoom.center_pos = Some(adjusted_pos!(zoom.mouse_pos.unwrap(), area_size));
     zoom.rect = Some(Rect::new(
         zoom.center_pos.unwrap().x - zoom.width / 2.0,
         zoom.center_pos.unwrap().y - zoom.height / 2.0,
