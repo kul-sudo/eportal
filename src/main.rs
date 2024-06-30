@@ -19,7 +19,8 @@ use plant::Plant;
 use user_constants::*;
 use zoom::{default_camera, get_zoom_target, Zoom};
 
-use body::AdaptationSkill;
+use body::Skill;
+use std::mem::size_of;
 use std::{
     collections::{HashMap, HashSet},
     env::consts::OS,
@@ -86,14 +87,16 @@ fn window_conf() -> Conf {
     }
 }
 
-pub static mut ADAPTATION_SKILLS_COUNT: usize = 0;
+pub static mut TOTAL_SKILLS_COUNT: usize = 0;
 pub static mut VIRUSES_COUNT: usize = 0;
 
 #[macroquad::main(window_conf)]
 async fn main() {
     config_setup();
     let (all_skills, all_viruses) = enum_consts();
+    let ui_show_properties_n = (size_of::<UIField>() - size_of::<u16>()) / size_of::<bool>();
 
+    println!("{:?}", ui_show_properties_n);
     // Make the window fullscreen on Linux: for some reason, when the application has been built,
     // Arch Linux apparently doesn't have enough time to make it fullscreen
     if OS == "linux" {
@@ -345,8 +348,8 @@ async fn main() {
                     .collect::<Vec<_>>();
 
                 if body
-                    .adapted_skills
-                    .contains(&(AdaptationSkill::PrioritizeFasterChasers as usize))
+                    .skills
+                    .contains(&(Skill::PrioritizeFasterChasers as usize))
                     && chasers
                         .iter()
                         .any(|(_, other_body)| other_body.speed > body.speed)
@@ -653,22 +656,58 @@ async fn main() {
                                 }
 
                                 if body.is_alive() {
-                                    let to_display = format!("skills = {:?}", body.adapted_skills);
-                                    draw_text(
-                                        &to_display,
-                                        body.pos.x
-                                            - measure_text(
-                                                &to_display,
-                                                None,
-                                                unsafe { BODY_INFO_FONT_SIZE },
-                                                1.0,
-                                            )
-                                            .width
-                                                / 2.0,
-                                        body.pos.y - OBJECT_RADIUS - MIN_GAP,
-                                        unsafe { BODY_INFO_FONT_SIZE } as f32,
-                                        WHITE,
-                                    );
+                                    let mut to_display_components =
+                                        Vec::with_capacity(ui_show_properties_n);
+                                    if unsafe { SHOW_ENERGY } {
+                                        to_display_components
+                                            .push(format!("energy = {}", body.energy as usize));
+                                    }
+
+                                    if unsafe { SHOW_DIVISION_THRESHOLD } {
+                                        to_display_components.push(format!(
+                                            "dt = {}",
+                                            body.division_threshold as usize
+                                        ));
+                                    }
+
+                                    if unsafe { SHOW_BODY_TYPE } {
+                                        to_display_components
+                                            .push(format!("body_type = {}", body.body_type));
+                                    }
+
+                                    if unsafe { SHOW_LIFESPAN } {
+                                        to_display_components
+                                            .push(format!("lifespan = {}", body.lifespan as usize));
+                                    }
+
+                                    if unsafe { SHOW_SKILLS } {
+                                        to_display_components
+                                            .push(format!("skills = {:?}", body.skills));
+                                    }
+
+                                    if unsafe { SHOW_VIRUSES } {
+                                        to_display_components
+                                            .push(format!("viruses = {:?}", body.viruses.keys()));
+                                    }
+
+                                    if !to_display_components.is_empty() {
+                                        let to_display = to_display_components.join(" | ");
+                                        draw_text(
+                                            &to_display,
+                                            body.pos.x
+                                                - measure_text(
+                                                    &to_display,
+                                                    None,
+                                                    unsafe { BODY_INFO_FONT_SIZE },
+                                                    1.0,
+                                                )
+                                                .width
+                                                    / 2.0,
+                                            body.pos.y - OBJECT_RADIUS - MIN_GAP,
+                                            unsafe { BODY_INFO_FONT_SIZE } as f32,
+                                            WHITE,
+                                        );
+                                    }
                                 }
                             }
 
@@ -676,23 +715,6 @@ async fn main() {
                                 body.draw(&zoom, zoom_mode);
                             }
                         }
-
-                        //let mouse_position = mouse_position();
-                        //let pos = adjusted_pos!(
-                        //    Vec2 {
-                        //        x: mouse_position.0,
-                        //        y: mouse_position.1
-                        //    },
-                        //    area_size
-                        //);
-                        //
-                        //draw_text(
-                        //    &format!("{}", plants_n as f32 / (cells.rows * cells.columns) as f32),
-                        //    pos.x,
-                        //    pos.y,
-                        //    100.0,
-                        //    WHITE,
-                        //);
                     }
                 } else {
                     for cell in plants.values() {

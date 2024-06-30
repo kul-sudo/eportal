@@ -1,8 +1,8 @@
-use crate::body::AdaptationSkill;
+use crate::body::Skill;
 use crate::constants::*;
 use crate::user_constants::*;
 use crate::Virus;
-use crate::{ADAPTATION_SKILLS_COUNT, VIRUSES_COUNT};
+use crate::{TOTAL_SKILLS_COUNT, VIRUSES_COUNT};
 use serde_derive::Deserialize;
 use std::collections::HashSet;
 use std::fs::read_to_string;
@@ -53,8 +53,15 @@ struct VirusesField {
 }
 
 #[derive(Deserialize)]
-struct UIField {
+pub struct UIField {
     body_info_font_size: u16,
+
+    show_energy: bool,
+    show_division_threshold: bool,
+    show_body_type: bool,
+    show_lifespan: bool,
+    show_skills: bool,
+    show_viruses: bool,
 }
 
 #[derive(Deserialize)]
@@ -128,15 +135,22 @@ pub fn config_setup() {
         CONST_FOR_LIFESPAN = energy.const_for_lifespan;
 
         // UI-related
-        BODY_INFO_FONT_SIZE = ui.body_info_font_size
+        BODY_INFO_FONT_SIZE = ui.body_info_font_size;
+
+        SHOW_ENERGY = ui.show_energy;
+        SHOW_DIVISION_THRESHOLD = ui.show_division_threshold;
+        SHOW_BODY_TYPE = ui.show_body_type;
+        SHOW_LIFESPAN = ui.show_lifespan;
+        SHOW_SKILLS = ui.show_skills;
+        SHOW_VIRUSES = ui.show_viruses;
     };
 }
 
 pub fn enum_consts() -> (HashSet<usize>, HashSet<usize>) {
     // Skills
-    let mut variant_count_ = variant_count::<AdaptationSkill>();
+    let mut variant_count_ = variant_count::<Skill>();
     unsafe {
-        ADAPTATION_SKILLS_COUNT = variant_count_;
+        TOTAL_SKILLS_COUNT = variant_count_;
     }
     let all_skills = (0..variant_count_).collect::<HashSet<_>>();
 

@@ -1,5 +1,5 @@
 use crate::user_constants::*;
-use crate::{ADAPTATION_SKILLS_COUNT, VIRUSES_COUNT};
+use crate::{TOTAL_SKILLS_COUNT, VIRUSES_COUNT};
 use macroquad::{
     color::{Color, GREEN, RED},
     math::{vec2, Circle, Vec2, Vec3},
@@ -44,7 +44,7 @@ pub enum Virus {
     VisionVirus,
 }
 
-pub enum AdaptationSkill {
+pub enum Skill {
     DoNotCompeteWithRelatives,
     AliveWhenArrived,
     ProfitableWhenArrived,
@@ -64,7 +64,7 @@ pub struct Body {
     pub eating_strategy: EatingStrategy,
     /// The body procreates after a specific level of energy has been reached.
     pub division_threshold: f32,
-    pub adapted_skills: HashSet<usize>,
+    pub skills: HashSet<usize>,
     pub color: Color,
     pub status: Status,
     /// When the body died due to a lack of energy if it did die in the first place.
@@ -82,7 +82,7 @@ impl Body {
         energy: Option<f32>,
         eating_strategy: EatingStrategy,
         division_threshold: Option<f32>,
-        adapted_skills: Option<HashSet<usize>>,
+        skills: Option<HashSet<usize>>,
         color: Color,
         body_type: u16,
         viruses: Option<HashMap<usize, f32>>,
@@ -126,27 +126,26 @@ impl Body {
                 },
                 rng
             ),
-            adapted_skills: match adapted_skills {
-                Some(mut adapted_skills) => {
+            skills: match skills {
+                Some(mut skills) => {
                     if rng.gen_range(0.0..1.0) <= unsafe { SKILLS_CHANGE_CHANCE } {
                         if random::<bool>() {
                             if let Some(random_skill) = all_skills
-                                .difference(&adapted_skills)
+                                .difference(&skills)
                                 .collect::<HashSet<_>>()
                                 .iter()
                                 .choose(rng)
                             {
-                                adapted_skills.insert(**random_skill);
+                                skills.insert(**random_skill);
                             }
-                        } else if let Some(random_skill) = adapted_skills.clone().iter().choose(rng)
-                        {
-                            adapted_skills.remove(random_skill);
+                        } else if let Some(random_skill) = skills.clone().iter().choose(rng) {
+                            skills.remove(random_skill);
                         }
                     }
 
-                    adapted_skills
+                    skills
                 }
-                None => HashSet::with_capacity(unsafe { ADAPTATION_SKILLS_COUNT }),
+                None => HashSet::with_capacity(unsafe { TOTAL_SKILLS_COUNT }),
             },
             color,
             status: Status::Idle,
@@ -446,7 +445,7 @@ impl Body {
     ) -> bool {
         // The mass is proportional to the energy; to keep the mass up, energy is spent
         self.energy -= unsafe { ENERGY_SPENT_CONST_FOR_MASS } * self.energy
-            + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS } * self.adapted_skills.len() as f32
+            + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS } * self.skills.len() as f32
             + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE } * self.vision_distance.powi(2);
 
         if self.status != Status::Idle {
@@ -489,7 +488,7 @@ impl Body {
                         Some(self.energy),
                         self.eating_strategy,
                         Some(self.division_threshold),
-                        Some(self.adapted_skills.clone()),
+                        Some(self.skills.clone()),
                         self.color,
                         self.body_type,
                         Some(self.viruses.clone()),
@@ -512,7 +511,7 @@ impl Body {
     pub fn get_spent_energy(&self, time: f32) -> f32 {
         time * unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT } * self.speed.powi(2) * self.energy
             + unsafe { ENERGY_SPENT_CONST_FOR_MASS } * self.energy
-            + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS } * self.adapted_skills.len() as f32
+            + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS } * self.skills.len() as f32
             + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE } * self.vision_distance.powi(2)
     }
 
@@ -610,8 +609,8 @@ impl Body {
         target_immovable: bool,
     ) -> bool {
         if self
-            .adapted_skills
-            .contains(&(AdaptationSkill::ProfitableWhenArrived as usize))
+            .skills
+            .contains(&(Skill::ProfitableWhenArrived as usize))
         {
             let divisor = if target_immovable {
                 self.speed
@@ -633,8 +632,8 @@ impl Body {
 
     pub fn handle_profitable_when_arrived_plant(&self, plant: &Plant) -> bool {
         if self
-            .adapted_skills
-            .contains(&(AdaptationSkill::ProfitableWhenArrived as usize))
+            .skills
+            .contains(&(Skill::ProfitableWhenArrived as usize))
         {
             let time = self.pos.distance(plant.pos) / self.speed;
 
@@ -649,10 +648,7 @@ impl Body {
         other_body: &Body,
         target_immovable: bool,
     ) -> bool {
-        if self
-            .adapted_skills
-            .contains(&(AdaptationSkill::AliveWhenArrived as usize))
-        {
+        if self.skills.contains(&(Skill::AliveWhenArrived as usize)) {
             let divisor = if target_immovable {
                 self.speed
             } else {
@@ -672,10 +668,7 @@ impl Body {
     }
 
     pub fn handle_alive_when_arrived_plant(&self, plant: &Plant) -> bool {
-        if self
-            .adapted_skills
-            .contains(&(AdaptationSkill::AliveWhenArrived as usize))
-        {
+        if self.skills.contains(&(Skill::AliveWhenArrived as usize)) {
             let time = self.pos.distance(plant.pos) / self.speed;
 
             self.energy - self.get_spent_energy(time) > unsafe { MIN_ENERGY }
@@ -687,14 +680,11 @@ impl Body {
     pub fn handle_avoid_new_viruses(&self, other_body: &Body) -> bool {
         let is_alive = self.is_alive();
 
-        if (is_alive
-            && self
-                .adapted_skills
-                .contains(&(AdaptationSkill::AvoidNewViruses as usize)))
+        if (is_alive && self.skills.contains(&(Skill::AvoidNewViruses as usize)))
             || (!is_alive
                 && self
-                    .adapted_skills
-                    .contains(&(AdaptationSkill::AvoidInfectedCrosses as usize)))
+                    .skills
+                    .contains(&(Skill::AvoidInfectedCrosses as usize)))
         {
             other_body
                 .viruses
@@ -713,8 +703,8 @@ impl Body {
         bodies_within_vision_distance_of_my_type: &[&(&Instant, &Body)],
     ) -> bool {
         if self
-            .adapted_skills
-            .contains(&(AdaptationSkill::DoNotCompeteWithRelatives as usize))
+            .skills
+            .contains(&(Skill::DoNotCompeteWithRelatives as usize))
         {
             bodies_within_vision_distance_of_my_type
                 .iter()
@@ -739,10 +729,7 @@ impl Body {
             other_body_speed = 0.0;
         }
 
-        if self
-            .adapted_skills
-            .contains(&(AdaptationSkill::WillArriveFirst as usize))
-        {
+        if self.skills.contains(&(Skill::WillArriveFirst as usize)) {
             let delta = self.speed - other_body_speed;
             if delta <= 0.0 {
                 return false;
@@ -778,10 +765,7 @@ impl Body {
         plant: &Plant,
         bodies_within_vision_distance: &[(&Instant, &Body)],
     ) -> bool {
-        if self
-            .adapted_skills
-            .contains(&(AdaptationSkill::WillArriveFirst as usize))
-        {
+        if self.skills.contains(&(Skill::WillArriveFirst as usize)) {
             let time = self.pos.distance(plant.pos) / self.speed;
 
             bodies_within_vision_distance
@@ -804,8 +788,6 @@ impl Body {
 
     pub fn handle_eat_crosses_of_my_type(&self, cross: &Body) -> bool {
         self.body_type != cross.body_type
-            || self
-                .adapted_skills
-                .contains(&(AdaptationSkill::EatCrossesOfMyType as usize))
+            || self.skills.contains(&(Skill::EatCrossesOfMyType as usize))
     }
 }
