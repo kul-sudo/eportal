@@ -143,7 +143,7 @@ Even small donations are appreciated: https://paypal.me/rustprogramming
 ## Contributions
 Especially:
 1. Better organizing the project
-2. Implementing spatial hashing for bodies
+2. Implementing cells for bodies
 3. Documentantion in the code and in the README (what you're reading right now)
 4. Adding more viruses and skills
 5. General optimizations
