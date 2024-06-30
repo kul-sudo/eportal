@@ -29,7 +29,7 @@
          <li><a href="#configuration">Configuration</a></li>
       </ul>
    </li>
-   <li><a href="#how-to-help-the-project">How to help the project</a></li>
+   <li><a href="#how-to-help-the-project">How to help the project?</a></li>
    <ul>
       <li><a href="#properties">Financially</a></li>
    </ul>
