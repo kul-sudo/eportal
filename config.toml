@@ -17,7 +17,9 @@ min_energy = 1000.0 # 1000.0 (The minimum energy a body can live with)
 cross_lifespan = 35 # 35 (How long a cross stays on in seconds)
 
 [plants]
-plants_density = 0.0002551 # 0.00026 (Number of plants per unit area)
+plants_density = 0.0002551 # 0.00026 (Number of plants per unit area for the initial spawning)
+plant_spawn_chance = 0.0000001 # 0.0001 (Chance for a plant to be spawned per unit area)
+plant_die_chance = 0.00004 # 0.00004 (Chance for a plant to die)
 
 [energy]
 energy_spent_const_for_mass = 0.00005 # 0.00005 (Part of energy constantly spent on mass)

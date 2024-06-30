@@ -28,6 +28,8 @@ struct BodyField {
 #[derive(Deserialize)]
 struct PlantField {
     plants_density: f32,
+    plant_spawn_chance: f32,
+    plant_die_chance: f32,
 }
 
 #[derive(Deserialize)]
@@ -113,6 +115,8 @@ pub fn config_setup() {
 
         // Plants-related
         PLANTS_DENSITY = plants.plants_density;
+        PLANT_SPAWN_CHANCE = plants.plant_spawn_chance;
+        PLANT_DIE_CHANCE = plants.plant_die_chance;
 
         // Virus-related
         SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE =

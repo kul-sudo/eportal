@@ -14,8 +14,6 @@ pub static mut PLANTS_N: usize = 0;
 pub const MAX_PLANTS_IN_ONE_CELL: usize = 10;
 
 /// The recommended constants in config.toml have been detemined for this area space.
-pub static DEFAULT_AREA_SPACE: f32 =
-    DEFAULT_SCREEN_WIDTH * OBJECT_RADIUS * DEFAULT_SCREEN_HEIGHT * OBJECT_RADIUS;
 pub static DEFAULT_AREA_SIZE_RATIO: f32 = DEFAULT_SCREEN_WIDTH / DEFAULT_SCREEN_HEIGHT;
 
 pub const OBJECT_RADIUS: f32 = 10.0;
@@ -27,14 +25,13 @@ pub const COLOR_MAX: u8 = 250;
 pub const PLANT_ENERGY: f32 = 100.0;
 pub const MIN_GAP: f32 = 3.0;
 pub const COLOR_GAP: f32 = 0.63; // Depends on COLOR_MIN and COLOR_MAX
-pub static mut PLANTS_N_FOR_ONE_STEP: usize = 8; // Mid-game
 pub const PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 pub const MIN_TO_REMOVE: usize = 500; // Bodies and plants are removed only it's needed to remove
                                       // more of them than this constant. That's because when the amount of object to remove, the time it
                                       // takes to delete them barely depends on their amount
 
-// Death
-pub const PART_OF_PLANTS_TO_REMOVE: f32 = 0.0004;
+// Plants
+pub static mut PLANTS_N_FOR_ONE_STEP: usize = 0;
 
 // Zoom
 pub const MAX_ZOOM: f32 = OBJECT_RADIUS;

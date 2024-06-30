@@ -11,11 +11,14 @@ pub static mut SKILLS_CHANGE_CHANCE: f32 = 0.0;
 pub static mut PLANTS_DENSITY: f32 = 0.0;
 
 pub static mut DEVIATION: f32 = 0.0;
-pub static mut LIFESPAN: f32 = 0.0; // In seconds
+pub static mut LIFESPAN: f32 = 0.0;
 pub static mut MIN_ENERGY: f32 = 0.0;
 
+pub static mut PLANT_SPAWN_CHANCE: f32 = 0.0;
+pub static mut PLANT_DIE_CHANCE: f32 = 0.0;
+
 // Death
-pub static mut CROSS_LIFESPAN: u64 = 0; // In seconds
+pub static mut CROSS_LIFESPAN: u64 = 0;
 
 // Spending energy
 pub static mut ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.0;

@@ -65,12 +65,12 @@ pub struct Body {
     /// The body procreates after a specific level of energy has been reached.
     pub division_threshold: f32,
     pub skills: HashSet<usize>,
+    pub viruses: HashMap<usize, f32>,
     pub color: Color,
     pub status: Status,
     /// When the body died due to a lack of energy if it did die in the first place.
     pub body_type: u16,
     pub lifespan: f32,
-    pub viruses: HashMap<usize, f32>,
     pub initial_speed: f32,
     pub initial_vision_distance: f32,
 }

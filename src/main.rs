@@ -112,11 +112,10 @@ async fn main() {
 
     let mut cells = Cells::default();
     let area_space = area_size.x * area_size.y;
-    let area_space_ratio = area_space / DEFAULT_AREA_SPACE;
 
     unsafe {
-        PLANTS_N = (PLANTS_DENSITY * area_space) as usize;
-        PLANTS_N_FOR_ONE_STEP = (PLANTS_N_FOR_ONE_STEP as f32 * area_space_ratio) as usize;
+        PLANTS_N = (PLANTS_DENSITY * area_space).round() as usize;
+        PLANTS_N_FOR_ONE_STEP = (PLANT_SPAWN_CHANCE * area_space).round() as usize;
     }
 
     let area_size_ratio = area_size.x / area_size.y;
@@ -248,7 +247,7 @@ async fn main() {
         }
 
         // Remove plants
-        let n_to_remove = (plants_n as f32 * PART_OF_PLANTS_TO_REMOVE) as usize;
+        let n_to_remove = (plants_n as f32 * unsafe { PLANT_DIE_CHANCE }) as usize;
 
         for _ in 0..n_to_remove {
             loop {
