@@ -96,7 +96,6 @@ async fn main() {
     let (all_skills, all_viruses) = enum_consts();
     let ui_show_properties_n = (size_of::<UIField>() - size_of::<u16>()) / size_of::<bool>();
 
-    println!("{:?}", ui_show_properties_n);
     // Make the window fullscreen on Linux: for some reason, when the application has been built,
     // Arch Linux apparently doesn't have enough time to make it fullscreen
     if OS == "linux" {
@@ -136,7 +135,7 @@ async fn main() {
         // According to theory of probability
         let standard_deviation = ((PLANTS_N / (cells.rows * cells.columns)) as f32).sqrt();
         let expectation = PLANTS_N as f32 / (cells.rows * cells.columns) as f32; // For this case
-        MAX_PLANTS_IN_ONE_CELL = (expectation + 4.0 * standard_deviation).round() as usize;
+        MAX_PLANTS_IN_ONE_CELL = (expectation + 5.0 * standard_deviation).round() as usize;
     }
 
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.x, area_size.y));
@@ -658,6 +657,7 @@ async fn main() {
                                 if body.is_alive() {
                                     let mut to_display_components =
                                         Vec::with_capacity(ui_show_properties_n);
+
                                     if unsafe { SHOW_ENERGY } {
                                         to_display_components
                                             .push(format!("energy = {}", body.energy as usize));
