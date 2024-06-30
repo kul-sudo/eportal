@@ -91,7 +91,7 @@ Every body can coincidentally get any of the following skills:
 - `Alive when arrived`: When the body sees a plant or a dead body, it makes sure it doesn't die before it gets to it.
 - `Profitable when arrived`: When athebody sees a living body, cross, or plant, it makes sure it'll get more energy than it spends on getting to that food.
 - `Prioritize faster chasers`: When the body sees it's being chased by several other bodies, it escaped from the faster one.
-- `Avoid new viruses`: When the body sees a living body or a cross, it makes sure that eating it won't result in geting viruses the body doesn't have yet.
+- `Avoid new viruses`: When the body sees a living body or a cross, it makes sure that eating it won't result in getting viruses the body doesn't have yet.
 - `Will arrive first`: When the body sees there are other bodies following the same food as it is following, it makes sure it gets there the fastest.
 - `Eat crosses of my type`: When the body sees a cross of its type, it eats it to make sure bodies of other types don't eat it and therefore don't get energy from it.
 - `Avoid infected crosses`: When the body sees a cross contains viruses the body itself doesn't have yet, it avoids the cross.
