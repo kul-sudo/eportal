@@ -131,13 +131,6 @@ async fn main() {
     cells.cell_width = area_size.x / cells.columns as f32;
     cells.cell_height = area_size.y / cells.rows as f32;
 
-    unsafe {
-        // According to theory of probability
-        let standard_deviation = ((PLANTS_N / (cells.rows * cells.columns)) as f32).sqrt();
-        let expectation = PLANTS_N as f32 / (cells.rows * cells.columns) as f32; // For this case
-        MAX_PLANTS_IN_ONE_CELL = (expectation + 5.0 * standard_deviation).round() as usize;
-    }
-
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.x, area_size.y));
     default_camera(&mut camera, &area_size);
 
@@ -154,7 +147,7 @@ async fn main() {
         for j in 0..cells.columns {
             plants.insert(
                 Cell { i, j },
-                HashMap::with_capacity(unsafe { MAX_PLANTS_IN_ONE_CELL }),
+                HashMap::with_capacity(MAX_PLANTS_IN_ONE_CELL),
             );
         }
     }

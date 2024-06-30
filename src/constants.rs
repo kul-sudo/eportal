@@ -11,7 +11,7 @@ pub const DEFAULT_CELL_ROWS: usize = 129; // May be needed to be changed when th
                                           // evolution process have been determined
 pub const DEFAULT_PLANTS_N: usize = 52897;
 pub static mut PLANTS_N: usize = 0;
-pub static mut MAX_PLANTS_IN_ONE_CELL: usize = 0;
+pub const MAX_PLANTS_IN_ONE_CELL: usize = 10;
 
 /// The recommended constants in config.toml have been detemined for this area space.
 pub static DEFAULT_AREA_SPACE: f32 =

@@ -105,7 +105,7 @@ impl Plant {
                 || (pos.y <= OBJECT_RADIUS + MIN_GAP
                     || pos.y >= area_size.y - OBJECT_RADIUS - MIN_GAP)
                 || plants.get_mut(&cells.get_cell_by_pos(&pos)).unwrap().len()
-                    >= unsafe { MAX_PLANTS_IN_ONE_CELL }
+                    >= MAX_PLANTS_IN_ONE_CELL
                 || bodies
                     .values()
                     .any(|body| body.pos.distance(pos) <= OBJECT_RADIUS * 2.0 + MIN_GAP)
