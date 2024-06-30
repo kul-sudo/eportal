@@ -57,8 +57,8 @@ Every body can coincidentally get any of the following skills:
 
 ### Viruses <a id="viruses"></a>
 Every body can be infected with the following viruses:
-1. `Speed virus`: the virus steals a specific part of the body's speed.
-2. `Vision virus`. the virus steals a specific part of the body's vision distance.
+- `Speed virus`: the virus steals a specific part of the body's speed.
+- `Vision virus`. the virus steals a specific part of the body's vision distance.
 
 However, keep in mind the children get the original properties.
 
