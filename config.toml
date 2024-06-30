@@ -1,25 +1,46 @@
 # The comment after each value is the value recommended by the developers.
 
 [body]
-average_vision_distance = 100.0 # 100.0
+# For the 1st generation
+bodies_n = 800 # 800 (How many bodies are spawned on the field)
+passive_chance = 0.3 # 0.3 (The chance a body becomes passive)
 average_energy = 1500.0 # 1500.0
+average_speed = 1.5 # 1.5
 average_division_threshold = 2300.0 # 2300.0
-skills_change_chance = 0.07 # 0.07
+average_vision_distance = 100.0 # 100.0
+
+# All the time (1st generation included)
+skills_change_chance = 0.14 # 0.14 (The chance a body's child either gets or loses a skill)
+deviation = 0.1 # 0.1 (The deviation a body gets its properties with)
+lifespan = 240.0 # 240.0 (Lifespan in seconds if a body theoretically doesn't move at all)
+min_energy = 1000.0 # 1000.0 (The minimum energy a body can live with)
+cross_lifespan = 35 # 35 (How long a cross stays on in seconds)
+
+[plants]
+plants_density = 0.00026 # 0.00026 (Number of plants per unit area)
 
 [energy]
-energy_spent_const_for_mass = 0.0001 # 0.0001
-energy_spent_const_for_skills = 0.04 # 0.04
-energy_spent_const_for_vision_distance = 0.0001 # 0.0001
-energy_spent_const_for_movement = 0.0004 # 0.0004
-const_for_lifespan = 0.000005 # 0.000005
+energy_spent_const_for_mass = 0.00005 # 0.00005 (Part of energy constantly spent on mass)
+energy_spent_const_for_skills = 0.04 # 0.04 (Part of energy constantly spent on one skill)
+energy_spent_const_for_vision_distance = 0.00005 # 0.00005 (Part of energy constantly spent on vision distancce)
+energy_spent_const_for_movement = 0.0004 # 0.0004 (Part of energy constantly spent on movement depending on the speed)
+const_for_lifespan = 0.000002 # 0.000002 (Makes the life of a body shorter if it moves)
 
 [viruses]
+# first_generation_infection_chance: the chance the 1st generation gets infected with the virus
+# speed_decrease: part of speed the virus steals
+# energy_spent_for_healing: part of energy spent on healing from the virus
+# heal_energy: how much energy needs to be spent to get rid of the virus
+
 speedvirus_first_generation_infection_chance = 0.12 # 0.12
 speedvirus_speed_decrease = 0.7 # 0.7
-speedvirus_energy_spent_for_healing = 0.04 # 0.04 
-speedvirus_heal_energy = 280.0 # 280.0
+speedvirus_energy_spent_for_healing = 0.02 # 0.02
+speedvirus_heal_energy = 500.0 # 500.0
 
 visionvirus_first_generation_infection_chance = 0.1 # 0.1
 visionvirus_vision_distance_decrease = 0.7 # 0.7
-visionvirus_energy_spent_for_healing = 0.04 # 0.04
-visionvirus_heal_energy = 280.5 # 280.5
+visionvirus_energy_spent_for_healing = 0.02 # 0.02
+visionvirus_heal_energy = 500.0 # 500.0
+
+[ui]
+body_info_font_size = 17 # 17 (The font size of the info displayed over the bodies)

@@ -1,3 +1,4 @@
+use crate::user_constants::*;
 use crate::{ADAPTATION_SKILLS_COUNT, VIRUSES_COUNT};
 use macroquad::{
     color::{Color, GREEN, RED},
@@ -94,7 +95,7 @@ impl Body {
         let speed = get_with_deviation!(
             match initial_speed {
                 Some(initial_speed) => initial_speed,
-                None => AVERAGE_SPEED,
+                None => unsafe { AVERAGE_SPEED },
             },
             rng
         );
@@ -150,7 +151,7 @@ impl Body {
             color,
             status: Status::Idle,
             body_type,
-            lifespan: LIFESPAN,
+            lifespan: unsafe { LIFESPAN },
             viruses: match viruses {
                 Some(viruses) => viruses,
                 None => {
@@ -540,7 +541,7 @@ impl Body {
         } {}
 
         // Make sure the color is different enough
-        let real_color_gap = COLOR_GAP / ((BODIES_N + 2) as f32).powf(1.0 / 3.0);
+        let real_color_gap = COLOR_GAP / ((unsafe { BODIES_N } + 2) as f32).powf(1.0 / 3.0);
 
         let mut color = Color::from_rgba(
             gen_range(COLOR_MIN, COLOR_MAX),
@@ -664,7 +665,7 @@ impl Body {
 
             let time = self.pos.distance(other_body.pos) / divisor;
 
-            self.energy - self.get_spent_energy(time) > MIN_ENERGY
+            self.energy - self.get_spent_energy(time) > unsafe { MIN_ENERGY }
         } else {
             true
         }
@@ -677,7 +678,7 @@ impl Body {
         {
             let time = self.pos.distance(plant.pos) / self.speed;
 
-            self.energy - self.get_spent_energy(time) > MIN_ENERGY
+            self.energy - self.get_spent_energy(time) > unsafe { MIN_ENERGY }
         } else {
             true
         }

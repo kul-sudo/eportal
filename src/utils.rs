@@ -1,5 +1,6 @@
 use crate::body::AdaptationSkill;
 use crate::constants::*;
+use crate::user_constants::*;
 use crate::Virus;
 use crate::{ADAPTATION_SKILLS_COUNT, VIRUSES_COUNT};
 use serde_derive::Deserialize;
@@ -11,10 +12,22 @@ use toml::from_str;
 
 #[derive(Deserialize)]
 struct BodyField {
-    average_vision_distance: f32,
+    bodies_n: usize,
+    passive_chance: f32,
     average_energy: f32,
+    average_speed: f32,
     average_division_threshold: f32,
+    average_vision_distance: f32,
     skills_change_chance: f32,
+    deviation: f32,
+    lifespan: f32,
+    min_energy: f32,
+    cross_lifespan: u64,
+}
+
+#[derive(Deserialize)]
+struct PlantField {
+    plants_density: f32,
 }
 
 #[derive(Deserialize)]
@@ -40,10 +53,17 @@ struct VirusesField {
 }
 
 #[derive(Deserialize)]
+struct UIField {
+    body_info_font_size: u16,
+}
+
+#[derive(Deserialize)]
 struct Data {
     body: BodyField,
+    plants: PlantField,
     energy: EnergyField,
     viruses: VirusesField,
+    ui: UIField,
 }
 
 pub fn config_setup() {
@@ -64,15 +84,28 @@ pub fn config_setup() {
     };
 
     let body = config.body;
+    let plants = config.plants;
     let energy = config.energy;
     let viruses = config.viruses;
+    let ui = config.ui;
 
     unsafe {
         // Body-related
-        AVERAGE_VISION_DISTANCE = body.average_vision_distance;
+        BODIES_N = body.bodies_n;
+        PASSIVE_CHANCE = body.passive_chance;
         AVERAGE_ENERGY = body.average_energy;
+        AVERAGE_SPEED = body.average_speed;
         AVERAGE_DIVISION_THRESHOLD = body.average_division_threshold;
+        AVERAGE_VISION_DISTANCE = body.average_vision_distance;
+
         SKILLS_CHANGE_CHANCE = body.skills_change_chance;
+        DEVIATION = body.deviation;
+        LIFESPAN = body.lifespan;
+        MIN_ENERGY = body.min_energy;
+        CROSS_LIFESPAN = body.cross_lifespan;
+
+        // Plants-related
+        PLANTS_DENSITY = plants.plants_density;
 
         // Virus-related
         SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE =
@@ -93,6 +126,9 @@ pub fn config_setup() {
         ENERGY_SPENT_CONST_FOR_VISION_DISTANCE = energy.energy_spent_const_for_vision_distance;
         ENERGY_SPENT_CONST_FOR_MOVEMENT = energy.energy_spent_const_for_movement;
         CONST_FOR_LIFESPAN = energy.const_for_lifespan;
+
+        // UI-related
+        BODY_INFO_FONT_SIZE = ui.body_info_font_size
     };
 }
 

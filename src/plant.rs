@@ -87,9 +87,9 @@ impl Plant {
         cells: &Cells,
         rng: &mut StdRng,
     ) {
-        let starting_point = Instant::now();
-
         let mut pos = Vec2::default();
+
+        let starting_point = Instant::now();
 
         // Make sure the position is far enough from the rest of the plants and bodies and the borders of the area
         while {

@@ -8,6 +8,7 @@ mod cells;
 mod constants;
 mod plant;
 mod smart_drawing;
+mod user_constants;
 mod utils;
 mod zoom;
 
@@ -15,6 +16,7 @@ use body::*;
 use cells::{Cell, Cells};
 use constants::*;
 use plant::Plant;
+use user_constants::*;
 use zoom::{default_camera, get_zoom_target, Zoom};
 
 use body::AdaptationSkill;
@@ -59,7 +61,7 @@ macro_rules! adjusted_pos {
 #[macro_export]
 macro_rules! get_with_deviation {
     ($value:expr, $rng:expr) => {{
-        let part = $value * DEVIATION;
+        let part = $value * unsafe { DEVIATION };
         $rng.gen_range($value - part..$value + part)
     }};
 }
@@ -106,21 +108,32 @@ async fn main() {
         y: screen_height() * OBJECT_RADIUS,
     };
 
-    // Adjust BODIES_N to the current
-    let ratio = (area_size.x * area_size.y) / DEFAULT_AREA_SPACE;
+    let mut cells = Cells::default();
+    let area_space = area_size.x * area_size.y;
+    let area_space_ratio = area_space / DEFAULT_AREA_SPACE;
+
     unsafe {
-        PLANTS_N = (PLANTS_N as f32 * ratio) as usize;
-        PLANTS_N_FOR_ONE_STEP = (PLANTS_N_FOR_ONE_STEP as f32 * ratio) as usize;
+        PLANTS_N = (PLANTS_DENSITY * area_space) as usize;
+        PLANTS_N_FOR_ONE_STEP = (PLANTS_N_FOR_ONE_STEP as f32 * area_space_ratio) as usize;
     }
 
-    let mut cells = Cells::default();
-    cells.rows = CELL_ROWS;
-    cells.columns = ((area_size.x * CELL_ROWS as f32) / area_size.y).round() as usize;
+    let area_size_ratio = area_size.x / area_size.y;
+
+    cells.rows = (DEFAULT_CELL_ROWS as f32
+        * (DEFAULT_AREA_SIZE_RATIO * unsafe { PLANTS_N } as f32
+            / (area_size_ratio * DEFAULT_PLANTS_N as f32))
+            .sqrt())
+    .round() as usize;
+
+    cells.columns = (cells.rows as f32 * area_size_ratio).round() as usize;
     cells.cell_width = area_size.x / cells.columns as f32;
     cells.cell_height = area_size.y / cells.rows as f32;
 
     unsafe {
-        MAX_PLANTS_IN_ONE_CELL = 20;
+        // According to theory of probability
+        let standard_deviation = ((PLANTS_N / (cells.rows * cells.columns)) as f32).sqrt();
+        let expectation = PLANTS_N as f32 / (cells.rows * cells.columns) as f32; // For this case
+        MAX_PLANTS_IN_ONE_CELL = (expectation + 4.0 * standard_deviation).round() as usize;
     }
 
     let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.x, area_size.y));
@@ -132,7 +145,7 @@ async fn main() {
     let mut show_info = true;
 
     // 'main_evolution_loop: loop {
-    let mut bodies: HashMap<Instant, Body> = HashMap::with_capacity(BODIES_N);
+    let mut bodies: HashMap<Instant, Body> = HashMap::with_capacity(unsafe { BODIES_N });
     let mut plants: HashMap<Cell, HashMap<Instant, Plant>> =
         HashMap::with_capacity(cells.rows * cells.columns);
     for i in 0..cells.rows {
@@ -148,11 +161,11 @@ async fn main() {
     let mut removed_bodies: HashSet<Instant> = HashSet::with_capacity(bodies.len());
 
     // Spawn the bodies
-    for i in 0..BODIES_N {
+    for i in 0..unsafe { BODIES_N } {
         Body::randomly_spawn_body(
             &mut bodies,
             &area_size,
-            if rng.gen_range(0.0..1.0) <= PASSIVE_CHANCE {
+            if rng.gen_range(0.0..1.0) <= unsafe { PASSIVE_CHANCE } {
                 EatingStrategy::Passive
             } else {
                 EatingStrategy::Active
@@ -196,9 +209,6 @@ async fn main() {
         diagonal_rect: (rect_width.powi(2) + rect_height.powi(2)).sqrt(),
         diagonal_extended_rect: (extended_rect_width.powi(2) + extended_rect_height.powi(2)).sqrt(),
     };
-
-    // let mut average_performance = 0.0;
-    // let mut n = 0;
 
     loop {
         if unlikely(is_key_pressed(KeyCode::Escape)) {
@@ -280,16 +290,7 @@ async fn main() {
 
         let plants_shot = plants.clone();
 
-        // let timestamp = Instant::now();
-
         for (body_id, body) in &mut bodies {
-            // n += 1;
-            // if n == 100000 {
-            //     println!("{}", average_performance / 100000.0);
-            //     n = 0;
-            //     average_performance = 0.0;
-            // }
-
             // Handle if the body was eaten earlier
             if removed_bodies.contains(body_id) {
                 continue;
@@ -297,7 +298,7 @@ async fn main() {
 
             // Handle if completely dead
             if let Status::Dead(death_time) = body.status {
-                if death_time.elapsed().as_secs() >= CROSS_LIFESPAN {
+                if death_time.elapsed().as_secs() >= unsafe { CROSS_LIFESPAN } {
                     removed_bodies.insert(*body_id);
                 }
                 continue;
@@ -308,7 +309,9 @@ async fn main() {
             body.handle_lifespan();
 
             // Handle if dead to become a cross
-            if body.energy < MIN_ENERGY || body_id.elapsed().as_secs_f32() > body.lifespan {
+            if body.energy < unsafe { MIN_ENERGY }
+                || body_id.elapsed().as_secs_f32() > body.lifespan
+            {
                 body.status = Status::Dead(Instant::now());
                 continue;
             }
@@ -657,13 +660,13 @@ async fn main() {
                                             - measure_text(
                                                 &to_display,
                                                 None,
-                                                BODY_INFO_FONT_SIZE,
+                                                unsafe { BODY_INFO_FONT_SIZE },
                                                 1.0,
                                             )
                                             .width
                                                 / 2.0,
                                         body.pos.y - OBJECT_RADIUS - MIN_GAP,
-                                        BODY_INFO_FONT_SIZE as f32,
+                                        unsafe { BODY_INFO_FONT_SIZE } as f32,
                                         WHITE,
                                     );
                                 }
@@ -674,16 +677,22 @@ async fn main() {
                             }
                         }
 
-                        let mouse_position = mouse_position();
-                        let pos = adjusted_pos!(
-                            Vec2 {
-                                x: mouse_position.0,
-                                y: mouse_position.1
-                            },
-                            area_size
-                        );
-
-                        draw_text(&format!("{}", plants_n as f32 / (cells.rows * cells.columns) as f32), pos.x, pos.y, 100.0, WHITE);
+                        //let mouse_position = mouse_position();
+                        //let pos = adjusted_pos!(
+                        //    Vec2 {
+                        //        x: mouse_position.0,
+                        //        y: mouse_position.1
+                        //    },
+                        //    area_size
+                        //);
+                        //
+                        //draw_text(
+                        //    &format!("{}", plants_n as f32 / (cells.rows * cells.columns) as f32),
+                        //    pos.x,
+                        //    pos.y,
+                        //    100.0,
+                        //    WHITE,
+                        //);
                     }
                 } else {
                     for cell in plants.values() {
@@ -714,7 +723,7 @@ async fn main() {
 
             // If all the bodies that need to be removed were removed evenly across the program,
             // reallocations would happen as frequently. It turns out it's nicer to look at the
-            // picture when it's done more rarely.
+            // picture when it's done more rarely but all at once.
             if removed_bodies.len() > MIN_TO_REMOVE {
                 for body_id in &removed_bodies {
                     bodies.remove(body_id);
