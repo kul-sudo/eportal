@@ -1,20 +1,32 @@
+## [What is eportal?](#what-is-eportal)
+### [For rookies: how does evolution work?](#how-does-evolution-work)
+### [Bodies](#bodies)
+### [Properties](#properties)
+### [Procreation](#procreation)
+### [Death](#death)
+### [Skills](#skills)
+### [Viruses](#viruses)
+## [Configuration](#configuration)
+## [Configuration](#configuration)
+## [How to help the project?](#how-to-help-the-project)
+
 # eportal
-## What's eportal?
+## What is eportal? <a id="what-is-eportal"></a>
 `e` in `eportal` stands for `evolution`, so eportal is a configurable evolution portal. When the evolution process starts, bodies start walking around the field looking for plants and bodies of other kinds for food.
 
-## For rookies: how does evolution work?
+## For rookies: how does evolution work? <a id="how-does-evolution-work"></a>
 Let's say a creature has 2 children. The 1st child for a certain reason has a slightly higher intelligence, and the 2nd one runs faster and also has a slightly higher intelligence.
 Then it turns out running fast *and* thinking better requires a bit too much energy to be spent, so the 1st one survives instead of the 2nd one.
 \
 Then the children of the survived creature have other deviated properties, and it goes on and on. And this brute-force way results in constant perfection of those properties.
 
-## Bodies
+## Bodies <a id="bodies"></a>
 Bodies are split into types. Each type has a unique color.
 They walk around the map looking for:
 - `Plants`: green triangle all giving the same energy
 - `Bodies of other types`: bodies of one type don't eat each other.
 
-### Properties
+### Properties <a id="properties"></a>
 - `energy`: The amount of energy the body has left. When the energy goes below a specific point, the body [death](#death).
 - `speed`: The speed the body moves with. The higher it is, the more energy is spent on it.
 - `vision distance`: The radius of how far the body can see. The higher it is, the more energy is spent on it.
@@ -62,7 +74,7 @@ Every body can be infected with the following viruses:
 
 However, keep in mind the children get the original properties.
 
-## Configuration
+## Configuration <a id="configuration"></a>
 All configuration is done through `config.toml`
 The default config is:
 ```toml
@@ -136,7 +148,7 @@ show_viruses = false # The viruses a body has been infected with
 # VisionVirus = 1
 ```
 
-# How to help the project?
+# How to help the project? <a id="how-to-help-the-project"></a>
 ## Financially
 Even small donations are appreciated: https://paypal.me/rustprogramming
 
