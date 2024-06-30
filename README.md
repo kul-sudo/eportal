@@ -1,27 +1,43 @@
-  <ol>
-    <li>
+<ol>
+   <li>
       <a href="#what-is-eportal">About the project</a>
       <ul>
-        <li><a href="#what-is-eportal">What is eportal?</a></li>
+         <li><a href="#what-is-eportal">What is eportal?</a></li>
       </ul>
       <ul>
-        <li><a href="#how-does-evolution-work">For rookies: how does evolution work?</a></li>
+         <li><a href="#how-does-evolution-work">For rookies: how does evolution work?</a></li>
       </ul>
-    </li>
-    <li>
-      <a href="#getting-started">Getting Started</a>
       <ul>
-        <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#installation">Installation</a></li>
+         <li><a href="bodies">Bodies</a></li>
+         <ul>
+            <li><a href="#properties">Properties</a></li>
+         </ul>
+         <ul>
+            <li><a href="#procreation">Procreation</a></li>
+         </ul>
+         <ul>
+            <li><a href="#death">Death</a></li>
+         </ul>
+         <ul>
+            <li><a href="#skills">Skills</a></li>
+         </ul>
+         <ul>
+            <li><a href="#viruses">Viruses</a></li>
+         </ul>
       </ul>
-    </li>
-    <li><a href="#usage">Usage</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
-    <li><a href="#contributing">Contributing</a></li>
-    <li><a href="#license">License</a></li>
-    <li><a href="#contact">Contact</a></li>
-    <li><a href="#acknowledgments">Acknowledgments</a></li>
-  </ol>
+      <ul>
+         <li><a href="#configuration">Configuration</a></li>
+      </ul>
+   </li>
+   <li><a href="#how-to-help-the-project">How to help the project</a></li>
+   <ul>
+      <li><a href="#properties">Financially</a></li>
+   </ul>
+   <ul>
+      <li><a href="#procreation">Contributions</a></li>
+   </ul>
+</ol>
+
   
 # About the project
 ## What is eportal?
