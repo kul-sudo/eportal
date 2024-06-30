@@ -34,7 +34,7 @@
       <li><a href="#properties">Financially</a></li>
    </ul>
    <ul>
-      <li><a href="#procreation">Contributions</a></li>
+      <li><a href="#contributions">Contributions</a></li>
    </ul>
 </ol>
 
