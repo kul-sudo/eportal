@@ -21,7 +21,7 @@
   </ol>
   
 # eportal
-## What is eportal? <a id="what-is-eportal"></a>
+## What is eportal?
 `e` in `eportal` stands for `evolution`, so eportal is a configurable evolution portal. When the evolution process starts, bodies start walking around the field looking for plants and bodies of other kinds for food.
 
 ## For rookies: how does evolution work? <a id="how-does-evolution-work"></a>
