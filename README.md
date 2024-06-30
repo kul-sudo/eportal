@@ -1,15 +1,25 @@
-## [What is eportal?](#what-is-eportal)
-### [For rookies: how does evolution work?](#how-does-evolution-work)
-### [Bodies](#bodies)
-### [Properties](#properties)
-### [Procreation](#procreation)
-### [Death](#death)
-### [Skills](#skills)
-### [Viruses](#viruses)
-## [Configuration](#configuration)
-## [Configuration](#configuration)
-## [How to help the project?](#how-to-help-the-project)
-
+  <ol>
+    <li>
+      <a href="#what-is-eportal">What is eportal?</a>
+      <ul>
+        <li><a href="#built-with">Built With</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#getting-started">Getting Started</a>
+      <ul>
+        <li><a href="#prerequisites">Prerequisites</a></li>
+        <li><a href="#installation">Installation</a></li>
+      </ul>
+    </li>
+    <li><a href="#usage">Usage</a></li>
+    <li><a href="#roadmap">Roadmap</a></li>
+    <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#license">License</a></li>
+    <li><a href="#contact">Contact</a></li>
+    <li><a href="#acknowledgments">Acknowledgments</a></li>
+  </ol>
+  
 # eportal
 ## What is eportal? <a id="what-is-eportal"></a>
 `e` in `eportal` stands for `evolution`, so eportal is a configurable evolution portal. When the evolution process starts, bodies start walking around the field looking for plants and bodies of other kinds for food.
