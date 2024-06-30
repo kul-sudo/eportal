@@ -61,3 +61,89 @@ Every body can be infected with the following viruses:
 2. `Vision virus`. the virus steals a specific part of the body's vision distance.
 
 However, keep in mind the children get the original properties.
+
+## Configuration
+All configuration is done through `config.toml`
+The default config is:
+```toml
+# The comment after each value is the value recommended by the developers.
+
+[body]
+# For the 1st generation
+bodies_n = 800 # 800 (How many bodies are spawned on the field)
+passive_chance = 0.3 # 0.3 (The chance a body becomes passive)
+average_energy = 1500.0 # 1500.0
+average_speed = 1.5 # 1.5
+average_division_threshold = 2300.0 # 2300.0
+average_vision_distance = 100.0 # 100.0
+
+# All the time (1st generation included)
+skills_change_chance = 0.14 # 0.14 (The chance a body's child either gets or loses a skill)
+deviation = 0.1 # 0.1 (The deviation a body gets its properties with)
+lifespan = 240.0 # 240.0 (Lifespan in seconds if a body theoretically doesn't move at all)
+min_energy = 1000.0 # 1000.0 (The minimum energy a body can live with)
+cross_lifespan = 35 # 35 (How long a cross stays on in seconds)
+
+[plants]
+plants_density = 0.0002551 # 0.00026 (Number of plants per unit area for the initial spawning)
+plant_spawn_chance = 0.0000001 # 0.0001 (Chance for a plant to be spawned per unit area)
+plant_die_chance = 0.00004 # 0.00004 (Chance for a plant to die)
+
+[energy]
+energy_spent_const_for_mass = 0.00005 # 0.00005 (Part of energy constantly spent on mass)
+energy_spent_const_for_skills = 0.04 # 0.04 (Part of energy constantly spent on one skill)
+energy_spent_const_for_vision_distance = 0.00005 # 0.00005 (Part of energy constantly spent on vision distancce)
+energy_spent_const_for_movement = 0.0004 # 0.0004 (Part of energy constantly spent on movement depending on the speed)
+const_for_lifespan = 0.000002 # 0.000002 (Makes the life of a body shorter if it moves)
+
+[viruses]
+# first_generation_infection_chance: the chance the 1st generation gets infected with the virus
+# speed_decrease: part of speed the virus steals
+# energy_spent_for_healing: part of energy spent on healing from the virus
+# heal_energy: how much energy needs to be spent to get rid of the virus
+
+speedvirus_first_generation_infection_chance = 0.12 # 0.12
+speedvirus_speed_decrease = 0.7 # 0.7
+speedvirus_energy_spent_for_healing = 0.02 # 0.02
+speedvirus_heal_energy = 500.0 # 500.0
+
+visionvirus_first_generation_infection_chance = 0.1 # 0.1
+visionvirus_vision_distance_decrease = 0.7 # 0.7
+visionvirus_energy_spent_for_healing = 0.02 # 0.02
+visionvirus_heal_energy = 500.0 # 500.0
+
+[ui]
+body_info_font_size = 17 # 17 (The font size of the info displayed over the bodies)
+
+# Properties of a body to show over it
+show_energy = false # The current energy
+show_division_threshold = false # The energy a body has to reach to be able to procreate
+show_body_type = false # The type ID the body is part of (can also be distinguished using colors)
+show_lifespan = false # How many seconds a body has left to live if it theoretically doesn't move at all
+
+show_skills = false # The skills of a body
+# DoNotCompeteWithRelatives = 0
+# AliveWhenArrived = 1
+# ProfitableWhenArrived = 2
+# PrioritizeFasterChasers = 3
+# AvoidNewViruses = 4
+# WillArriveFirst = 5
+# EatCrossesOfMyType = 6
+# AvoidInfectedCrosses = 7
+
+show_viruses = false # The viruses a body has been infected with
+# SpeedVirus = 0
+# VisionVirus = 1
+```
+
+# How to help the project?
+## Financially
+Even small donations are appreciated: https://paypal.me/rustprogramming
+
+## Contributions
+Especially:
+1. Better organizing the project
+2. Implementing spatial hashing for bodies
+3. Documentantion in the code and in the README (what you're reading right now)
+4. Adding more viruses and skills
+5. General optimizations
