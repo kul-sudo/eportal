@@ -16,17 +16,18 @@ lifespan = 240.0 # 240.0 (Lifespan in seconds if a body theoretically doesn't mo
 min_energy = 1000.0 # 1000.0 (The minimum energy a body can live with)
 cross_lifespan = 35 # 35 (How long a cross stays on in seconds)
 
+const_for_lifespan = 0.000002 # 0.000002 (Makes the life of a body shorter if it moves)
+
 [plants]
-plants_density = 0.00026 # 0.00026 (Number of plants per unit area for the initial spawning)
-plant_spawn_chance = 0.0000001 # 0.0000001 (Chance for a plant to be spawned per unit area)
-plant_die_chance = 0.0004 # 0.0004 (Chance for a plant to die)
+plants_density = 0.00026 # 0.00026 (The number of plants per unit area for the initial spawning)
+plant_spawn_chance = 0.0000001 # 0.0000001 (The chance for a plant to be spawned per unit area)
+plant_die_chance = 0.0004 # 0.0004 (The chance for a plant to die)
 
 [energy]
 energy_spent_const_for_mass = 0.00005 # 0.00005 (Part of energy constantly spent on mass)
 energy_spent_const_for_skills = 0.04 # 0.04 (Part of energy constantly spent on one skill)
 energy_spent_const_for_vision_distance = 0.00005 # 0.00005 (Part of energy constantly spent on vision distancce)
 energy_spent_const_for_movement = 0.0004 # 0.0004 (Part of energy constantly spent on movement depending on the speed)
-const_for_lifespan = 0.000002 # 0.000002 (Makes the life of a body shorter if it moves)
 
 [viruses]
 # first_generation_infection_chance: the chance the 1st generation gets infected with the virus

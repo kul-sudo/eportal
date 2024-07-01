@@ -23,6 +23,7 @@ struct BodyField {
     lifespan: f32,
     min_energy: f32,
     cross_lifespan: u64,
+    const_for_lifespan: f32,
 }
 
 #[derive(Deserialize)]
@@ -38,7 +39,6 @@ struct EnergyField {
     energy_spent_const_for_skills: f32,
     energy_spent_const_for_vision_distance: f32,
     energy_spent_const_for_movement: f32,
-    const_for_lifespan: f32,
 }
 
 #[derive(Deserialize)]
@@ -106,7 +106,8 @@ pub fn config_setup() {
         AVERAGE_SPEED = body.average_speed;
         AVERAGE_DIVISION_THRESHOLD = body.average_division_threshold;
         AVERAGE_VISION_DISTANCE = body.average_vision_distance;
-
+        CONST_FOR_LIFESPAN = body.const_for_lifespan;
+        
         SKILLS_CHANGE_CHANCE = body.skills_change_chance;
         DEVIATION = body.deviation;
         LIFESPAN = body.lifespan;
@@ -136,7 +137,6 @@ pub fn config_setup() {
         ENERGY_SPENT_CONST_FOR_SKILLS = energy.energy_spent_const_for_skills;
         ENERGY_SPENT_CONST_FOR_VISION_DISTANCE = energy.energy_spent_const_for_vision_distance;
         ENERGY_SPENT_CONST_FOR_MOVEMENT = energy.energy_spent_const_for_movement;
-        CONST_FOR_LIFESPAN = energy.const_for_lifespan;
 
         // UI-related
         BODY_INFO_FONT_SIZE = ui.body_info_font_size;
