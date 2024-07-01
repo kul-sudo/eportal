@@ -41,7 +41,7 @@
   
 # About the project
 ## What is eportal?
-`e` in `eportal` stands for `evolution`, so eportal is a configurable evolution portal. When the evolution process starts, bodies start walking around the field looking for plants and bodies of other kinds for food.
+`e` in `eportal` stands for `evolution`, so eportal is a configurable evolution portal where you can create your own worlds. When the evolution process starts, bodies start walking around the field looking for plants and bodies of other kinds for food.
 
 ## For rookies: how does evolution work? <a id="how-does-evolution-work"></a>
 Let's say a creature has 2 children. The 1st child for a certain reason has a slightly higher intelligence, and the 2nd one runs faster and also has a slightly higher intelligence.
