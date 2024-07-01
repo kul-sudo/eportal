@@ -154,7 +154,7 @@ When the zoom mode is on, you can see:
 
 ## Interactions
 - <kbd>esc</kbd>: quit the program
-- <kbd>left mouse button</kbd>: toggle [zoom](#zoom) mode
+- <kbd>left mouse button</kbd>: toggle the [zoom](#zoom) mode
 - <kbd>1</kbd>: toggle showing the info
 - <kbd>space</kbd>: toggle drawing
 
