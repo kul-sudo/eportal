@@ -117,9 +117,9 @@ And they get a half of their parent's energy.
 
 ### Death <a id="death"></a>
 The body dies if:
-1. Its energy drops below a specific point
-2. Its lifetime is over
-3. It's been eaten
+- Its energy drops below a specific point
+- Its lifetime is over
+- It's been eaten
 
 It becomes an eatable cross in the first 2 cases.
 
