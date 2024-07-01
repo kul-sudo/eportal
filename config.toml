@@ -15,7 +15,6 @@ deviation = 0.1 # 0.1 (The deviation a body gets its properties with)
 lifespan = 240.0 # 240.0 (Lifespan in seconds if a body theoretically doesn't move at all)
 min_energy = 1000.0 # 1000.0 (The minimum energy a body can live with)
 cross_lifespan = 35 # 35 (How long a cross stays on in seconds)
-
 const_for_lifespan = 0.000002 # 0.000002 (Makes the life of a body shorter if it moves)
 
 [plants]
@@ -49,12 +48,12 @@ visionvirus_heal_energy = 500.0 # 500.0
 body_info_font_size = 17 # 17 (The font size of the info displayed over the bodies)
 
 # Properties of a body to show over it
-show_energy = false # The current energy
+show_energy = true # The current energy
 show_division_threshold = false # The energy a body has to reach to be able to procreate
 show_body_type = false # The type ID the body is part of (can also be distinguished using colors)
 show_lifespan = false # How many seconds a body has left to live if it theoretically doesn't move at all
 
-show_skills = true # The skills of a body
+show_skills = false # The skills of a body
 # DoNotCompeteWithRelatives = 0
 # AliveWhenArrived = 1
 # ProfitableWhenArrived = 2
@@ -64,6 +63,6 @@ show_skills = true # The skills of a body
 # EatCrossesOfMyType = 6
 # AvoidInfectedCrosses = 7
 
-show_viruses = true # The viruses a body has been infected with
+show_viruses = false # The viruses a body has been infected with
 # SpeedVirus = 0
 # VisionVirus = 1
