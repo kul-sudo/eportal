@@ -169,7 +169,7 @@ The default config is here: https://github.com/kul-sudo/eportal/blob/main/config
 
 ## How to download?
 ### Compile from source
-If you don't hate the Rust compiler installed yet, get it from `rustup.rs`.
+If you don't have the Rust compiler installed yet, get it from `rustup.rs`.
 Then simply run this command wherever you feel comfortable:
 ```sh
 git clone https://github.com/kul-sudo/eportal; cd eportal; cargo run --release;
