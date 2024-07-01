@@ -32,18 +32,22 @@ pub enum Status {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum EatingStrategy {
+    /// When a body sees no food, it stands still.
     Passive,
+    /// When a body sees no food, it walks in random directions, hoping to find it.
     Active,
 }
 
 #[allow(dead_code)]
 #[repr(usize)]
 #[derive(PartialEq, Hash)]
+/// https://github.com/kul-sudo/eportal/blob/main/README.md#viruses
 pub enum Virus {
     SpeedVirus,
     VisionVirus,
 }
 
+/// https://github.com/kul-sudo/eportal/blob/main/README.md#skills
 pub enum Skill {
     DoNotCompeteWithRelatives,
     AliveWhenArrived,
@@ -56,19 +60,18 @@ pub enum Skill {
 }
 
 #[derive(Clone, PartialEq)]
+/// https://github.com/kul-sudo/eportal/blob/main/README.md#properties
 pub struct Body {
     pub pos: Vec2,
     pub energy: f32,
     pub speed: f32,
     pub vision_distance: f32,
     pub eating_strategy: EatingStrategy,
-    /// The body procreates after a specific level of energy has been reached.
     pub division_threshold: f32,
     pub skills: HashSet<usize>,
     pub viruses: HashMap<usize, f32>,
     pub color: Color,
     pub status: Status,
-    /// When the body died due to a lack of energy if it did die in the first place.
     pub body_type: u16,
     pub lifespan: f32,
     pub initial_speed: f32,
@@ -77,6 +80,7 @@ pub struct Body {
 
 #[allow(clippy::too_many_arguments)]
 impl Body {
+    /// https://github.com/kul-sudo/eportal/blob/main/README.md#procreation may be helpful.
     pub fn new(
         pos: Vec2,
         energy: Option<f32>,
@@ -189,6 +193,7 @@ impl Body {
         for virus in body.viruses.clone().keys() {
             body.apply_virus(virus);
         }
+
         body
     }
 
@@ -264,6 +269,7 @@ impl Body {
         }
     }
 
+    /// Get the body infected with every virus it doesnn't have yet.
     pub fn get_viruses(&mut self, viruses: &HashMap<usize, f32>) {
         for virus in viruses.keys() {
             if !self.viruses.contains_key(virus) {
@@ -273,6 +279,7 @@ impl Body {
         }
     }
 
+    /// Make a virus do its job.
     pub fn apply_virus(&mut self, virus: &usize) {
         match unsafe { transmute::<usize, Virus>(*virus) } {
             Virus::SpeedVirus => self.speed -= self.speed * unsafe { SPEEDVIRUS_SPEED_DECREASE },
@@ -283,6 +290,8 @@ impl Body {
         };
     }
 
+    /// Get what needs to be drawn. Needed for performance reasons, because there's no reason to
+    /// draw anything beyond the zoom rectangle.
     pub fn get_drawing_strategy(&self, zoom: &Zoom) -> DrawingStrategy {
         let mut drawing_strategy = DrawingStrategy::default();
         let mut target_line = None; // It hasn't been decided yet whether it's needed to draw a
@@ -387,6 +396,7 @@ impl Body {
         drawing_strategy
     }
 
+    /// Heal from the viruses the body has and spend energy on it.
     pub fn handle_viruses(&mut self) {
         for (virus, energy_spent_for_healing) in &mut self.viruses {
             match unsafe { transmute::<usize, Virus>(*virus) } {
@@ -412,7 +422,7 @@ impl Body {
         });
     }
 
-    /// Handle body-eaters walking & plant-eaters idle.
+    /// Handle body-eaters walking and plant-eaters being idle.
     pub fn handle_walking_idle(&mut self, area_size: &Vec2, rng: &mut StdRng) {
         match self.eating_strategy {
             EatingStrategy::Active => {
@@ -500,8 +510,8 @@ impl Body {
                     ),
                 );
             }
-
             removed_bodies.insert(*body_id);
+
             true
         } else {
             false

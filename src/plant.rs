@@ -32,6 +32,7 @@ impl Plant {
         );
     }
 
+    /// Get the plants needed to be drawn.
     pub fn get_plants_to_draw<'a>(
         cells: &'a Cells,
         zoom: &'a Zoom,
@@ -80,6 +81,7 @@ impl Plant {
         plants_to_draw
     }
 
+    /// Spawn a plant to a random position on the field.
     pub fn randomly_spawn_plant(
         bodies: &HashMap<Instant, Body>,
         plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,

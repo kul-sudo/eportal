@@ -7,12 +7,15 @@ use crate::{adjusted_pos, constants::*};
 
 #[derive(Clone, Copy)]
 pub struct Zoom {
-    /// Th width of the part of the area size the zoom shows.
+    /// The width of the part of the area size the zoom shows.
     pub scaling_width: f32,
     /// The height of the part of the area size the zoom shows.
     pub scaling_height: f32,
+    /// The width of the zoom.
     pub width: f32,
+    /// The height of the zoom.
     pub height: f32,
+    /// The position of the center of the zoom rectangle.
     pub center_pos: Option<Vec2>,
     pub mouse_pos: Option<Vec2>,
     /// The rectangle on the same place as the camera.

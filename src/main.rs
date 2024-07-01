@@ -93,11 +93,11 @@ pub static mut VIRUSES_COUNT: usize = 0;
 #[macroquad::main(window_conf)]
 async fn main() {
     config_setup();
+    // Get all variants of enums (needed somewhere in the code)
     let (all_skills, all_viruses) = enum_consts();
     let ui_show_properties_n = (size_of::<UIField>() - size_of::<u16>()) / size_of::<bool>();
 
-    // Make the window fullscreen on Linux: for some reason, when the application has been built,
-    // Arch Linux apparently doesn't have enough time to make it fullscreen
+    // Workaround
     if OS == "linux" {
         set_fullscreen(true);
         sleep(Duration::from_secs(1));
@@ -135,10 +135,9 @@ async fn main() {
 
     let mut rng = StdRng::from_entropy();
 
-    let mut zoom_mode = false;
-    let mut show_info = true;
+    let mut zoom_mode = false; // Whether we're zoomed in
+    let mut show_info = true; // Whether the info over the bodies has to be shown
 
-    // 'main_evolution_loop: loop {
     let mut bodies: HashMap<Instant, Body> = HashMap::with_capacity(unsafe { BODIES_N });
     let mut plants: HashMap<Cell, HashMap<Instant, Plant>> =
         HashMap::with_capacity(cells.rows * cells.columns);
@@ -171,7 +170,7 @@ async fn main() {
         );
     }
 
-    // Needs to be handled manually to avoid unwrapping all plants out of the cells
+    // Needs to be handled manually to avoid extracting all plants out of the cells
     let mut plants_n = 0;
 
     // Spawn the plants
@@ -191,6 +190,7 @@ async fn main() {
     let extended_rect_width = rect_width + OBJECT_RADIUS * 2.0;
     let extended_rect_height = rect_height + OBJECT_RADIUS * 2.0;
 
+    // All the info about the zoom
     let mut zoom = Zoom {
         scaling_width,
         scaling_height,
@@ -205,11 +205,11 @@ async fn main() {
     };
 
     loop {
+        // Handle interactions
         if unlikely(is_key_pressed(KeyCode::Escape)) {
             exit(0);
         }
 
-        // Handle interactions
         if unlikely(is_mouse_button_pressed(MouseButton::Left)) {
             if zoom_mode {
                 default_camera(&mut camera, &area_size);
@@ -251,6 +251,7 @@ async fn main() {
 
         for _ in 0..n_to_remove {
             loop {
+                // Pick a random cell and remove a random plant from it
                 let random_cell = plants.iter().choose(&mut rng).unwrap().0;
 
                 if let Some((random_plant_id, random_plant)) =
@@ -299,7 +300,6 @@ async fn main() {
             }
 
             body.handle_viruses();
-
             body.handle_lifespan();
 
             // Handle if dead to become a cross
@@ -730,14 +730,16 @@ async fn main() {
             next_frame().await;
 
             for (plant_id, plant_pos) in &removed_plants {
-                let plants_in_cell = plants.get_mut(&cells.get_cell_by_pos(plant_pos)).unwrap();
-                plants_in_cell.remove(plant_id);
+                plants
+                    .get_mut(&cells.get_cell_by_pos(plant_pos))
+                    .unwrap()
+                    .remove(plant_id);
             }
             removed_plants.clear();
 
-            // If all the bodies that need to be removed were removed evenly across the program,
-            // reallocations would happen as frequently. It turns out it's nicer to look at the
-            // picture when it's done more rarely but all at once.
+            // If all the bodies that need to be removed were removed evenly throughout the program,
+            // reallocations would happen constantly. It turns out it's nicer
+            // when it's done more rarely but all at once.
             if removed_bodies.len() > MIN_TO_REMOVE {
                 for body_id in &removed_bodies {
                     bodies.remove(body_id);
@@ -746,5 +748,4 @@ async fn main() {
             }
         }
     }
-    // }
 }
