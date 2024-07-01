@@ -115,7 +115,7 @@ It becomes an eatable cross in the first 2 cases.
 
 ### Skills <a id="skills"></a>
 Every body can coincidentally get any of the following skills:
-- `Do not compete with relatives`: When the body sees another body of its type is following a plant, body, or cross, it doesn't try to do it too.
+- `Do not compete with relatives`: When the body sees another body of its type is following a plant, body, or cross, it doesn't try to follow the same object.
 - `Alive when arrived`: When the body sees a plant or a dead body, it makes sure it doesn't die before it gets to it.
 - `Profitable when arrived`: When the body sees a living body, cross, or plant, it makes sure it'll get more energy when it eats it than it spends on getting to that food.
 - `Prioritize faster chasers`: When the body sees it's being chased by several other bodies, it escapes from the faster one.
