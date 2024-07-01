@@ -52,14 +52,14 @@ Then the children of the survived creature have other deviated properties, and i
 ## Bodies
 Bodies are split into types. Each type has a unique color.
 They walk around the map looking for:
-- `Plants`: green triangle all giving the same energy
+- `Plants`: green triangles all giving the same energy
 - `Bodies of other types`: bodies of one type don't eat each other.
 
 ### Properties
-- `energy`: The amount of energy the body has left. When the energy goes below a specific point, the body [death](#death).
+- `energy`: The amount of energy the body has left. When the energy goes below a specific point, the body [dies](#death).
 - `speed`: The speed the body moves with. The higher it is, the more energy is spent on it.
 - `vision distance`: The radius of how far the body can see. The higher it is, the more energy is spent on it.
-- `eating strategy`: The body can be either `passive` or `active`. If the body is `passive`, when it sees no food, it waits until it sees it, while if it's `active`, it walks hoping to find something.
+- `eating strategy`: The body can be either `passive` or `active`. If the body is `passive`, when it sees no food, it waits until it sees it, while if it's `active`, it walks, hoping to find something.
 - `division threshold`: The threshold of energy the body has to each to eligible to [procreate](#procreation).
 - `skills`: The skills the body has. Refer to [this](#skills). The energy spent on the skills is the number of skills multiplied by a specific `k`.
 - `viruses`: The viruses the body has been infected with. Refer to [this](#viruses).
@@ -87,10 +87,10 @@ It becomes an eatable cross in the first 2 cases.
 
 ### Skills <a id="skills"></a>
 Every body can coincidentally get any of the following skills:
-- `Do not compete with relatives`: When the body sees another body of its type is following a plant or body of anothet type, it doesn't try to do it too.
+- `Do not compete with relatives`: When the body sees another body of its type is following a plant, body, or cross, it doesn't try to do it too.
 - `Alive when arrived`: When the body sees a plant or a dead body, it makes sure it doesn't die before it gets to it.
-- `Profitable when arrived`: When athebody sees a living body, cross, or plant, it makes sure it'll get more energy than it spends on getting to that food.
-- `Prioritize faster chasers`: When the body sees it's being chased by several other bodies, it escaped from the faster one.
+- `Profitable when arrived`: When the body sees a living body, cross, or plant, it makes sure it'll get more energy when it eats it than it spends on getting to that food.
+- `Prioritize faster chasers`: When the body sees it's being chased by several other bodies, it escapes from the faster one.
 - `Avoid new viruses`: When the body sees a living body or a cross, it makes sure that eating it won't result in getting viruses the body doesn't have yet.
 - `Will arrive first`: When the body sees there are other bodies following the same food as it is following, it makes sure it gets there the fastest.
 - `Eat crosses of my type`: When the body sees a cross of its type, it eats it to make sure bodies of other types don't eat it and therefore don't get energy from it.
@@ -98,10 +98,16 @@ Every body can coincidentally get any of the following skills:
 
 ### Viruses <a id="viruses"></a>
 Every body can be infected with the following viruses:
-- `Speed virus`: the virus steals a specific part of the body's speed.
-- `Vision virus`: the virus steals a specific part of the body's vision distance.
+- `Speed virus`: the virus steals a specific part of the body's speed the moment the body gets infected with the virus.
+- `Vision virus`: the virus steals a specific part of the body's vision distance the moment the body gets infected with the virus.
 
 However, keep in mind the children get the original properties.
+
+## Keybindings
+- <kbd>Esc</kbd>: quit the program
+- <kbd>LMB</kbd>: toggle zoom mode
+- <kbd>1</kbd>: toggle showing the info
+- <kbd>Space</kbd>: toggle drawing
 
 ## Configuration
 All configuration is done through `config.toml`
