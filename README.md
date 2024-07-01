@@ -31,7 +31,7 @@
    </li>
    <li><a href="#how-to-help-the-project">How to help the project?</a></li>
    <ul>
-      <li><a href="#properties">Financially</a></li>
+      <li><a href="#financially">Financially</a></li>
    </ul>
    <ul>
       <li><a href="#contributions">Contributions</a></li>
