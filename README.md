@@ -5,7 +5,7 @@
          <li><a href="#what-is-eportal">What is eportal?</a></li>
       </ul>
       <ul>
-         <li><a href="#bodies">Plants</a></li>
+         <li><a href="#plants">Plants</a></li>
          <li><a href="#bodies">Bodies</a></li>
          <ul>
             <li><a href="#energy">Energy</a></li>
@@ -143,10 +143,10 @@ When the zoom mode is on, you can see:
 - The info about each specific body
 
 ## Interactions
-- <kbd>Esc</kbd>: quit the program
+- <kbd>esc</kbd>: quit the program
 - <kbd>Left Mouse Button</kbd>: toggle [zoom](#zoom) mode
 - <kbd>1</kbd>: toggle showing the info
-- <kbd>Space</kbd>: toggle drawing
+- <kbd>space</kbd>: toggle drawing
 
 ## Configuration
 All configuration is done through `config.toml`.
