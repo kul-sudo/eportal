@@ -70,7 +70,7 @@ Food can be:
 - [living bodies of other types](#bodies)
 - [dead](#death) bodies (crosses)
 
-When a body reaches food, it disappears, which means it's been eaten by the body. The body gets [energy](#energy) from it.
+When the body reaches food, the food disappears, which means it's been eaten by the body. The body gets [energy](#energy) from it.
 
 ### Energy
 The body gets energy by eating food:
@@ -103,13 +103,13 @@ The body procreates and therefore splits into 2 other bodies if and only if:
 - Its energy is greater than its division threshold
 
 
-Both children of a body get the following properties with a deviation:
+Both children of the body get the following properties with a deviation:
 - speed
 - vision distance
 - division threshold
 - skills
 
-Both children of a body get the following properties directly:
+Both children of the body get the following properties directly:
 - eating strategy
 - viruses
 
