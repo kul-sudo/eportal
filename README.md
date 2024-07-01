@@ -97,7 +97,7 @@ The body has properties that affect whether it survives.
 - `viruses`: The viruses the body has been infected with. Refer to [this](#viruses).
 - `lifespan`: How long the body has [left](#death) to live in case it theoretically stands still. The life shortens when the body moves, depending on the speed.
 
-### Procreation <a id="procreation"></a>
+### Procreation
 The body procreates and therefore splits into 2 other bodies if and only if:
 - It isn't being chased by anyone
 - Its energy is greater than its division threshold
