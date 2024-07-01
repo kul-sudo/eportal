@@ -233,7 +233,7 @@ Even small donations are appreciated: https://paypal.me/rustprogramming
 
 ## Contributions
 Especially:
-1. Better organizing the project
+1. Better organizing the code
 2. Implementing cells for bodies
 3. Documentantion in the code and in the README (what you're reading right now)
 4. Adding more viruses and skills
