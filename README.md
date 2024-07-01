@@ -115,7 +115,7 @@ Both children of a body get the following properties directly:
 
 And they get a half of their parent's energy.
 
-### Death <a id="death"></a>
+### Death
 The body dies if:
 - Its energy drops below a specific point
 - Its lifetime is over
@@ -123,7 +123,7 @@ The body dies if:
 
 It becomes an eatable cross in the first 2 cases.
 
-### Skills <a id="skills"></a>
+### Skills
 Every body can coincidentally get any of the following skills:
 - `Do not compete with relatives`: When the body sees another body of its type is following a plant, body, or cross, it doesn't try to follow the same object.
 - `Alive when arrived`: When the body sees a plant or a dead body, it makes sure it doesn't die before it gets to it.
@@ -134,7 +134,7 @@ Every body can coincidentally get any of the following skills:
 - `Eat crosses of my type`: When the body sees a cross of its type, it eats it to make sure bodies of other types don't eat it and therefore don't get energy from it.
 - `Avoid infected crosses`: When the body sees a cross contains viruses the body itself doesn't have yet, it avoids the cross.
 
-### Viruses <a id="viruses"></a>
+### Viruses
 Every body can be infected (a red dot is shown on top of the body) with the following viruses:
 - `Speed virus`: The virus steals a specific part of the body's speed the moment the body gets infected with the virus.
 - `Vision virus`: The virus steals a specific part of the body's vision distance the moment the body gets infected with the virus.
