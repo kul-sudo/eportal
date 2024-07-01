@@ -39,8 +39,9 @@
    </ul>
 </ol>
 
-  
 # About the project
+![image](https://github.com/kul-sudo/eportal/assets/95244851/c3791374-d301-487d-9f3b-40d410e23026)
+
 ## What is eportal?
 `e` in `eportal` stands for `evolution`, so eportal is a configurable evolution portal where you can create your own worlds.
 
