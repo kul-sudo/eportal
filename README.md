@@ -126,9 +126,9 @@ min_energy = 1000.0 # 1000.0 (The minimum energy a body can live with)
 cross_lifespan = 35 # 35 (How long a cross stays on in seconds)
 
 [plants]
-plants_density = 0.0002551 # 0.00026 (Number of plants per unit area for the initial spawning)
-plant_spawn_chance = 0.0000001 # 0.0001 (Chance for a plant to be spawned per unit area)
-plant_die_chance = 0.00004 # 0.00004 (Chance for a plant to die)
+plants_density = 0.00026 # 0.00026 (Number of plants per unit area for the initial spawning)
+plant_spawn_chance = 0.0000001 # 0.0000001 (Chance for a plant to be spawned per unit area)
+plant_die_chance = 0.0004 # 0.0004 (Chance for a plant to die)
 
 [energy]
 energy_spent_const_for_mass = 0.00005 # 0.00005 (Part of energy constantly spent on mass)
@@ -162,7 +162,7 @@ show_division_threshold = false # The energy a body has to reach to be able to p
 show_body_type = false # The type ID the body is part of (can also be distinguished using colors)
 show_lifespan = false # How many seconds a body has left to live if it theoretically doesn't move at all
 
-show_skills = false # The skills of a body
+show_skills = true # The skills of a body
 # DoNotCompeteWithRelatives = 0
 # AliveWhenArrived = 1
 # ProfitableWhenArrived = 2
@@ -172,7 +172,7 @@ show_skills = false # The skills of a body
 # EatCrossesOfMyType = 6
 # AvoidInfectedCrosses = 7
 
-show_viruses = false # The viruses a body has been infected with
+show_viruses = true # The viruses a body has been infected with
 # SpeedVirus = 0
 # VisionVirus = 1
 ```
