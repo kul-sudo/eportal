@@ -66,7 +66,7 @@ When a body reaches food, it disappears, which means it's been eaten by the body
 The body gets energy by eating food:
 - `plants`: Plants all give the same energy.
 - `living bodies`: Living bodies give their current energy.
-- `dead bodies`: Living bodies give the energy they had the moment they died.
+- `dead bodies`: Dead bodies give the energy they had the moment they died.
 
 The body constantly spends energy on:
 - living
@@ -82,7 +82,7 @@ The body has properties that affect whether it survives.
 - `speed`: The speed the body moves with.
 - `vision distance`: The radius of how far the body can see.
 - `eating strategy`: The body can be either `passive` or `active`. If the body is `passive`, when it sees no food, it waits until it sees it, while if it's `active`, it walks, hoping to find something.
-- `division threshold`: The threshold of energy the body has to each to eligible to [procreate](#procreation).
+- `division threshold`: The threshold of energy the body has to be eligible to [procreate](#procreation).
 - `skills`: The skills the body has. Refer to [this](#skills).
 - `viruses`: The viruses the body has been infected with. Refer to [this](#viruses).
 - `lifespan`: How long the body has [left](#death) to live in case it theoretically stands still. The life shortens when the body moves, depending on the speed.
