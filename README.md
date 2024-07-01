@@ -29,6 +29,15 @@
       <ul><li><a href="#zoom">Zoom</a></li></ul>
       <ul><li><a href="#interactions">Interactions</a></li></ul>
       <ul><li><a href="#configuration">Configuration</a></li></ul>
+      <ul><li><a href="#how-to-download">How to download?</a></li></ul>
+      <ul>
+         <ul>
+            <li><a href="#compile-from-source">Compile from source</a></li>
+         </ul>
+         <ul>
+            <li><a href="#get-a-linux-or-windows-binary-from-the-releases">Get a Linux or Windows binary from the releases</a></li>
+         </ul>
+      </ul>
    </li>
    <li><a href="#how-to-help-the-project">How to help the project?</a></li>
    <ul>
@@ -157,6 +166,18 @@ The config has to:
 - be named correctly
 
 The default config is here: https://github.com/kul-sudo/eportal/blob/main/config.toml
+
+## How to download?
+### Compile from source
+If you don't hate the Rust compiler installed yet, get it from `rustup.rs`.
+Then simply run this command wherever you feel comfortable:
+```sh
+git clone https://github.com/kul-sudo/eportal; cd eportal; cargo run --release;
+```
+
+### Get a Linux or Windows binary from the releases
+https://github.com/kul-sudo/eportal/releases
+
 
 # How to help the project?
 ## Financially
