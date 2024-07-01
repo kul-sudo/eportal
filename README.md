@@ -5,7 +5,7 @@
          <li><a href="#what-is-eportal">What is eportal?</a></li>
       </ul>
       <ul>
-         <li><a href="#how-does-evolution-work">For rookies: how does evolution work?</a></li>
+         <li><a href="#for-rookies-how-does-evolution-work">For rookies: how does evolution work?</a></li>
       </ul>
       <ul>
          <li><a href="#bodies">Bodies</a></li>
