@@ -70,9 +70,9 @@ Food can be:
 - [living bodies of other types](#bodies)
 - [dead](#death) bodies (crosses)
 
-When the body goes beyond the evolution field, it gets teleported to the opposite border.
-
 When the body reaches food, the food disappears, which means it's been eaten by the body. The body gets [energy](#energy) from it.
+
+When the body goes beyond the evolution field, it gets teleported to the opposite border.
 
 ### Energy
 The body gets energy by eating food:
