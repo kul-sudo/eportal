@@ -70,6 +70,7 @@ Food can be:
 - [living bodies of other types](#bodies)
 - [dead](#death) bodies (crosses)
 
+When the body goes beyond the evolution field, it gets teleported to the opposite border.
 When the body reaches food, the food disappears, which means it's been eaten by the body. The body gets [energy](#energy) from it.
 
 ### Energy
@@ -156,6 +157,7 @@ When the zoom mode is on, you can see:
 - <kbd>esc</kbd>: quit the program
 - <kbd>left mouse button</kbd>: toggle the [zoom](#zoom) mode
 - <kbd>1</kbd>: toggle showing the info
+- <kbd>2</kbd>: toggle showing the info about the current evolution
 - <kbd>space</kbd>: toggle drawing
 
 ## Configuration
