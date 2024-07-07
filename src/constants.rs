@@ -9,7 +9,7 @@ pub const CONFIG_FILE_NAME: &str = "config.toml";
 // Base
 pub const DEFAULT_CELL_ROWS: usize = 129; // May be needed to be changed when the perfect values for the
                                           // evolution process have been determined
-pub const DEFAULT_PLANTS_N: usize = 52897;
+pub const DEFAULT_PLANTS_N: usize = 53914;
 pub static mut PLANTS_N: usize = 0;
 pub const MAX_PLANTS_IN_ONE_CELL: usize = 10;
 
@@ -32,6 +32,9 @@ pub const MIN_TO_REMOVE: usize = 500; // Bodies and plants are removed only it's
 
 // Plants
 pub static mut PLANTS_N_FOR_ONE_STEP: usize = 0;
+
+// UI
+pub const EVOLUTION_INFO_FONT_SIZE: u16 = 500;
 
 // Zoom
 pub const MAX_ZOOM: f32 = OBJECT_RADIUS;

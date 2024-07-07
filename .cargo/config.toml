@@ -1,2 +1,2 @@
-# [nightly-x86_64-unknown-linux-gnu]
-# rustflags = ["-C", "target-cpu=native", "-Z", "threads=8"]
+[nightly-x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=native", "-Z", "threads=10"]

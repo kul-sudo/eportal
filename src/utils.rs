@@ -1,8 +1,9 @@
 use crate::body::Skill;
 use crate::constants::*;
 use crate::user_constants::*;
-use crate::Virus;
+use crate::{Virus, Zoom};
 use crate::{TOTAL_SKILLS_COUNT, VIRUSES_COUNT};
+use macroquad::prelude::*;
 use serde_derive::Deserialize;
 use std::collections::HashSet;
 use std::fs::read_to_string;
@@ -107,7 +108,7 @@ pub fn config_setup() {
         AVERAGE_DIVISION_THRESHOLD = body.average_division_threshold;
         AVERAGE_VISION_DISTANCE = body.average_vision_distance;
         CONST_FOR_LIFESPAN = body.const_for_lifespan;
-        
+
         SKILLS_CHANGE_CHANCE = body.skills_change_chance;
         DEVIATION = body.deviation;
         LIFESPAN = body.lifespan;
@@ -166,4 +167,52 @@ pub fn enum_consts() -> (HashSet<usize>, HashSet<usize>) {
     let all_viruses = (0..variant_count_).collect::<HashSet<_>>();
 
     (all_skills, all_viruses)
+}
+
+pub fn show_evolution_info(
+    zoom: &Zoom,
+    zoom_mode: bool,
+    area_size: &Vec2,
+    plants_n: usize,
+    removed_plants_len: usize,
+    bodies_len: usize,
+    removed_bodies_len: usize,
+) {
+    let mut n = 0.0;
+
+    let evolution_info_fields = [
+        format!("plants: {:?}", plants_n - removed_plants_len),
+        format!("bodies: {:?}", bodies_len - removed_bodies_len),
+    ];
+
+    if zoom_mode {
+        for field in evolution_info_fields {
+            let evolution_info_font_size = (EVOLUTION_INFO_FONT_SIZE as f32 / MAX_ZOOM) as u16;
+            let measured = measure_text(&field, None, evolution_info_font_size, 1.0);
+
+            draw_text(
+                &field,
+                zoom.rect.unwrap().x + zoom.rect.unwrap().w - measured.width,
+                zoom.rect.unwrap().y + measured.height + n,
+                evolution_info_font_size as f32,
+                WHITE,
+            );
+
+            n += measured.height + 40.0 / MAX_ZOOM;
+        }
+    } else {
+        for field in evolution_info_fields {
+            let measured = measure_text(&field, None, EVOLUTION_INFO_FONT_SIZE, 1.0);
+
+            draw_text(
+                &field,
+                area_size.x - measured.width,
+                measured.height + n,
+                EVOLUTION_INFO_FONT_SIZE as f32,
+                WHITE,
+            );
+
+            n += measured.height + 40.0;
+        }
+    }
 }

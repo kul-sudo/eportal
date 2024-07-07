@@ -120,12 +120,16 @@ async fn main() {
 
     let area_size_ratio = area_size.x / area_size.y;
 
-    cells.rows = (DEFAULT_CELL_ROWS as f32
+    // Get `k` out of PLANTS_N/k = DEFAULT_PLANTS/p
+    // where `k` is the real number of cells
+    // and `p` is the default number of cells.
+    cells.rows = ((DEFAULT_CELL_ROWS as f32
         * (DEFAULT_AREA_SIZE_RATIO * unsafe { PLANTS_N } as f32
             / (area_size_ratio * DEFAULT_PLANTS_N as f32))
             .sqrt())
-    .round() as usize;
-
+    .round() as usize)
+        .max(50)
+        .min(200);
     cells.columns = (cells.rows as f32 * area_size_ratio).round() as usize;
     cells.cell_width = area_size.x / cells.columns as f32;
     cells.cell_height = area_size.y / cells.rows as f32;
@@ -135,7 +139,8 @@ async fn main() {
 
     let mut rng = StdRng::from_entropy();
 
-    let mut zoom_mode = false; // Whether we're zoomed in
+    let mut zoom_mode = false; // whether we're zoomed in
+    let mut evolution_info = false; // Whether the evolution info has to be shown
     let mut show_info = true; // Whether the info over the bodies has to be shown
 
     let mut bodies: HashMap<Instant, Body> = HashMap::with_capacity(unsafe { BODIES_N });
@@ -225,6 +230,10 @@ async fn main() {
 
         if unlikely(is_key_pressed(KeyCode::Key1)) {
             show_info = !show_info
+        }
+
+        if unlikely(is_key_pressed(KeyCode::Key2)) {
+            evolution_info = !evolution_info;
         }
 
         let is_draw_prevented = is_key_down(KeyCode::Space);
@@ -725,6 +734,18 @@ async fn main() {
                 }
 
                 last_updated = Instant::now();
+            }
+
+            if evolution_info {
+                show_evolution_info(
+                    &zoom,
+                    zoom_mode,
+                    &area_size,
+                    plants_n,
+                    removed_plants.len(),
+                    bodies.len(),
+                    removed_bodies.len(),
+                );
             }
 
             next_frame().await;
