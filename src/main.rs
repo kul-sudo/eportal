@@ -155,8 +155,8 @@ async fn main() {
         }
     }
 
-    let mut removed_plants: Vec<(Instant, Vec2)> = Vec::new();
-    let mut removed_bodies: HashSet<Instant> = HashSet::with_capacity(bodies.len());
+    let mut removed_plants: Vec<(Instant, Vec2)> = Vec::with_capacity(40);
+    let mut removed_bodies: HashSet<Instant> = HashSet::with_capacity(3);
 
     // Spawn the bodies
     for i in 0..unsafe { BODIES_N } {
@@ -613,8 +613,6 @@ async fn main() {
             body.handle_walking_idle(&area_size, &mut rng);
         }
 
-        // average_performance += timestamp.elapsed().as_nanos() as f32 / (bodies.len() - removed_bodies.len()).pow(2) as f32;
-
         for (new_body_id, new_body) in new_bodies {
             bodies.insert(new_body_id, new_body);
         }
@@ -758,15 +756,10 @@ async fn main() {
             }
             removed_plants.clear();
 
-            // If all the bodies that need to be removed were removed evenly throughout the program,
-            // reallocations would happen constantly. It turns out it's nicer
-            // when it's done more rarely but all at once.
-            if removed_bodies.len() > MIN_TO_REMOVE {
-                for body_id in &removed_bodies {
-                    bodies.remove(body_id);
-                }
-                removed_bodies.clear();
+            for body_id in &removed_bodies {
+                bodies.remove(body_id);
             }
+            removed_bodies.clear();
         }
     }
 }
