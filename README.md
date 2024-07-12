@@ -127,19 +127,19 @@ It becomes an eatable cross in the first 2 cases.
 
 ### Skills
 Every body can coincidentally get any of the following skills:
-- `Do not compete with relatives`: When the body sees another body of its type is following a plant, body, or cross, it doesn't try to follow the same object.
-- `Alive when arrived`: When the body sees a plant or a dead body, it makes sure it doesn't die before it gets to it.
-- `Profitable when arrived`: When the body sees a living body, cross, or plant, it makes sure it'll get more energy when it eats it than it spends on getting to that food.
-- `Prioritize faster chasers`: When the body sees it's being chased by several other bodies, it escapes from the faster one.
-- `Avoid new viruses`: When the body sees a living body, it makes sure that eating it won't result in getting viruses the body doesn't have yet.
-- `Will arrive first`: When the body sees there are other bodies following the same food as it is following, it makes sure it gets there the fastest.
-- `Eat crosses of my type`: When the body sees a cross of its type, it eats it to make sure bodies of other types don't eat it and therefore don't get energy from it.
-- `Avoid infected crosses`: When the body sees a cross contains viruses the body itself doesn't have yet, it avoids the cross.
+1. `Do not compete with relatives`: When the body sees another body of its type is following a plant, body, or cross, it doesn't try to follow the same object.
+2. `Alive when arrived`: When the body sees a plant or a dead body, it makes sure it doesn't die before it gets to it.
+3. `Profitable when arrived`: When the body sees a living body, cross, or plant, it makes sure it'll get more energy when it eats it than it spends on getting to that food.
+4. `Prioritize faster chasers`: When the body sees it's being chased by several other bodies, it escapes from the faster one.
+5. `Avoid new viruses`: When the body sees a living body, it makes sure that eating it won't result in getting viruses the body doesn't have yet.
+6. `Will arrive first`: When the body sees there are other bodies following the same food as it is following, it makes sure it gets there the fastest.
+7. `Eat crosses of my type`: When the body sees a cross of its type, it eats it to make sure bodies of other types don't eat it and therefore don't get energy from it.
+8. `Avoid infected crosses`: When the body sees a cross contains viruses the body itself doesn't have yet, it avoids the cross.
 
 ### Viruses
 Every body can be infected (a red dot is shown on top of the body) with the following viruses:
-- `Speed virus`: The virus steals a specific part of the body's speed the moment the body gets infected with the virus.
-- `Vision virus`: The virus steals a specific part of the body's vision distance the moment the body gets infected with the virus.
+1. `Speed virus`: The virus steals a specific part of the body's speed the moment the body gets infected with the virus.
+2. `Vision virus`: The virus steals a specific part of the body's vision distance the moment the body gets infected with the virus.
 
 The body gets infected with a virus:
 - At the start of the evolution
