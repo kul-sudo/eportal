@@ -14,6 +14,7 @@ pub struct Plant {
 }
 
 impl Plant {
+    #[inline(always)]
     pub fn draw(&self) {
         draw_triangle(
             Vec2 {

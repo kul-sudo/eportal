@@ -30,7 +30,7 @@ pub struct Zoom {
 
 /// Set the camera zoom to where the mouse cursor is.
 pub fn get_zoom_target(camera: &mut Camera2D, area_size: &Vec2, zoom: &mut Zoom) {
-    zoom.center_pos = Some(adjusted_pos!(zoom.mouse_pos.unwrap(), area_size));
+    zoom.center_pos = Some(adjusted_pos(&zoom.mouse_pos.unwrap(), &area_size));
     zoom.rect = Some(Rect::new(
         zoom.center_pos.unwrap().x - zoom.width / 2.0,
         zoom.center_pos.unwrap().y - zoom.height / 2.0,

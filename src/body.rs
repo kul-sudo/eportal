@@ -96,7 +96,7 @@ impl Body {
         all_viruses: &HashSet<usize>,
         rng: &mut StdRng,
     ) -> Self {
-        let speed = get_with_deviation!(
+        let speed = get_with_deviation(
             match initial_speed {
                 Some(initial_speed) => initial_speed,
                 None => unsafe { AVERAGE_SPEED },
@@ -104,7 +104,7 @@ impl Body {
             rng
         );
 
-        let vision_distance = get_with_deviation!(
+        let vision_distance = get_with_deviation(
             match initial_vision_distance {
                 Some(initial_vision_distance) => initial_vision_distance,
                 None => unsafe { AVERAGE_VISION_DISTANCE },
@@ -116,14 +116,14 @@ impl Body {
             pos,
             energy: match energy {
                 Some(energy) => energy / 2.0,
-                None => get_with_deviation!(unsafe { AVERAGE_ENERGY }, rng),
+                None => get_with_deviation(unsafe { AVERAGE_ENERGY }, rng),
             },
             speed,
             initial_speed: speed,
             vision_distance,
             initial_vision_distance: vision_distance,
             eating_strategy,
-            division_threshold: get_with_deviation!(
+            division_threshold: get_with_deviation(
                 match division_threshold {
                     Some(division_threshold) => division_threshold,
                     None => unsafe { AVERAGE_DIVISION_THRESHOLD },
@@ -201,7 +201,7 @@ impl Body {
     pub fn is_alive(&self) -> bool {
         !matches!(self.status, Status::Dead(..))
     }
-    
+
     pub fn wrap(&mut self, area_size: &Vec2) {
         if self.pos.x >= area_size.x {
             self.pos.x = MIN_GAP;

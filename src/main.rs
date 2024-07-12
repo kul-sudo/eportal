@@ -37,6 +37,7 @@ use macroquad::{
     input::{is_key_down, is_key_pressed, is_mouse_button_pressed, mouse_position, KeyCode},
     math::{Rect, Vec2},
     miniquad::{window::set_fullscreen, MouseButton},
+    prelude::vec2,
     shapes::{draw_circle_lines, draw_line},
     text::{draw_text, measure_text},
     window::{next_frame, screen_height, screen_width, Conf},
@@ -44,27 +45,23 @@ use macroquad::{
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng, SeedableRng};
 
 /// Adjust the coordinates according to the borders.
-#[macro_export]
-macro_rules! adjusted_pos {
-    ($pos:expr, $area_size:expr) => {
-        Vec2 {
-            x: ($pos.x * MAX_ZOOM)
-                .max($area_size.x / MAX_ZOOM / 2.0)
-                .min($area_size.x * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
-            y: ($pos.y * MAX_ZOOM)
-                .max($area_size.y / MAX_ZOOM / 2.0)
-                .min($area_size.y * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
-        }
-    };
+#[inline(always)]
+pub fn adjusted_pos(pos: &Vec2, area_size: &Vec2) -> Vec2 {
+    vec2(
+        (pos.x * MAX_ZOOM)
+            .max(area_size.x / MAX_ZOOM / 2.0)
+            .min(area_size.x * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
+        (pos.y * MAX_ZOOM)
+            .max(area_size.y / MAX_ZOOM / 2.0)
+            .min(area_size.y * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
+    )
 }
 
 /// Used for getting specific values with deviations.
-#[macro_export]
-macro_rules! get_with_deviation {
-    ($value:expr, $rng:expr) => {{
-        let part = $value * unsafe { DEVIATION };
-        $rng.gen_range($value - part..$value + part)
-    }};
+#[inline(always)]
+pub fn get_with_deviation(value: f32, rng: &mut StdRng) -> f32 {
+    let part = value * unsafe { DEVIATION };
+    rng.gen_range(value - part..value + part)
 }
 
 enum FoodType {

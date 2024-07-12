@@ -76,6 +76,7 @@ struct Data {
     ui: UIField,
 }
 
+#[inline(always)]
 pub fn config_setup() {
     let contents = match read_to_string(CONFIG_FILE_NAME) {
         Ok(contents) => contents,
@@ -179,41 +180,37 @@ pub fn show_evolution_info(
     bodies_len: usize,
     removed_bodies_len: usize,
 ) {
-    let mut n = 0.0;
-
     let evolution_info_fields = [
         format!("plants: {:?}", plants_n - removed_plants_len),
         format!("bodies: {:?}", bodies_len - removed_bodies_len),
     ];
 
     if zoom_mode {
-        for field in evolution_info_fields {
+        for (index, field) in evolution_info_fields.iter().enumerate() {
             let evolution_info_font_size = (EVOLUTION_INFO_FONT_SIZE as f32 / MAX_ZOOM) as u16;
             let measured = measure_text(&field, None, evolution_info_font_size, 1.0);
 
             draw_text(
                 &field,
                 zoom.rect.unwrap().x + zoom.rect.unwrap().w - measured.width,
-                zoom.rect.unwrap().y + measured.height + n,
+                zoom.rect.unwrap().y
+                    + measured.height
+                    + (measured.height + EVOLUTION_INFO_GAP / MAX_ZOOM) * index as f32,
                 evolution_info_font_size as f32,
                 WHITE,
             );
-
-            n += measured.height + 40.0 / MAX_ZOOM;
         }
     } else {
-        for field in evolution_info_fields {
+        for (index, field) in evolution_info_fields.iter().enumerate() {
             let measured = measure_text(&field, None, EVOLUTION_INFO_FONT_SIZE, 1.0);
 
             draw_text(
                 &field,
                 area_size.x - measured.width,
-                measured.height + n,
+                measured.height + (measured.height + EVOLUTION_INFO_GAP) * index as f32,
                 EVOLUTION_INFO_FONT_SIZE as f32,
                 WHITE,
             );
-
-            n += measured.height + 40.0;
         }
     }
 }
