@@ -175,7 +175,7 @@ The default config is here: https://github.com/kul-sudo/eportal/blob/main/config
 If you don't have the Rust compiler installed yet, get it from `rustup.rs`.
 Then simply run this command wherever you feel comfortable:
 ```sh
-git clone https://github.com/kul-sudo/eportal; cd eportal; cargo run --release;
+git clone https://github.com/kul-sudo/eportal; cd eportal; RUSTFLAGS='-C target-cpu=native' cargo run --release;
 ```
 
 ### Get a Linux or Windows binary from the releases
