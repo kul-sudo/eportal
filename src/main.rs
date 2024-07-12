@@ -150,13 +150,15 @@ async fn main() {
         for j in 0..cells.columns {
             plants.insert(
                 Cell { i, j },
-                HashMap::with_capacity(MAX_PLANTS_IN_ONE_CELL),
+                HashMap::with_capacity(AVERAGE_MAX_PLANTS_IN_ONE_CELL),
             );
         }
     }
 
-    let mut removed_plants: Vec<(Instant, Vec2)> = Vec::with_capacity(40);
-    let mut removed_bodies: HashSet<Instant> = HashSet::with_capacity(3);
+    let mut removed_plants: Vec<(Instant, Vec2)> =
+        Vec::with_capacity(AVERAGE_MAX_REMOVED_PLANTS_LEN);
+    let mut removed_bodies: HashSet<Instant> =
+        HashSet::with_capacity(AVERAGE_MAX_REMOVED_BODIES_LEN);
 
     // Spawn the bodies
     for i in 0..unsafe { BODIES_N } {
@@ -288,7 +290,7 @@ async fn main() {
         // Due to certain borrowing rules, it's impossible to modify these during the loop,
         // so it'll be done after it
         let mut new_bodies: HashMap<Instant, Body> =
-            HashMap::with_capacity((bodies.len() - removed_bodies.len()) * 2);
+            HashMap::with_capacity(AVERAGE_MAX_NEW_BODIES_LEN);
         let bodies_shot = bodies.clone();
         let mut bodies_shot_for_statuses = bodies.clone();
 
