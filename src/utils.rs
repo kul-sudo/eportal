@@ -151,6 +151,7 @@ pub fn config_setup() {
     };
 }
 
+#[inline(always)]
 pub fn enum_consts() -> (HashSet<usize>, HashSet<usize>) {
     // Skills
     let mut variant_count_ = variant_count::<Skill>();

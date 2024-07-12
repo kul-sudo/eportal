@@ -16,6 +16,7 @@ pub enum RectangleCorner {
 }
 
 impl DrawingStrategy {
+    #[inline(always)]
     /// Whether the segment line from `p1` to `p2` contains `p` if it's known that it is on a segment line that
     /// includes the one from `p1` to `p2`.
     pub fn segment_contains_point(p1: &Vec2, p2: &Vec2, p: &Vec2) -> bool {
@@ -23,10 +24,12 @@ impl DrawingStrategy {
             && (p1.y.min(p2.y) - 1.0 < p.y && p.y < p1.y.max(p2.y) + 1.0)
     }
 
+    #[inline(always)]
     pub fn line_coeffs(p1: &Vec2, p2: &Vec2) -> (f32, f32, f32) {
         ((p1.y - p2.y), (p2.x - p1.x), (p2.x * p1.y - p1.x * p2.y))
     }
 
+    #[inline(always)]
     /// Whether `p1`-`p2` and `p3`-`p4` intersect.
     pub fn segments_intersect(p1: &Vec2, p2: &Vec2, p3: &Vec2, p4: &Vec2) -> bool {
         let (a2, b2, c2) = DrawingStrategy::line_coeffs(p1, p2);

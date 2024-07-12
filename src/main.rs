@@ -79,6 +79,7 @@ struct FoodInfo {
     energy: f32,
 }
 
+#[inline(always)]
 fn window_conf() -> Conf {
     Conf {
         window_title: "eportal".to_owned(),

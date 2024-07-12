@@ -197,10 +197,11 @@ impl Body {
         body
     }
 
+    #[inline(always)]
     pub fn is_alive(&self) -> bool {
         !matches!(self.status, Status::Dead(..))
     }
-
+    
     pub fn wrap(&mut self, area_size: &Vec2) {
         if self.pos.x >= area_size.x {
             self.pos.x = MIN_GAP;

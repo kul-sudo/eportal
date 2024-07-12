@@ -17,6 +17,7 @@ pub struct Cells {
 }
 
 impl Cells {
+    #[inline(always)]
     pub fn get_cell_by_pos(&self, pos: &Vec2) -> Cell {
         Cell {
             i: (pos.y / self.cell_height) as usize,

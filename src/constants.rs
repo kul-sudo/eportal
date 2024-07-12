@@ -12,7 +12,7 @@ pub const DEFAULT_CELL_ROWS: usize = 129; // May be needed to be changed when th
 pub const DEFAULT_PLANTS_N: usize = 53914;
 pub static mut PLANTS_N: usize = 0;
 
-pub const AVERAGE_MAX_PLANTS_IN_ONE_CELL: usize = 8;
+pub const AVERAGE_MAX_PLANTS_IN_ONE_CELL: usize = 10;
 pub const AVERAGE_MAX_REMOVED_PLANTS_LEN: usize = 55;
 pub const AVERAGE_MAX_REMOVED_BODIES_LEN: usize = 3;
 pub const AVERAGE_MAX_NEW_BODIES_LEN: usize = 3;
