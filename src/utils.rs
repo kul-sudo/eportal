@@ -77,7 +77,6 @@ struct Data {
     ui: UIField,
 }
 
-#[inline(always)]
 pub fn config_setup() {
     let contents = match read_to_string(CONFIG_FILE_NAME) {
         Ok(contents) => contents,
@@ -154,7 +153,6 @@ pub fn config_setup() {
     };
 }
 
-#[inline(always)]
 pub fn enum_consts() -> (HashSet<usize>, HashSet<usize>) {
     // Skills
     let mut variant_count_ = variant_count::<Skill>();
@@ -221,7 +219,6 @@ pub fn show_evolution_info(
     }
 }
 
-#[inline(always)]
 pub fn show_fps(zoom: &Zoom, zoom_mode: bool) {
     let text = &format!("{:?}", ((get_fps() as f32 / 5.0).round() * 5.0) as usize);
 

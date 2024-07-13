@@ -1,3 +1,8 @@
+# rm -rf /tmp/pgo-data
+# RUSTFLAGS='-C target-cpu=native -C profile-generate=/tmp/pgo-data' cargo run --release;
+# ~/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/llvm-profdata merge -o ./merged.profdata /tmp/pgo-data
+# RUSTFLAGS='-C target-cpu=native -C profile-use=/home/user/eportal/merged.profdata' cargo run --release;
+
 [package]
 name = "eportal-rust"
 version = "0.1.0"
@@ -9,6 +14,7 @@ rand = { version = "0.8.5", features = ["std_rng"] }
 serde = "1.0.203"
 serde_derive = "1.0.203"
 toml = "0.8.14"
+
 [profile.release]
 opt-level = 3
 lto = true
