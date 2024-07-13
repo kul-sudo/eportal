@@ -41,6 +41,7 @@ pub static mut VISIONVIRUS_HEAL_ENERGY: f32 = 0.0;
 
 // UI
 pub static mut BODY_INFO_FONT_SIZE: u16 = 0;
+pub static mut SHOW_FPS: bool = false;
 
 pub static mut SHOW_ENERGY: bool = false;
 pub static mut SHOW_DIVISION_THRESHOLD: bool = false;

@@ -36,7 +36,9 @@ pub static mut PLANTS_N_FOR_ONE_STEP: usize = 0;
 
 // UI
 pub const EVOLUTION_INFO_FONT_SIZE: u16 = 500;
-pub const EVOLUTION_INFO_GAP: f32 = 180.0;
+pub const FPS_FONT_SIZE: u16 = 800;
+
+pub const EVOLUTION_INFO_GAP: f32 = 100.0;
 
 // Zoom
 pub const MAX_ZOOM: f32 = OBJECT_RADIUS;

@@ -58,6 +58,7 @@ struct VirusesField {
 #[derive(Deserialize)]
 pub struct UIField {
     body_info_font_size: u16,
+    show_fps: bool,
 
     show_energy: bool,
     show_division_threshold: bool,
@@ -142,6 +143,7 @@ pub fn config_setup() {
 
         // UI-related
         BODY_INFO_FONT_SIZE = ui.body_info_font_size;
+        SHOW_FPS = ui.show_fps;
 
         SHOW_ENERGY = ui.show_energy;
         SHOW_DIVISION_THRESHOLD = ui.show_division_threshold;
@@ -185,32 +187,59 @@ pub fn show_evolution_info(
         format!("bodies: {:?}", bodies_len - removed_bodies_len),
     ];
 
+    let mut gap = 0.0;
+
     if zoom_mode {
-        for (index, field) in evolution_info_fields.iter().enumerate() {
+        for field in evolution_info_fields {
             let evolution_info_font_size = (EVOLUTION_INFO_FONT_SIZE as f32 / MAX_ZOOM) as u16;
             let measured = measure_text(&field, None, evolution_info_font_size, 1.0);
 
             draw_text(
                 &field,
                 zoom.rect.unwrap().x + zoom.rect.unwrap().w - measured.width,
-                zoom.rect.unwrap().y
-                    + measured.height
-                    + (measured.height + EVOLUTION_INFO_GAP / MAX_ZOOM) * index as f32,
+                zoom.rect.unwrap().y + measured.offset_y + gap,
                 evolution_info_font_size as f32,
                 WHITE,
             );
+
+            gap += measured.offset_y + EVOLUTION_INFO_GAP / MAX_ZOOM;
         }
     } else {
-        for (index, field) in evolution_info_fields.iter().enumerate() {
+        for field in evolution_info_fields {
             let measured = measure_text(&field, None, EVOLUTION_INFO_FONT_SIZE, 1.0);
 
             draw_text(
                 &field,
                 area_size.x - measured.width,
-                measured.height + (measured.height + EVOLUTION_INFO_GAP) * index as f32,
+                measured.offset_y + gap,
                 EVOLUTION_INFO_FONT_SIZE as f32,
                 WHITE,
             );
+
+            gap += measured.offset_y + EVOLUTION_INFO_GAP;
         }
+    }
+}
+
+#[inline(always)]
+pub fn show_fps(zoom: &Zoom, zoom_mode: bool) {
+    let text = &format!("{:?}", ((get_fps() as f32 / 5.0).round() * 5.0) as usize);
+
+    if zoom_mode {
+        let font_size = (FPS_FONT_SIZE as f32 / MAX_ZOOM) as u16;
+
+        let measured = measure_text(&text, None, font_size, 1.0);
+
+        draw_text(
+            &text,
+            zoom.rect.unwrap().x,
+            zoom.rect.unwrap().y + measured.height,
+            font_size as f32,
+            WHITE,
+        );
+    } else {
+        let measured = measure_text(&text, None, FPS_FONT_SIZE, 1.0);
+
+        draw_text(&text, 0.0, measured.height, FPS_FONT_SIZE as f32, WHITE);
     }
 }

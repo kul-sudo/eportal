@@ -101,7 +101,7 @@ impl Body {
                 Some(initial_speed) => initial_speed,
                 None => unsafe { AVERAGE_SPEED },
             },
-            rng
+            rng,
         );
 
         let vision_distance = get_with_deviation(
@@ -109,7 +109,7 @@ impl Body {
                 Some(initial_vision_distance) => initial_vision_distance,
                 None => unsafe { AVERAGE_VISION_DISTANCE },
             },
-            rng
+            rng,
         );
 
         let mut body = Body {
@@ -128,7 +128,7 @@ impl Body {
                     Some(division_threshold) => division_threshold,
                     None => unsafe { AVERAGE_DIVISION_THRESHOLD },
                 },
-                rng
+                rng,
             ),
             skills: match skills {
                 Some(mut skills) => {

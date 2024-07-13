@@ -46,6 +46,7 @@ visionvirus_heal_energy = 500.0 # 500.0
 
 [ui]
 body_info_font_size = 17 # 17 (The font size of the info displayed over the bodies)
+show_fps = true # Whether to show how many frames roughly happen per second
 
 # Properties of a body to show over it
 show_energy = true # The current energy

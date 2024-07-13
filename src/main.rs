@@ -102,11 +102,11 @@ async fn main() {
         next_frame().await;
     }
 
-    let area_size = Vec2 {
+    let area_size = vec2(
         // OBJECT_RADIUS is equal to one pixel when unzoomed
-        x: screen_width() * OBJECT_RADIUS,
-        y: screen_height() * OBJECT_RADIUS,
-    };
+        screen_width() * OBJECT_RADIUS,
+        screen_height() * OBJECT_RADIUS,
+    );
 
     let mut cells = Cells::default();
     let area_space = area_size.x * area_size.y;
@@ -671,7 +671,7 @@ async fn main() {
 
                                     if unsafe { SHOW_BODY_TYPE } {
                                         to_display_components
-                                            .push(format!("body_type = {}", body.body_type));
+                                            .push(format!("body type = {}", body.body_type));
                                     }
 
                                     if unsafe { SHOW_LIFESPAN } {
@@ -744,6 +744,10 @@ async fn main() {
                     bodies.len(),
                     removed_bodies.len(),
                 );
+            }
+
+            if unsafe { SHOW_FPS } {
+                show_fps(&zoom, zoom_mode);
             }
 
             next_frame().await;
