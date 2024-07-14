@@ -28,6 +28,7 @@ pub struct Zoom {
     pub diagonal_extended_rect: f32,
 }
 
+#[inline(always)]
 /// Set the camera zoom to where the mouse cursor is.
 pub fn get_zoom_target(camera: &mut Camera2D, area_size: &Vec2, zoom: &mut Zoom) {
     zoom.center_pos = Some(adjusted_pos(&zoom.mouse_pos.unwrap(), &area_size));
@@ -50,6 +51,7 @@ pub fn get_zoom_target(camera: &mut Camera2D, area_size: &Vec2, zoom: &mut Zoom)
     set_camera(camera);
 }
 
+#[inline(always)]
 /// Reset the camera zoom.
 pub fn default_camera(camera: &mut Camera2D, area_size: &Vec2) {
     camera.target = vec2(area_size.x / 2.0, area_size.y / 2.0);

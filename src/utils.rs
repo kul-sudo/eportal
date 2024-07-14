@@ -171,6 +171,7 @@ pub fn enum_consts() -> (HashSet<usize>, HashSet<usize>) {
     (all_skills, all_viruses)
 }
 
+#[inline(always)]
 pub fn show_evolution_info(
     zoom: &Zoom,
     zoom_mode: bool,
@@ -219,8 +220,9 @@ pub fn show_evolution_info(
     }
 }
 
+#[inline(always)]
 pub fn show_fps(zoom: &Zoom, zoom_mode: bool) {
-    let text = &format!("{:?}", ((get_fps() as f32 / 5.0).round() * 5.0) as usize);
+    let text = format!("{:?}", ((get_fps() as f32 / 5.0).round() * 5.0) as usize);
 
     if zoom_mode {
         let font_size = (FPS_FONT_SIZE as f32 / MAX_ZOOM) as u16;

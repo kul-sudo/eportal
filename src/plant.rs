@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use macroquad::{color::GREEN, math::Vec2, shapes::draw_triangle};
+use macroquad::{color::GREEN, math::Vec2, prelude::vec2, shapes::draw_triangle};
 use rand::{rngs::StdRng, Rng};
 
 use crate::{constants::*, zoom::Zoom, Body, Cell, Cells};
@@ -17,22 +17,20 @@ impl Plant {
     #[inline(always)]
     pub fn draw(&self) {
         draw_triangle(
-            Vec2 {
-                x: self.pos.x,
-                y: self.pos.y - OBJECT_RADIUS,
-            },
-            Vec2 {
-                x: self.pos.x + OBJECT_RADIUS * (COSINE_OF_30_DEGREES),
-                y: self.pos.y + OBJECT_RADIUS / 2.0,
-            },
-            Vec2 {
-                x: self.pos.x - OBJECT_RADIUS * (COSINE_OF_30_DEGREES),
-                y: self.pos.y + OBJECT_RADIUS / 2.0,
-            },
+            vec2(self.pos.x, self.pos.y - OBJECT_RADIUS),
+            vec2(
+                self.pos.x + OBJECT_RADIUS * (COSINE_OF_30_DEGREES),
+                self.pos.y + OBJECT_RADIUS / 2.0,
+            ),
+            vec2(
+                self.pos.x - OBJECT_RADIUS * (COSINE_OF_30_DEGREES),
+                self.pos.y + OBJECT_RADIUS / 2.0,
+            ),
             GREEN,
         );
     }
 
+    #[inline(always)]
     /// Get the plants needed to be drawn.
     pub fn get_plants_to_draw<'a>(
         cells: &'a Cells,
@@ -82,6 +80,7 @@ impl Plant {
         plants_to_draw
     }
 
+    #[inline(always)]
     /// Spawn a plant to a random position on the field.
     pub fn randomly_spawn_plant(
         bodies: &HashMap<Instant, Body>,

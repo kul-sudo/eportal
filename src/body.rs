@@ -81,6 +81,7 @@ pub struct Body {
 #[allow(clippy::too_many_arguments)]
 impl Body {
     /// https://github.com/kul-sudo/eportal/blob/main/README.md#procreation may be helpful.
+    #[inline(always)]
     pub fn new(
         pos: Vec2,
         energy: Option<f32>,
@@ -216,6 +217,7 @@ impl Body {
         }
     }
 
+    #[inline(always)]
     pub fn draw(&self, zoom: &Zoom, zoom_mode: bool) {
         if zoom_mode {
             if let Some(extended_rect) = zoom.extended_rect {
@@ -291,6 +293,7 @@ impl Body {
         };
     }
 
+    #[inline(always)]
     /// Get what needs to be drawn. Needed for performance reasons, because there's no reason to
     /// draw anything beyond the zoom rectangle.
     pub fn get_drawing_strategy(&self, zoom: &Zoom) -> DrawingStrategy {
@@ -397,6 +400,7 @@ impl Body {
         drawing_strategy
     }
 
+    #[inline(always)]
     /// Heal from the viruses the body has and spend energy on it.
     pub fn handle_viruses(&mut self) {
         for (virus, energy_spent_for_healing) in &mut self.viruses {
@@ -423,6 +427,7 @@ impl Body {
         });
     }
 
+    #[inline(always)]
     /// Handle body-eaters walking and plant-eaters being idle.
     pub fn handle_walking_idle(&mut self, area_size: &Vec2, rng: &mut StdRng) {
         match self.eating_strategy {
@@ -448,6 +453,7 @@ impl Body {
         }
     }
 
+    #[inline(always)]
     /// Handle the energy. The function returns if the body has run out of energy.
     pub fn handle_energy(
         &mut self,
@@ -472,6 +478,7 @@ impl Body {
         }
     }
 
+    #[inline(always)]
     pub fn handle_lifespan(&mut self) {
         if self.status != Status::Idle {
             self.lifespan = (self.lifespan
@@ -480,6 +487,7 @@ impl Body {
         }
     }
 
+    #[inline(always)]
     /// Handle procreation and return if one has happened.
     pub fn handle_procreation(
         &mut self,
@@ -519,6 +527,7 @@ impl Body {
         }
     }
 
+    #[inline(always)]
     pub fn get_spent_energy(&self, time: f32) -> f32 {
         time * unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT } * self.speed.powi(2) * self.energy
             + unsafe { ENERGY_SPENT_CONST_FOR_MASS } * self.energy
@@ -614,6 +623,7 @@ impl Body {
         );
     }
 
+    #[inline(always)]
     pub fn handle_profitable_when_arrived_body(
         &self,
         other_body: &Body,
@@ -641,6 +651,7 @@ impl Body {
         }
     }
 
+    #[inline(always)]
     pub fn handle_profitable_when_arrived_plant(&self, plant: &Plant) -> bool {
         if self
             .skills
@@ -654,6 +665,7 @@ impl Body {
         }
     }
 
+    #[inline(always)]
     pub fn handle_alive_when_arrived_body(
         &self,
         other_body: &Body,
@@ -678,6 +690,7 @@ impl Body {
         }
     }
 
+    #[inline(always)]
     pub fn handle_alive_when_arrived_plant(&self, plant: &Plant) -> bool {
         if self.skills.contains(&(Skill::AliveWhenArrived as usize)) {
             let time = self.pos.distance(plant.pos) / self.speed;
@@ -688,6 +701,7 @@ impl Body {
         }
     }
 
+    #[inline(always)]
     pub fn handle_avoid_new_viruses(&self, other_body: &Body) -> bool {
         let is_alive = self.is_alive();
 
@@ -706,6 +720,7 @@ impl Body {
         }
     }
 
+    #[inline(always)]
     pub fn handle_do_not_complete_with_relatives(
         &self,
         id: &Instant,
@@ -728,6 +743,7 @@ impl Body {
         }
     }
 
+    #[inline(always)]
     pub fn handle_will_arive_first_body(
         &self,
         other_body_id: &Instant,
@@ -770,6 +786,7 @@ impl Body {
         }
     }
 
+    #[inline(always)]
     pub fn handle_will_arive_first_plant(
         &self,
         plant_id: &Instant,
@@ -797,6 +814,7 @@ impl Body {
         }
     }
 
+    #[inline(always)]
     pub fn handle_eat_crosses_of_my_type(&self, cross: &Body) -> bool {
         self.body_type != cross.body_type
             || self.skills.contains(&(Skill::EatCrossesOfMyType as usize))
