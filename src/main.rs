@@ -34,7 +34,10 @@ use utils::*;
 use macroquad::{
     camera::Camera2D,
     color::WHITE,
-    input::{is_key_down, is_key_pressed, is_mouse_button_pressed, mouse_position, KeyCode},
+    input::{
+        is_key_down, is_key_pressed, is_mouse_button_pressed,
+        mouse_position, KeyCode,
+    },
     math::{Rect, Vec2},
     miniquad::{window::set_fullscreen, MouseButton},
     prelude::vec2,
@@ -70,10 +73,10 @@ enum FoodType {
 }
 
 struct FoodInfo {
-    id: Instant,
+    id:        Instant,
     food_type: FoodType,
-    pos: Vec2,
-    energy: f32,
+    pos:       Vec2,
+    energy:    f32,
 }
 
 #[inline(always)]
@@ -93,7 +96,8 @@ async fn main() {
     config_setup();
     // Get all variants of enums (needed somewhere in the code)
     let (all_skills, all_viruses) = enum_consts();
-    let ui_show_properties_n = (size_of::<UIField>() - size_of::<u16>()) / size_of::<bool>();
+    let ui_show_properties_n =
+        (size_of::<UIField>() - size_of::<u16>()) / size_of::<bool>();
 
     // Workaround
     if OS == "linux" {
@@ -113,7 +117,8 @@ async fn main() {
 
     unsafe {
         PLANTS_N = (PLANTS_DENSITY * area_space).round() as usize;
-        PLANTS_N_FOR_ONE_STEP = (PLANT_SPAWN_CHANCE * area_space).round() as usize;
+        PLANTS_N_FOR_ONE_STEP =
+            (PLANT_SPAWN_CHANCE * area_space).round() as usize;
     }
 
     let area_size_ratio = area_size.x / area_size.y;
@@ -128,11 +133,17 @@ async fn main() {
     .round() as usize)
         .max(50)
         .min(200);
-    cells.columns = (cells.rows as f32 * area_size_ratio).round() as usize;
+    cells.columns =
+        (cells.rows as f32 * area_size_ratio).round() as usize;
     cells.cell_width = area_size.x / cells.columns as f32;
     cells.cell_height = area_size.y / cells.rows as f32;
 
-    let mut camera = Camera2D::from_display_rect(Rect::new(0.0, 0.0, area_size.x, area_size.y));
+    let mut camera = Camera2D::from_display_rect(Rect::new(
+        0.0,
+        0.0,
+        area_size.x,
+        area_size.y,
+    ));
     default_camera(&mut camera, &area_size);
 
     let mut rng = StdRng::from_entropy();
@@ -141,14 +152,17 @@ async fn main() {
     let mut evolution_info = false; // Whether the evolution info has to be shown
     let mut show_info = true; // Whether the info over the bodies has to be shown
 
-    let mut bodies: HashMap<Instant, Body> = HashMap::with_capacity(unsafe { BODIES_N });
+    let mut bodies: HashMap<Instant, Body> =
+        HashMap::with_capacity(unsafe { BODIES_N });
     let mut plants: HashMap<Cell, HashMap<Instant, Plant>> =
         HashMap::with_capacity(cells.rows * cells.columns);
     for i in 0..cells.rows {
         for j in 0..cells.columns {
             plants.insert(
                 Cell { i, j },
-                HashMap::with_capacity(AVERAGE_MAX_PLANTS_IN_ONE_CELL),
+                HashMap::with_capacity(
+                    AVERAGE_MAX_PLANTS_IN_ONE_CELL,
+                ),
             );
         }
     }
@@ -180,7 +194,13 @@ async fn main() {
 
     // Spawn the plants
     for _ in 0..unsafe { PLANTS_N } {
-        Plant::randomly_spawn_plant(&bodies, &mut plants, &area_size, &cells, &mut rng);
+        Plant::randomly_spawn_plant(
+            &bodies,
+            &mut plants,
+            &area_size,
+            &cells,
+            &mut rng,
+        );
         plants_n += 1;
     }
 
@@ -205,8 +225,11 @@ async fn main() {
         mouse_pos: None,
         rect: None,
         extended_rect: None,
-        diagonal_rect: (rect_width.powi(2) + rect_height.powi(2)).sqrt(),
-        diagonal_extended_rect: (extended_rect_width.powi(2) + extended_rect_height.powi(2)).sqrt(),
+        diagonal_rect: (rect_width.powi(2) + rect_height.powi(2))
+            .sqrt(),
+        diagonal_extended_rect: (extended_rect_width.powi(2)
+            + extended_rect_height.powi(2))
+        .sqrt(),
     };
 
     loop {
@@ -245,29 +268,48 @@ async fn main() {
                 Some(mouse_pos) => {
                     if mouse_pos != current_mouse_pos {
                         zoom.mouse_pos = Some(current_mouse_pos);
-                        get_zoom_target(&mut camera, &area_size, &mut zoom);
+                        get_zoom_target(
+                            &mut camera,
+                            &area_size,
+                            &mut zoom,
+                        );
                     }
                 }
                 None => {
                     zoom.mouse_pos = Some(current_mouse_pos);
-                    get_zoom_target(&mut camera, &area_size, &mut zoom);
+                    get_zoom_target(
+                        &mut camera,
+                        &area_size,
+                        &mut zoom,
+                    );
                 }
             }
         }
 
         // Remove plants
-        let n_to_remove = (plants_n as f32 * unsafe { PLANT_DIE_CHANCE }) as usize;
+        let n_to_remove =
+            (plants_n as f32 * unsafe { PLANT_DIE_CHANCE }) as usize;
 
         for _ in 0..n_to_remove {
             loop {
                 // Pick a random cell and remove a random plant from it
-                let random_cell = plants.iter().choose(&mut rng).unwrap().0;
+                let random_cell =
+                    plants.iter().choose(&mut rng).unwrap().0;
 
-                if let Some((random_plant_id, random_plant)) =
-                    plants.get(random_cell).unwrap().iter().choose(&mut rng)
+                if let Some((random_plant_id, random_plant)) = plants
+                    .get(random_cell)
+                    .unwrap()
+                    .iter()
+                    .choose(&mut rng)
                 {
-                    if !removed_plants.contains(&(*random_plant_id, random_plant.pos)) {
-                        removed_plants.push((*random_plant_id, random_plant.pos));
+                    if !removed_plants.contains(&(
+                        *random_plant_id,
+                        random_plant.pos,
+                    )) {
+                        removed_plants.push((
+                            *random_plant_id,
+                            random_plant.pos,
+                        ));
                         plants_n -= 1;
                         break;
                     }
@@ -277,13 +319,19 @@ async fn main() {
 
         // Spawn a plant in a random place with a specific chance
         for _ in 0..unsafe { PLANTS_N_FOR_ONE_STEP } {
-            Plant::randomly_spawn_plant(&bodies, &mut plants, &area_size, &cells, &mut rng);
+            Plant::randomly_spawn_plant(
+                &bodies,
+                &mut plants,
+                &area_size,
+                &cells,
+                &mut rng,
+            );
             plants_n += 1;
         }
 
         // Whether enough time has passed to draw a new frame
-        let is_draw_mode =
-            last_updated.elapsed().as_millis() >= Duration::from_secs(1 / FPS).as_millis();
+        let is_draw_mode = last_updated.elapsed().as_millis()
+            >= Duration::from_secs(1 / FPS).as_millis();
 
         // Due to certain borrowing rules, it's impossible to modify these during the loop,
         // so it'll be done after it
@@ -302,7 +350,9 @@ async fn main() {
 
             // Handle if completely dead
             if let Status::Dead(death_time) = body.status {
-                if death_time.elapsed().as_secs() >= unsafe { CROSS_LIFESPAN } {
+                if death_time.elapsed().as_secs()
+                    >= unsafe { CROSS_LIFESPAN }
+                {
                     removed_bodies.insert(*body_id);
                 }
                 continue;
@@ -329,16 +379,24 @@ async fn main() {
                 .filter(|(other_body_id, other_body)| {
                     &body_id != other_body_id
                         && !removed_bodies.contains(other_body_id)
-                        && body.pos.distance(other_body.pos) <= body.vision_distance
+                        && body.pos.distance(other_body.pos)
+                            <= body.vision_distance
                 })
                 .collect::<Vec<_>>();
 
-            if let Some((closest_chasing_body_id, closest_chasing_body)) = {
+            if let Some((
+                closest_chasing_body_id,
+                closest_chasing_body,
+            )) = {
                 let mut chasers = bodies_within_vision_distance
                     .iter()
                     .filter(|(other_body_id, _)| {
-                        if let Status::FollowingTarget(other_body_target) =
-                            bodies_shot_for_statuses.get(other_body_id).unwrap().status
+                        if let Status::FollowingTarget(
+                            other_body_target,
+                        ) = bodies_shot_for_statuses
+                            .get(other_body_id)
+                            .unwrap()
+                            .status
                         {
                             &other_body_target.0 == body_id
                         } else {
@@ -347,14 +405,14 @@ async fn main() {
                     })
                     .collect::<Vec<_>>();
 
-                if body
-                    .skills
-                    .contains(&(Skill::PrioritizeFasterChasers as usize))
-                    && chasers
-                        .iter()
-                        .any(|(_, other_body)| other_body.speed > body.speed)
-                {
-                    chasers.retain(|(_, other_body)| other_body.speed > body.speed)
+                if body.skills.contains(
+                    &(Skill::PrioritizeFasterChasers as usize),
+                ) && chasers.iter().any(|(_, other_body)| {
+                    other_body.speed > body.speed
+                }) {
+                    chasers.retain(|(_, other_body)| {
+                        other_body.speed > body.speed
+                    })
                 }
 
                 chasers
@@ -369,13 +427,19 @@ async fn main() {
                     **closest_chasing_body_id,
                     closest_chasing_body.body_type,
                 ));
-                bodies_shot_for_statuses.get_mut(body_id).unwrap().status = body.status;
+                bodies_shot_for_statuses
+                    .get_mut(body_id)
+                    .unwrap()
+                    .status = body.status;
 
-                let distance_to_closest_chasing_body = body.pos.distance(closest_chasing_body.pos);
+                let distance_to_closest_chasing_body =
+                    body.pos.distance(closest_chasing_body.pos);
 
-                body.pos.x -= (closest_chasing_body.pos.x - body.pos.x)
+                body.pos.x -= (closest_chasing_body.pos.x
+                    - body.pos.x)
                     * (body.speed / distance_to_closest_chasing_body);
-                body.pos.y -= (closest_chasing_body.pos.y - body.pos.y)
+                body.pos.y -= (closest_chasing_body.pos.y
+                    - body.pos.y)
                     * (body.speed / distance_to_closest_chasing_body);
 
                 body.wrap(&area_size);
@@ -384,10 +448,13 @@ async fn main() {
             }
 
             // Eating
-            let bodies_within_vision_distance_of_my_type = bodies_within_vision_distance
-                .iter()
-                .filter(|(_, other_body)| other_body.body_type == body.body_type)
-                .collect::<Vec<_>>();
+            let bodies_within_vision_distance_of_my_type =
+                bodies_within_vision_distance
+                    .iter()
+                    .filter(|(_, other_body)| {
+                        other_body.body_type == body.body_type
+                    })
+                    .collect::<Vec<_>>();
 
             let mut food: Option<FoodInfo> = None;
 
@@ -404,8 +471,12 @@ async fn main() {
                             &bodies_shot_for_statuses,
                             &bodies_within_vision_distance_of_my_type,
                         )
-                        && body.handle_alive_when_arrived_body(cross, true)
-                        && body.handle_profitable_when_arrived_body(cross, true)
+                        && body.handle_alive_when_arrived_body(
+                            cross, true,
+                        )
+                        && body.handle_profitable_when_arrived_body(
+                            cross, true,
+                        )
                         && body.handle_will_arive_first_body(
                             cross_id,
                             cross,
@@ -420,27 +491,39 @@ async fn main() {
                 }) {
                 Some((closest_cross_id, closest_cross)) => {
                     food = Some(FoodInfo {
-                        id: **closest_cross_id,
-                        food_type: FoodType::Body(closest_cross.viruses.clone()),
-                        pos: closest_cross.pos,
-                        energy: closest_cross.energy,
+                        id:        **closest_cross_id,
+                        food_type: FoodType::Body(
+                            closest_cross.viruses.clone(),
+                        ),
+                        pos:       closest_cross.pos,
+                        energy:    closest_cross.energy,
                     })
                 }
                 None => {
                     // Find the closest plant
-                    let mut visible_plants: HashMap<&Instant, &Plant> = HashMap::new();
+                    let mut visible_plants: HashMap<
+                        &Instant,
+                        &Plant,
+                    > = HashMap::new();
 
                     // Using these for ease of development
                     let (a, b) = (body.pos.x, body.pos.y);
                     let r = body.vision_distance;
-                    let (w, h) = (cells.cell_width, cells.cell_height);
+                    let (w, h) =
+                        (cells.cell_width, cells.cell_height);
                     let (m, n) = (cells.columns, cells.rows);
 
                     // Get the bottommost, topmost, leftmost, and rightmost rows/columns
-                    let i_min = ((b - r) / h).floor().max(0.0) as usize;
-                    let i_max = ((b + r) / h).floor().min(n as f32 - 1.0) as usize;
-                    let j_min = ((a - r) / w).floor().max(0.0) as usize;
-                    let j_max = ((a + r) / w).floor().min(m as f32 - 1.0) as usize;
+                    let i_min =
+                        ((b - r) / h).floor().max(0.0) as usize;
+                    let i_max =
+                        ((b + r) / h).floor().min(n as f32 - 1.0)
+                            as usize;
+                    let j_min =
+                        ((a - r) / w).floor().max(0.0) as usize;
+                    let j_max =
+                        ((a + r) / w).floor().min(m as f32 - 1.0)
+                            as usize;
 
                     // Get the row going through the center of the body
                     let body_i = cells.get_cell_by_pos(&body.pos).i;
@@ -457,36 +540,61 @@ async fn main() {
 
                     for i in i_min..=i_max {
                         if i == body_i {
-                            (j_min_for_i, j_max_for_i) = (j_min, j_max);
+                            (j_min_for_i, j_max_for_i) =
+                                (j_min, j_max);
                         } else {
-                            i_for_line = if i < body_i { i + 1 } else { i };
+                            i_for_line =
+                                if i < body_i { i + 1 } else { i };
 
-                            delta = r * (1.0 - ((i_for_line as f32 * h - b) / r).powi(2)).sqrt();
+                            delta = r
+                                * (1.0
+                                    - ((i_for_line as f32 * h - b)
+                                        / r)
+                                        .powi(2))
+                                .sqrt();
                             (j_min_for_i, j_max_for_i) = (
-                                ((a - delta) / w).floor().max(0.0) as usize,
-                                ((a + delta) / w).floor().min(m as f32 - 1.0) as usize,
+                                ((a - delta) / w).floor().max(0.0)
+                                    as usize,
+                                ((a + delta) / w)
+                                    .floor()
+                                    .min(m as f32 - 1.0)
+                                    as usize,
                             )
                         }
 
                         for j in j_min_for_i..=j_max_for_i {
                             // Center of the cell
-                            let (center_x, center_y) =
-                                (j as f32 * w + w / 2.0, i as f32 * h + h / 2.0);
+                            let (center_x, center_y) = (
+                                j as f32 * w + w / 2.0,
+                                i as f32 * h + h / 2.0,
+                            );
 
                             // true as usize = 1
                             // false as usize = 0
-                            let (i_adjustment, j_adjustment) =
-                                ((center_y > b) as usize, (center_x > a) as usize);
+                            let (i_adjustment, j_adjustment) = (
+                                (center_y > b) as usize,
+                                (center_x > a) as usize,
+                            );
 
-                            let fully_covered = (((j + j_adjustment) as f32) * w - a).powi(2)
-                                + (((i + i_adjustment) as f32) * h - b).powi(2)
-                                < r.powi(2);
+                            let fully_covered =
+                                (((j + j_adjustment) as f32) * w - a)
+                                    .powi(2)
+                                    + (((i + i_adjustment) as f32)
+                                        * h
+                                        - b)
+                                        .powi(2)
+                                    < r.powi(2);
 
-                            for (plant_id, plant) in plants_shot.get(&Cell { i, j }).unwrap() {
+                            for (plant_id, plant) in plants_shot
+                                .get(&Cell { i, j })
+                                .unwrap()
+                            {
                                 if fully_covered
-                                    || body.pos.distance(plant.pos) <= body.vision_distance
+                                    || body.pos.distance(plant.pos)
+                                        <= body.vision_distance
                                 {
-                                    visible_plants.insert(plant_id, plant);
+                                    visible_plants
+                                        .insert(plant_id, plant);
                                 }
                             }
                         }
@@ -517,10 +625,10 @@ async fn main() {
                             }) {
                             Some((closest_plant_id, closest_plant)) => {
                                 food = Some(FoodInfo {
-                                    id: **closest_plant_id,
+                                    id:        **closest_plant_id,
                                     food_type: FoodType::Plant,
-                                    pos: closest_plant.pos,
-                                    energy: PLANT_ENERGY,
+                                    pos:       closest_plant.pos,
+                                    energy:    PLANT_ENERGY,
                                 })
                             }
                             None => {
@@ -559,10 +667,10 @@ async fn main() {
                                         })
                                 {
                                     food = Some(FoodInfo {
-                                        id: **closest_body_id,
+                                        id:        **closest_body_id,
                                         food_type: FoodType::Body(closest_body.viruses.clone()),
-                                        pos: closest_body.pos,
-                                        energy: closest_body.energy,
+                                        pos:       closest_body.pos,
+                                        energy:    closest_body.energy,
                                     })
                                 }
                             }
@@ -588,11 +696,17 @@ async fn main() {
                         }
                     }
                 } else {
-                    body.status = Status::FollowingTarget((food.id, food.pos));
-                    bodies_shot_for_statuses.get_mut(body_id).unwrap().status = body.status;
+                    body.status =
+                        Status::FollowingTarget((food.id, food.pos));
+                    bodies_shot_for_statuses
+                        .get_mut(body_id)
+                        .unwrap()
+                        .status = body.status;
 
-                    body.pos.x += (food.pos.x - body.pos.x) * (body.speed / distance_to_food);
-                    body.pos.y += (food.pos.y - body.pos.y) * (body.speed / distance_to_food);
+                    body.pos.x += (food.pos.x - body.pos.x)
+                        * (body.speed / distance_to_food);
+                    body.pos.y += (food.pos.y - body.pos.y)
+                        * (body.speed / distance_to_food);
 
                     continue;
                 }
@@ -620,14 +734,19 @@ async fn main() {
         if is_draw_mode {
             if !is_draw_prevented {
                 if zoom_mode {
-                    for plant in Plant::get_plants_to_draw(&cells, &zoom, &plants, &removed_plants)
-                    {
+                    for plant in Plant::get_plants_to_draw(
+                        &cells,
+                        &zoom,
+                        &plants,
+                        &removed_plants,
+                    ) {
                         plant.draw();
                     }
 
                     for (body_id, body) in &bodies {
                         if !removed_bodies.contains(body_id) {
-                            let drawing_strategy = body.get_drawing_strategy(&zoom);
+                            let drawing_strategy =
+                                body.get_drawing_strategy(&zoom);
 
                             if show_info {
                                 if drawing_strategy.vision_distance {
@@ -641,7 +760,10 @@ async fn main() {
                                 }
 
                                 if drawing_strategy.target_line {
-                                    if let Status::FollowingTarget((_, target_pos)) = body.status {
+                                    if let Status::FollowingTarget(
+                                        (_, target_pos),
+                                    ) = body.status
+                                    {
                                         draw_line(
                                             body.pos.x,
                                             body.pos.y,
@@ -655,42 +777,74 @@ async fn main() {
 
                                 if body.is_alive() {
                                     let mut to_display_components =
-                                        Vec::with_capacity(ui_show_properties_n);
+                                        Vec::with_capacity(
+                                            ui_show_properties_n,
+                                        );
 
                                     if unsafe { SHOW_ENERGY } {
-                                        to_display_components
-                                            .push(format!("energy = {}", body.energy as usize));
+                                        to_display_components.push(
+                                            format!(
+                                                "energy = {}",
+                                                body.energy as usize
+                                            ),
+                                        );
                                     }
 
-                                    if unsafe { SHOW_DIVISION_THRESHOLD } {
-                                        to_display_components.push(format!(
+                                    if unsafe {
+                                        SHOW_DIVISION_THRESHOLD
+                                    } {
+                                        to_display_components.push(
+                                            format!(
                                             "dt = {}",
-                                            body.division_threshold as usize
-                                        ));
+                                            body.division_threshold
+                                                as usize
+                                        ),
+                                        );
                                     }
 
                                     if unsafe { SHOW_BODY_TYPE } {
-                                        to_display_components
-                                            .push(format!("body type = {}", body.body_type));
+                                        to_display_components.push(
+                                            format!(
+                                                "body type = {}",
+                                                body.body_type
+                                            ),
+                                        );
                                     }
 
                                     if unsafe { SHOW_LIFESPAN } {
-                                        to_display_components
-                                            .push(format!("lifespan = {}", body.lifespan as usize));
+                                        to_display_components.push(
+                                            format!(
+                                                "lifespan = {}",
+                                                body.lifespan
+                                                    as usize
+                                            ),
+                                        );
                                     }
 
                                     if unsafe { SHOW_SKILLS } {
-                                        to_display_components
-                                            .push(format!("skills = {:?}", body.skills));
+                                        to_display_components.push(
+                                            format!(
+                                                "skills = {:?}",
+                                                body.skills
+                                            ),
+                                        );
                                     }
 
                                     if unsafe { SHOW_VIRUSES } {
-                                        to_display_components
-                                            .push(format!("viruses = {:?}", body.viruses.keys()));
+                                        to_display_components.push(
+                                            format!(
+                                                "viruses = {:?}",
+                                                body.viruses.keys()
+                                            ),
+                                        );
                                     }
 
-                                    if !to_display_components.is_empty() {
-                                        let to_display = to_display_components.join(" | ");
+                                    if !to_display_components
+                                        .is_empty()
+                                    {
+                                        let to_display =
+                                            to_display_components
+                                                .join(" | ");
                                         draw_text(
                                             &to_display,
                                             body.pos.x
@@ -718,7 +872,9 @@ async fn main() {
                 } else {
                     for cell in plants.values() {
                         for (plant_id, plant) in cell {
-                            if !removed_plants.contains(&(*plant_id, plant.pos)) {
+                            if !removed_plants
+                                .contains(&(*plant_id, plant.pos))
+                            {
                                 plant.draw();
                             }
                         }

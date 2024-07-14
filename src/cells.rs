@@ -10,9 +10,9 @@ pub struct Cell {
 
 #[derive(Default, Debug)]
 pub struct Cells {
-    pub rows: usize,
-    pub columns: usize,
-    pub cell_width: f32,
+    pub rows:        usize,
+    pub columns:     usize,
+    pub cell_width:  f32,
     pub cell_height: f32,
 }
 

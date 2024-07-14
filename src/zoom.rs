@@ -8,30 +8,35 @@ use crate::{adjusted_pos, constants::*};
 #[derive(Clone, Copy)]
 pub struct Zoom {
     /// The width of the part of the area size the zoom shows.
-    pub scaling_width: f32,
+    pub scaling_width:          f32,
     /// The height of the part of the area size the zoom shows.
-    pub scaling_height: f32,
+    pub scaling_height:         f32,
     /// The width of the zoom.
-    pub width: f32,
+    pub width:                  f32,
     /// The height of the zoom.
-    pub height: f32,
+    pub height:                 f32,
     /// The position of the center of the zoom rectangle.
-    pub center_pos: Option<Vec2>,
-    pub mouse_pos: Option<Vec2>,
+    pub center_pos:             Option<Vec2>,
+    pub mouse_pos:              Option<Vec2>,
     /// The rectangle on the same place as the camera.
-    pub rect: Option<Rect>,
+    pub rect:                   Option<Rect>,
     /// Normal rect size + OBJECT_RADIUS * 2.0.
-    pub extended_rect: Option<Rect>,
+    pub extended_rect:          Option<Rect>,
     /// The diagonal of the normal rectangle.
-    pub diagonal_rect: f32,
+    pub diagonal_rect:          f32,
     /// The diagonal of the extended rectangle.
     pub diagonal_extended_rect: f32,
 }
 
 #[inline(always)]
 /// Set the camera zoom to where the mouse cursor is.
-pub fn get_zoom_target(camera: &mut Camera2D, area_size: &Vec2, zoom: &mut Zoom) {
-    zoom.center_pos = Some(adjusted_pos(&zoom.mouse_pos.unwrap(), &area_size));
+pub fn get_zoom_target(
+    camera: &mut Camera2D,
+    area_size: &Vec2,
+    zoom: &mut Zoom,
+) {
+    zoom.center_pos =
+        Some(adjusted_pos(&zoom.mouse_pos.unwrap(), &area_size));
     zoom.rect = Some(Rect::new(
         zoom.center_pos.unwrap().x - zoom.width / 2.0,
         zoom.center_pos.unwrap().y - zoom.height / 2.0,
@@ -41,7 +46,9 @@ pub fn get_zoom_target(camera: &mut Camera2D, area_size: &Vec2, zoom: &mut Zoom)
 
     zoom.extended_rect = Some(Rect::new(
         zoom.center_pos.unwrap().x - zoom.width / 2.0 - OBJECT_RADIUS,
-        zoom.center_pos.unwrap().y - zoom.height / 2.0 - OBJECT_RADIUS,
+        zoom.center_pos.unwrap().y
+            - zoom.height / 2.0
+            - OBJECT_RADIUS,
         zoom.width + OBJECT_RADIUS * 2.0,
         zoom.height + OBJECT_RADIUS * 2.0,
     ));
@@ -55,6 +62,9 @@ pub fn get_zoom_target(camera: &mut Camera2D, area_size: &Vec2, zoom: &mut Zoom)
 /// Reset the camera zoom.
 pub fn default_camera(camera: &mut Camera2D, area_size: &Vec2) {
     camera.target = vec2(area_size.x / 2.0, area_size.y / 2.0);
-    camera.zoom = vec2(MIN_ZOOM / area_size.x * 2.0, MIN_ZOOM / area_size.y * 2.0);
+    camera.zoom = vec2(
+        MIN_ZOOM / area_size.x * 2.0,
+        MIN_ZOOM / area_size.y * 2.0,
+    );
     set_camera(camera);
 }

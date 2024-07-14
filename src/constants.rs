@@ -18,7 +18,8 @@ pub const AVERAGE_MAX_REMOVED_BODIES_LEN: usize = 3;
 pub const AVERAGE_MAX_NEW_BODIES_LEN: usize = 3;
 
 /// The recommended constants in config.toml have been detemined for this area space.
-pub static DEFAULT_AREA_SIZE_RATIO: f32 = DEFAULT_SCREEN_WIDTH / DEFAULT_SCREEN_HEIGHT;
+pub static DEFAULT_AREA_SIZE_RATIO: f32 =
+    DEFAULT_SCREEN_WIDTH / DEFAULT_SCREEN_HEIGHT;
 
 pub const OBJECT_RADIUS: f32 = 10.0;
 /// Used for `get_with_deviation`.

@@ -13,68 +13,68 @@ use toml::from_str;
 
 #[derive(Deserialize)]
 struct BodyField {
-    bodies_n: usize,
-    passive_chance: f32,
-    average_energy: f32,
-    average_speed: f32,
+    bodies_n:                   usize,
+    passive_chance:             f32,
+    average_energy:             f32,
+    average_speed:              f32,
     average_division_threshold: f32,
-    average_vision_distance: f32,
-    skills_change_chance: f32,
-    deviation: f32,
-    lifespan: f32,
-    min_energy: f32,
-    cross_lifespan: u64,
-    const_for_lifespan: f32,
+    average_vision_distance:    f32,
+    skills_change_chance:       f32,
+    deviation:                  f32,
+    lifespan:                   f32,
+    min_energy:                 f32,
+    cross_lifespan:             u64,
+    const_for_lifespan:         f32,
 }
 
 #[derive(Deserialize)]
 struct PlantField {
-    plants_density: f32,
+    plants_density:     f32,
     plant_spawn_chance: f32,
-    plant_die_chance: f32,
+    plant_die_chance:   f32,
 }
 
 #[derive(Deserialize)]
 struct EnergyField {
-    energy_spent_const_for_mass: f32,
-    energy_spent_const_for_skills: f32,
+    energy_spent_const_for_mass:            f32,
+    energy_spent_const_for_skills:          f32,
     energy_spent_const_for_vision_distance: f32,
-    energy_spent_const_for_movement: f32,
+    energy_spent_const_for_movement:        f32,
 }
 
 #[derive(Deserialize)]
 struct VirusesField {
     speedvirus_first_generation_infection_chance: f32,
-    speedvirus_speed_decrease: f32,
-    speedvirus_energy_spent_for_healing: f32,
-    speedvirus_heal_energy: f32,
+    speedvirus_speed_decrease:                    f32,
+    speedvirus_energy_spent_for_healing:          f32,
+    speedvirus_heal_energy:                       f32,
 
     visionvirus_first_generation_infection_chance: f32,
-    visionvirus_vision_distance_decrease: f32,
-    visionvirus_energy_spent_for_healing: f32,
-    visionvirus_heal_energy: f32,
+    visionvirus_vision_distance_decrease:          f32,
+    visionvirus_energy_spent_for_healing:          f32,
+    visionvirus_heal_energy:                       f32,
 }
 
 #[derive(Deserialize)]
 pub struct UIField {
     body_info_font_size: u16,
-    show_fps: bool,
+    show_fps:            bool,
 
-    show_energy: bool,
+    show_energy:             bool,
     show_division_threshold: bool,
-    show_body_type: bool,
-    show_lifespan: bool,
-    show_skills: bool,
-    show_viruses: bool,
+    show_body_type:          bool,
+    show_lifespan:           bool,
+    show_skills:             bool,
+    show_viruses:            bool,
 }
 
 #[derive(Deserialize)]
 struct Data {
-    body: BodyField,
-    plants: PlantField,
-    energy: EnergyField,
+    body:    BodyField,
+    plants:  PlantField,
+    energy:  EnergyField,
     viruses: VirusesField,
-    ui: UIField,
+    ui:      UIField,
 }
 
 pub fn config_setup() {
@@ -125,20 +125,27 @@ pub fn config_setup() {
         SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE =
             viruses.speedvirus_first_generation_infection_chance;
         SPEEDVIRUS_SPEED_DECREASE = viruses.speedvirus_speed_decrease;
-        SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING = viruses.speedvirus_energy_spent_for_healing;
+        SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING =
+            viruses.speedvirus_energy_spent_for_healing;
         SPEEDVIRUS_HEAL_ENERGY = viruses.speedvirus_heal_energy;
 
         VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE =
             viruses.visionvirus_first_generation_infection_chance;
-        VISIONVIRUS_VISION_DISTANCE_DECREASE = viruses.visionvirus_vision_distance_decrease;
-        VISIONVIRUS_ENERGY_SPENT_FOR_HEALING = viruses.visionvirus_energy_spent_for_healing;
+        VISIONVIRUS_VISION_DISTANCE_DECREASE =
+            viruses.visionvirus_vision_distance_decrease;
+        VISIONVIRUS_ENERGY_SPENT_FOR_HEALING =
+            viruses.visionvirus_energy_spent_for_healing;
         VISIONVIRUS_HEAL_ENERGY = viruses.visionvirus_heal_energy;
 
         // Energy-related
-        ENERGY_SPENT_CONST_FOR_MASS = energy.energy_spent_const_for_mass;
-        ENERGY_SPENT_CONST_FOR_SKILLS = energy.energy_spent_const_for_skills;
-        ENERGY_SPENT_CONST_FOR_VISION_DISTANCE = energy.energy_spent_const_for_vision_distance;
-        ENERGY_SPENT_CONST_FOR_MOVEMENT = energy.energy_spent_const_for_movement;
+        ENERGY_SPENT_CONST_FOR_MASS =
+            energy.energy_spent_const_for_mass;
+        ENERGY_SPENT_CONST_FOR_SKILLS =
+            energy.energy_spent_const_for_skills;
+        ENERGY_SPENT_CONST_FOR_VISION_DISTANCE =
+            energy.energy_spent_const_for_vision_distance;
+        ENERGY_SPENT_CONST_FOR_MOVEMENT =
+            energy.energy_spent_const_for_movement;
 
         // UI-related
         BODY_INFO_FONT_SIZE = ui.body_info_font_size;
@@ -190,12 +197,19 @@ pub fn show_evolution_info(
 
     if zoom_mode {
         for field in evolution_info_fields {
-            let evolution_info_font_size = (EVOLUTION_INFO_FONT_SIZE as f32 / MAX_ZOOM) as u16;
-            let measured = measure_text(&field, None, evolution_info_font_size, 1.0);
+            let evolution_info_font_size =
+                (EVOLUTION_INFO_FONT_SIZE as f32 / MAX_ZOOM) as u16;
+            let measured = measure_text(
+                &field,
+                None,
+                evolution_info_font_size,
+                1.0,
+            );
 
             draw_text(
                 &field,
-                zoom.rect.unwrap().x + zoom.rect.unwrap().w - measured.width,
+                zoom.rect.unwrap().x + zoom.rect.unwrap().w
+                    - measured.width,
                 zoom.rect.unwrap().y + measured.offset_y + gap,
                 evolution_info_font_size as f32,
                 WHITE,
@@ -205,7 +219,12 @@ pub fn show_evolution_info(
         }
     } else {
         for field in evolution_info_fields {
-            let measured = measure_text(&field, None, EVOLUTION_INFO_FONT_SIZE, 1.0);
+            let measured = measure_text(
+                &field,
+                None,
+                EVOLUTION_INFO_FONT_SIZE,
+                1.0,
+            );
 
             draw_text(
                 &field,
@@ -222,7 +241,10 @@ pub fn show_evolution_info(
 
 #[inline(always)]
 pub fn show_fps(zoom: &Zoom, zoom_mode: bool) {
-    let text = format!("{:?}", ((get_fps() as f32 / 5.0).round() * 5.0) as usize);
+    let text = format!(
+        "{:?}",
+        ((get_fps() as f32 / 5.0).round() * 5.0) as usize
+    );
 
     if zoom_mode {
         let font_size = (FPS_FONT_SIZE as f32 / MAX_ZOOM) as u16;
@@ -239,6 +261,12 @@ pub fn show_fps(zoom: &Zoom, zoom_mode: bool) {
     } else {
         let measured = measure_text(&text, None, FPS_FONT_SIZE, 1.0);
 
-        draw_text(&text, 0.0, measured.height, FPS_FONT_SIZE as f32, WHITE);
+        draw_text(
+            &text,
+            0.0,
+            measured.height,
+            FPS_FONT_SIZE as f32,
+            WHITE,
+        );
     }
 }
