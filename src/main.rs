@@ -31,20 +31,14 @@ use std::{
 };
 use utils::*;
 
-use macroquad::{
-    camera::Camera2D,
-    color::WHITE,
-    input::{
-        is_key_down, is_key_pressed, is_mouse_button_pressed,
-        mouse_position, KeyCode,
-    },
-    math::{Rect, Vec2},
-    miniquad::{window::set_fullscreen, MouseButton},
-    prelude::vec2,
-    shapes::{draw_circle_lines, draw_line},
-    text::{draw_text, measure_text},
-    window::{next_frame, screen_height, screen_width, Conf},
+use macroquad::prelude::{
+    draw_circle_lines, draw_line, draw_text, is_key_down,
+    is_key_pressed, is_mouse_button_pressed, measure_text,
+    mouse_position, next_frame, screen_height, screen_width,
+    set_fullscreen, vec2, Camera2D, Conf, KeyCode, MouseButton, Rect,
+    Vec2, WHITE,
 };
+
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng, SeedableRng};
 
 /// Adjust the coordinates according to the borders.
@@ -90,14 +84,19 @@ fn window_conf() -> Conf {
 
 pub static mut TOTAL_SKILLS_COUNT: usize = 0;
 pub static mut VIRUSES_COUNT: usize = 0;
+pub static mut UI_SHOW_PROPERTIES_N: usize = 0;
 
 #[macroquad::main(window_conf)]
 async fn main() {
     config_setup();
     // Get all variants of enums (needed somewhere in the code)
     let (all_skills, all_viruses) = enum_consts();
-    let ui_show_properties_n =
-        (size_of::<UIField>() - size_of::<u16>()) / size_of::<bool>();
+
+    unsafe {
+        UI_SHOW_PROPERTIES_N = (size_of::<UIField>()
+            - size_of::<u16>())
+            / size_of::<bool>();
+    }
 
     // Workaround
     if OS == "linux" {
@@ -144,6 +143,7 @@ async fn main() {
         area_size.x,
         area_size.y,
     ));
+
     default_camera(&mut camera, &area_size);
 
     let mut rng = StdRng::from_entropy();
@@ -166,11 +166,6 @@ async fn main() {
             );
         }
     }
-
-    let mut removed_plants: Vec<(Instant, Vec2)> =
-        Vec::with_capacity(AVERAGE_MAX_REMOVED_PLANTS_LEN);
-    let mut removed_bodies: HashSet<Instant> =
-        HashSet::with_capacity(AVERAGE_MAX_REMOVED_BODIES_LEN);
 
     // Spawn the bodies
     for i in 0..unsafe { BODIES_N } {
@@ -204,6 +199,12 @@ async fn main() {
         plants_n += 1;
     }
 
+    let mut removed_plants: Vec<(Instant, Vec2)> =
+        Vec::with_capacity(AVERAGE_MAX_PLANTS_REMOVED);
+
+    let mut removed_bodies: HashSet<Instant> =
+        HashSet::with_capacity(AVERAGE_MAX_BODIES_REMOVED);
+
     // The timer needed for the FPS
     let mut last_updated = Instant::now();
 
@@ -212,6 +213,11 @@ async fn main() {
     let rect_width = screen_width() / MAX_ZOOM * OBJECT_RADIUS;
     let rect_height = screen_height() / MAX_ZOOM * OBJECT_RADIUS;
 
+    let rect_size = vec2(
+        screen_width() / MAX_ZOOM * OBJECT_RADIUS,
+        screen_height() / MAX_ZOOM * OBJECT_RADIUS,
+    );
+
     let extended_rect_width = rect_width + OBJECT_RADIUS * 2.0;
     let extended_rect_height = rect_height + OBJECT_RADIUS * 2.0;
 
@@ -219,8 +225,6 @@ async fn main() {
     let mut zoom = Zoom {
         scaling_width,
         scaling_height,
-        width: rect_width,
-        height: rect_height,
         center_pos: None,
         mouse_pos: None,
         rect: None,
@@ -272,6 +276,7 @@ async fn main() {
                             &mut camera,
                             &area_size,
                             &mut zoom,
+                            &rect_size,
                         );
                     }
                 }
@@ -281,6 +286,7 @@ async fn main() {
                         &mut camera,
                         &area_size,
                         &mut zoom,
+                        &rect_size,
                     );
                 }
             }
@@ -336,7 +342,10 @@ async fn main() {
         // Due to certain borrowing rules, it's impossible to modify these during the loop,
         // so it'll be done after it
         let mut new_bodies: HashMap<Instant, Body> =
-            HashMap::with_capacity(AVERAGE_MAX_NEW_BODIES_LEN);
+            HashMap::with_capacity(
+                (bodies.len() as f32 * AVERAGE_PART_DIVIDE) as usize,
+            );
+
         let bodies_shot = bodies.clone();
         let mut bodies_shot_for_statuses = bodies.clone();
 
@@ -727,6 +736,18 @@ async fn main() {
             body.handle_walking_idle(&area_size, &mut rng);
         }
 
+        for (plant_id, plant_pos) in &removed_plants {
+            plants
+                .get_mut(&cells.get_cell_by_pos(plant_pos))
+                .unwrap()
+                .remove(plant_id);
+        }
+        removed_plants.clear();
+
+        for body_id in &removed_bodies {
+            bodies.remove(body_id);
+        }
+        removed_bodies.clear();
         for (new_body_id, new_body) in new_bodies {
             bodies.insert(new_body_id, new_body);
         }
@@ -743,129 +764,44 @@ async fn main() {
                         plant.draw();
                     }
 
-                    for (body_id, body) in &bodies {
-                        if !removed_bodies.contains(body_id) {
-                            let drawing_strategy =
-                                body.get_drawing_strategy(&zoom);
+                    for body in bodies.values() {
+                        let drawing_strategy =
+                            body.get_drawing_strategy(&zoom);
 
-                            if show_info {
-                                if drawing_strategy.vision_distance {
-                                    draw_circle_lines(
-                                        body.pos.x,
-                                        body.pos.y,
-                                        body.vision_distance,
-                                        2.0,
-                                        body.color,
-                                    );
-                                }
-
-                                if drawing_strategy.target_line {
-                                    if let Status::FollowingTarget(
-                                        (_, target_pos),
-                                    ) = body.status
-                                    {
-                                        draw_line(
-                                            body.pos.x,
-                                            body.pos.y,
-                                            target_pos.x,
-                                            target_pos.y,
-                                            2.0,
-                                            WHITE,
-                                        );
-                                    }
-                                }
-
-                                if body.is_alive() {
-                                    let mut to_display_components =
-                                        Vec::with_capacity(
-                                            ui_show_properties_n,
-                                        );
-
-                                    if unsafe { SHOW_ENERGY } {
-                                        to_display_components.push(
-                                            format!(
-                                                "energy = {}",
-                                                body.energy as usize
-                                            ),
-                                        );
-                                    }
-
-                                    if unsafe {
-                                        SHOW_DIVISION_THRESHOLD
-                                    } {
-                                        to_display_components.push(
-                                            format!(
-                                            "dt = {}",
-                                            body.division_threshold
-                                                as usize
-                                        ),
-                                        );
-                                    }
-
-                                    if unsafe { SHOW_BODY_TYPE } {
-                                        to_display_components.push(
-                                            format!(
-                                                "body type = {}",
-                                                body.body_type
-                                            ),
-                                        );
-                                    }
-
-                                    if unsafe { SHOW_LIFESPAN } {
-                                        to_display_components.push(
-                                            format!(
-                                                "lifespan = {}",
-                                                body.lifespan
-                                                    as usize
-                                            ),
-                                        );
-                                    }
-
-                                    if unsafe { SHOW_SKILLS } {
-                                        to_display_components.push(
-                                            format!(
-                                                "skills = {:?}",
-                                                body.skills
-                                            ),
-                                        );
-                                    }
-
-                                    if unsafe { SHOW_VIRUSES } {
-                                        to_display_components.push(
-                                            format!(
-                                                "viruses = {:?}",
-                                                body.viruses.keys()
-                                            ),
-                                        );
-                                    }
-
-                                    if !to_display_components
-                                        .is_empty()
-                                    {
-                                        let to_display =
-                                            to_display_components
-                                                .join(" | ");
-                                        draw_text(
-                                            &to_display,
-                                            body.pos.x
-                                                - measure_text(
-                                                    &to_display,
-                                                    None,
-                                                    unsafe { BODY_INFO_FONT_SIZE },
-                                                    1.0,
-                                                )
-                                                .width
-                                                    / 2.0,
-                                            body.pos.y - OBJECT_RADIUS - MIN_GAP,
-                                            unsafe { BODY_INFO_FONT_SIZE } as f32,
-                                            WHITE,
-                                        );
-                                    }
-                                }
+                        if show_info {
+                            if drawing_strategy.vision_distance {
+                                draw_circle_lines(
+                                    body.pos.x,
+                                    body.pos.y,
+                                    body.vision_distance,
+                                    2.0,
+                                    body.color,
+                                );
                             }
 
-                            if drawing_strategy.body {
-                                body.draw(&zoom, zoom_mode);
+                            if drawing_strategy.target_line {
+                                if let Status::FollowingTarget((
+                                    _,
+                                    target_pos,
+                                )) = body.status
+                                {
+                                    draw_line(
+                                        body.pos.x,
+                                        body.pos.y,
+                                        target_pos.x,
+                                        target_pos.y,
+                                        2.0,
+                                        WHITE,
+                                    );
+                                }
+                            }
+                        }
+
+                        if drawing_strategy.body {
+                            body.draw(&zoom, zoom_mode);
+
+                            if show_info && body.is_alive() {
+                                body.draw_info();
                             }
                         }
                     }
@@ -907,19 +843,6 @@ async fn main() {
             }
 
             next_frame().await;
-
-            for (plant_id, plant_pos) in &removed_plants {
-                plants
-                    .get_mut(&cells.get_cell_by_pos(plant_pos))
-                    .unwrap()
-                    .remove(plant_id);
-            }
-            removed_plants.clear();
-
-            for body_id in &removed_bodies {
-                bodies.remove(body_id);
-            }
-            removed_bodies.clear();
         }
     }
 }

@@ -1,10 +1,8 @@
 use crate::user_constants::*;
 use crate::{TOTAL_SKILLS_COUNT, VIRUSES_COUNT};
-use macroquad::{
-    color::{Color, GREEN, RED},
-    math::{vec2, Circle, Vec2, Vec3},
-    rand::gen_range,
-    shapes::{draw_circle, draw_line, draw_rectangle},
+use macroquad::prelude::{
+    draw_circle, draw_line, draw_rectangle, draw_text, measure_text,
+    vec2, Circle, Color, Vec2, Vec3, GREEN, RED, WHITE,
 };
 use rand::random;
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng};
@@ -22,6 +20,7 @@ use crate::{
     plant::Plant,
     smart_drawing::{DrawingStrategy, RectangleCorner},
     zoom::Zoom,
+    UI_SHOW_PROPERTIES_N,
 };
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -298,6 +297,65 @@ impl Body {
         }
     }
 
+    pub fn draw_info(&self) {
+        let mut to_display_components =
+            Vec::with_capacity(unsafe { UI_SHOW_PROPERTIES_N });
+
+        if unsafe { SHOW_ENERGY } {
+            to_display_components
+                .push(format!("energy = {}", self.energy as usize));
+        }
+
+        if unsafe { SHOW_DIVISION_THRESHOLD } {
+            to_display_components.push(format!(
+                "dt = {}",
+                self.division_threshold as usize
+            ));
+        }
+
+        if unsafe { SHOW_BODY_TYPE } {
+            to_display_components
+                .push(format!("body type = {}", self.body_type));
+        }
+
+        if unsafe { SHOW_LIFESPAN } {
+            to_display_components.push(format!(
+                "lifespan = {}",
+                self.lifespan as usize
+            ));
+        }
+
+        if unsafe { SHOW_SKILLS } {
+            to_display_components
+                .push(format!("skills = {:?}", self.skills));
+        }
+
+        if unsafe { SHOW_VIRUSES } {
+            to_display_components
+                .push(format!("viruses = {:?}", self.viruses.keys()));
+        }
+
+        if !to_display_components.is_empty() {
+            let to_display = to_display_components.join(" | ");
+            draw_text(
+                &to_display,
+                self.pos.x
+                    - measure_text(
+                        &to_display,
+                        None,
+                        unsafe { BODY_INFO_FONT_SIZE },
+                        1.0,
+                    )
+                    .width
+                        / 2.0,
+                self.pos.y - OBJECT_RADIUS - MIN_GAP,
+                unsafe { BODY_INFO_FONT_SIZE } as f32,
+                WHITE,
+            );
+        }
+    }
+
+    #[inline(always)]
     /// Get the body infected with every virus it doesnn't have yet.
     pub fn get_viruses(&mut self, viruses: &HashMap<usize, f32>) {
         for virus in viruses.keys() {
@@ -308,6 +366,7 @@ impl Body {
         }
     }
 
+    #[inline(always)]
     /// Make a virus do its job.
     pub fn apply_virus(&mut self, virus: &usize) {
         match unsafe { transmute::<usize, Virus>(*virus) } {
@@ -350,9 +409,10 @@ impl Body {
             rectangle_corners.insert(
                 corner,
                 vec2(
-                    zoom.center_pos.unwrap().x + i * zoom.width / 2.0,
+                    zoom.center_pos.unwrap().x
+                        + i * zoom.rect.unwrap().w / 2.0,
                     zoom.center_pos.unwrap().y
-                        + j * zoom.height / 2.0,
+                        + j * zoom.rect.unwrap().h / 2.0,
                 ),
             );
         }
@@ -507,10 +567,10 @@ impl Body {
                 if !matches!(self.status, Status::Walking(..)) {
                     let walking_angle: f32 =
                         rng.gen_range(0.0..2.0 * PI);
-                    let pos_deviation = Vec2 {
-                        x: self.speed * walking_angle.cos(),
-                        y: self.speed * walking_angle.sin(),
-                    };
+                    let pos_deviation = vec2(
+                        self.speed * walking_angle.cos(),
+                        self.speed * walking_angle.sin(),
+                    );
 
                     self.status = Status::Walking(pos_deviation);
                 }
@@ -649,9 +709,9 @@ impl Body {
             / ((unsafe { BODIES_N } + 2) as f32).powf(1.0 / 3.0);
 
         let mut color = Color::from_rgba(
-            gen_range(COLOR_MIN, COLOR_MAX),
-            gen_range(COLOR_MIN, COLOR_MAX),
-            gen_range(COLOR_MIN, COLOR_MAX),
+            rng.gen_range(COLOR_MIN..COLOR_MAX),
+            rng.gen_range(COLOR_MIN..COLOR_MAX),
+            rng.gen_range(COLOR_MIN..COLOR_MAX),
             255,
         );
 
@@ -682,9 +742,9 @@ impl Body {
                 }) < real_color_gap
         }) {
             color = Color::from_rgba(
-                gen_range(COLOR_MIN, COLOR_MAX),
-                gen_range(COLOR_MIN, COLOR_MAX),
-                gen_range(COLOR_MIN, COLOR_MAX),
+                rng.gen_range(COLOR_MIN..COLOR_MAX),
+                rng.gen_range(COLOR_MIN..COLOR_MAX),
+                rng.gen_range(COLOR_MIN..COLOR_MAX),
                 255,
             )
         }

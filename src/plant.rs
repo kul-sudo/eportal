@@ -41,28 +41,26 @@ impl Plant {
         removed_plants: &'a [(Instant, Vec2)],
     ) -> Vec<&'a Plant> {
         let mut plants_to_draw = Vec::new();
-        let (i_min, i_max, j_min, j_max);
 
-        if let Some(extended_rect) = zoom.extended_rect {
-            i_min = ((extended_rect.center().y
-                - extended_rect.center().y)
-                / cells.cell_height)
-                .floor() as usize;
-            i_max = ((extended_rect.center().y
-                + extended_rect.center().y)
-                / cells.cell_height)
-                .floor() as usize;
-            j_min = ((extended_rect.center().x
-                - extended_rect.center().x)
-                / cells.cell_width)
-                .floor() as usize;
-            j_max = ((extended_rect.center().x
-                + extended_rect.center().x)
-                / cells.cell_width)
-                .floor() as usize;
-        } else {
-            unreachable!()
-        }
+        let extended_rect_center =
+            zoom.extended_rect.unwrap().center();
+
+        let i_min = ((extended_rect_center.y
+            - extended_rect_center.y)
+            / cells.cell_height)
+            .floor() as usize;
+        let i_max = ((extended_rect_center.y
+            + extended_rect_center.y)
+            / cells.cell_height)
+            .floor() as usize;
+        let j_min = ((extended_rect_center.x
+            - extended_rect_center.x)
+            / cells.cell_width)
+            .floor() as usize;
+        let j_max = ((extended_rect_center.x
+            + extended_rect_center.x)
+            / cells.cell_width)
+            .floor() as usize;
 
         for i in i_min.max(0)..=i_max.min(cells.rows - 1) {
             let i_is_on_border = i == i_min || i == i_max;

@@ -11,10 +11,6 @@ pub struct Zoom {
     pub scaling_width:          f32,
     /// The height of the part of the area size the zoom shows.
     pub scaling_height:         f32,
-    /// The width of the zoom.
-    pub width:                  f32,
-    /// The height of the zoom.
-    pub height:                 f32,
     /// The position of the center of the zoom rectangle.
     pub center_pos:             Option<Vec2>,
     pub mouse_pos:              Option<Vec2>,
@@ -34,23 +30,22 @@ pub fn get_zoom_target(
     camera: &mut Camera2D,
     area_size: &Vec2,
     zoom: &mut Zoom,
+    size: &Vec2,
 ) {
     zoom.center_pos =
         Some(adjusted_pos(&zoom.mouse_pos.unwrap(), &area_size));
     zoom.rect = Some(Rect::new(
-        zoom.center_pos.unwrap().x - zoom.width / 2.0,
-        zoom.center_pos.unwrap().y - zoom.height / 2.0,
-        zoom.width,
-        zoom.height,
+        zoom.center_pos.unwrap().x - size.x / 2.0,
+        zoom.center_pos.unwrap().y - size.y / 2.0,
+        size.x,
+        size.y,
     ));
 
     zoom.extended_rect = Some(Rect::new(
-        zoom.center_pos.unwrap().x - zoom.width / 2.0 - OBJECT_RADIUS,
-        zoom.center_pos.unwrap().y
-            - zoom.height / 2.0
-            - OBJECT_RADIUS,
-        zoom.width + OBJECT_RADIUS * 2.0,
-        zoom.height + OBJECT_RADIUS * 2.0,
+        zoom.center_pos.unwrap().x - size.x / 2.0 - OBJECT_RADIUS,
+        zoom.center_pos.unwrap().y - size.y / 2.0 - OBJECT_RADIUS,
+        size.x + OBJECT_RADIUS * 2.0,
+        size.y + OBJECT_RADIUS * 2.0,
     ));
 
     camera.target = zoom.center_pos.unwrap();
