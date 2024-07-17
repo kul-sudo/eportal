@@ -13,9 +13,9 @@ pub const DEFAULT_PLANTS_N: usize = 53914;
 pub static mut PLANTS_N: usize = 0;
 
 pub const AVERAGE_MAX_PLANTS_IN_ONE_CELL: usize = 10;
+pub const AVERAGE_MAX_NEW_BODIES: usize = 30;
 pub const AVERAGE_MAX_PLANTS_REMOVED: usize = 60;
-pub const AVERAGE_MAX_BODIES_REMOVED: usize = 3;
-pub const AVERAGE_PART_DIVIDE: f32 = 0.004;
+pub const AVERAGE_MAX_BODIES_REMOVED: usize = 30;
 
 /// The recommended constants in config.toml have been detemined for this area space.
 pub static DEFAULT_AREA_SIZE_RATIO: f32 =
@@ -27,9 +27,10 @@ pub const COLOR_MIN: u8 = 50;
 pub const COLOR_MAX: u8 = 250;
 
 // Evolution process
-pub const PLANT_ENERGY: f32 = 100.0;
+pub const GRASS_ENERGY: f32 = 100.0;
+pub const BANANA_ENERGY: f32 = GRASS_ENERGY * 2.0;
 pub const MIN_GAP: f32 = 3.0;
-pub const COLOR_GAP: f32 = 0.63; // Depends on COLOR_MIN and COLOR_MAX
+pub const COLOR_GAP: f32 = 0.55; // Depends on COLOR_MIN and COLOR_MAX
 pub const PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 
 // Plants

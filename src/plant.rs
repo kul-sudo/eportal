@@ -3,33 +3,75 @@ use std::{
     time::{Duration, Instant},
 };
 
+use crate::{constants::*, zoom::Zoom, Body, Cell, Cells};
 use macroquad::{
-    color::GREEN, math::Vec2, prelude::vec2, shapes::draw_triangle,
+    color::{GREEN, YELLOW},
+    math::Vec2,
+    prelude::vec2,
+    shapes::{draw_triangle, draw_triangle_lines},
 };
 use rand::{rngs::StdRng, Rng};
+use std::mem::transmute;
+use std::mem::variant_count;
 
-use crate::{constants::*, zoom::Zoom, Body, Cell, Cells};
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PlantKind {
+    Grass,
+    Banana,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Plant {
-    pub pos: Vec2,
+    pub pos:  Vec2,
+    pub kind: PlantKind,
 }
 
 impl Plant {
     #[inline(always)]
     pub fn draw(&self) {
-        draw_triangle(
-            vec2(self.pos.x, self.pos.y - OBJECT_RADIUS),
-            vec2(
-                self.pos.x + OBJECT_RADIUS * (COSINE_OF_30_DEGREES),
-                self.pos.y + OBJECT_RADIUS / 2.0,
-            ),
-            vec2(
-                self.pos.x - OBJECT_RADIUS * (COSINE_OF_30_DEGREES),
-                self.pos.y + OBJECT_RADIUS / 2.0,
-            ),
-            GREEN,
-        );
+        match self.kind {
+            PlantKind::Grass => {
+                draw_triangle_lines(
+                    vec2(self.pos.x, self.pos.y - OBJECT_RADIUS),
+                    vec2(
+                        self.pos.x
+                            + OBJECT_RADIUS * COSINE_OF_30_DEGREES,
+                        self.pos.y + OBJECT_RADIUS / 2.0,
+                    ),
+                    vec2(
+                        self.pos.x
+                            - OBJECT_RADIUS * COSINE_OF_30_DEGREES,
+                        self.pos.y + OBJECT_RADIUS / 2.0,
+                    ),
+                    2.0,
+                    GREEN,
+                );
+            }
+            PlantKind::Banana => {
+                draw_triangle(
+                    vec2(self.pos.x, self.pos.y - OBJECT_RADIUS),
+                    vec2(
+                        self.pos.x
+                            + OBJECT_RADIUS * COSINE_OF_30_DEGREES,
+                        self.pos.y + OBJECT_RADIUS / 2.0,
+                    ),
+                    vec2(
+                        self.pos.x
+                            - OBJECT_RADIUS * COSINE_OF_30_DEGREES,
+                        self.pos.y + OBJECT_RADIUS / 2.0,
+                    ),
+                    YELLOW,
+                );
+            }
+        }
+    }
+
+    #[inline(always)]
+    pub fn get_contained_energy(&self) -> f32 {
+        match self.kind {
+            PlantKind::Grass => GRASS_ENERGY,
+            PlantKind::Banana => BANANA_ENERGY,
+        }
     }
 
     #[inline(always)]
@@ -137,9 +179,19 @@ impl Plant {
                 })
         } {}
 
+        let kind = rng.gen_range(0..variant_count::<PlantKind>());
+
         plants
             .get_mut(&cells.get_cell_by_pos(&pos))
             .unwrap()
-            .insert(Instant::now(), Plant { pos });
+            .insert(
+                Instant::now(),
+                Plant {
+                    pos,
+                    kind: unsafe {
+                        transmute::<u8, PlantKind>(kind as u8)
+                    },
+                },
+            );
     }
 }

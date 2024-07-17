@@ -2,7 +2,8 @@ use crate::user_constants::*;
 use crate::{TOTAL_SKILLS_COUNT, VIRUSES_COUNT};
 use macroquad::prelude::{
     draw_circle, draw_line, draw_rectangle, draw_text, measure_text,
-    vec2, Circle, Color, Vec2, Vec3, GREEN, RED, WHITE,
+    rand::gen_range, vec2, Circle, Color, Vec2, Vec3, GREEN, RED,
+    WHITE,
 };
 use rand::random;
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng};
@@ -709,9 +710,9 @@ impl Body {
             / ((unsafe { BODIES_N } + 2) as f32).powf(1.0 / 3.0);
 
         let mut color = Color::from_rgba(
-            rng.gen_range(COLOR_MIN..COLOR_MAX),
-            rng.gen_range(COLOR_MIN..COLOR_MAX),
-            rng.gen_range(COLOR_MIN..COLOR_MAX),
+            gen_range(COLOR_MIN, COLOR_MAX),
+            gen_range(COLOR_MIN, COLOR_MAX),
+            gen_range(COLOR_MIN, COLOR_MAX),
             255,
         );
 
@@ -742,9 +743,9 @@ impl Body {
                 }) < real_color_gap
         }) {
             color = Color::from_rgba(
-                rng.gen_range(COLOR_MIN..COLOR_MAX),
-                rng.gen_range(COLOR_MIN..COLOR_MAX),
-                rng.gen_range(COLOR_MIN..COLOR_MAX),
+                gen_range(COLOR_MIN, COLOR_MAX),
+                gen_range(COLOR_MIN, COLOR_MAX),
+                gen_range(COLOR_MIN, COLOR_MAX),
                 255,
             )
         }
@@ -808,7 +809,7 @@ impl Body {
         {
             let time = self.pos.distance(plant.pos) / self.speed;
 
-            self.get_spent_energy(time) < PLANT_ENERGY
+            self.get_spent_energy(time) < plant.get_contained_energy()
         } else {
             true
         }

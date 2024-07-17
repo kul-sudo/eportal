@@ -55,7 +55,8 @@
 `e` in `eportal` stands for `evolution`, so eportal is an evolution portal where you can create your own configurable worlds.
 
 ## Plants
-Plants (the green triangles) spawn in different places and eventually die. They're food for the bodies.
+Plants spawn in different places and eventually die. They serve as food for the bodies.
+The plants are split into green and yellow: grass and bananas. Bananas give more energy than grass.
 
 ## Bodies
 Bodies are split into types. Each type has a unique color.
@@ -76,7 +77,7 @@ When the body goes beyond the evolution field, it gets teleported to the opposit
 
 ### Energy
 The body gets energy by eating food:
-- `plants`: Plants all give the same energy.
+- `plants`: Plants of one kind all give the same energy.
 - `living bodies`: Living bodies give their current energy.
 - `dead bodies`: Dead bodies give the energy they had the moment they died.
 

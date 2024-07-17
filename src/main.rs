@@ -12,6 +12,7 @@ mod user_constants;
 mod utils;
 mod zoom;
 
+use crate::plant::PlantKind;
 use body::*;
 use cells::{Cell, Cells};
 use constants::*;
@@ -31,14 +32,19 @@ use std::{
 };
 use utils::*;
 
-use macroquad::prelude::{
-    draw_circle_lines, draw_line, draw_text, is_key_down,
-    is_key_pressed, is_mouse_button_pressed, measure_text,
-    mouse_position, next_frame, screen_height, screen_width,
-    set_fullscreen, vec2, Camera2D, Conf, KeyCode, MouseButton, Rect,
-    Vec2, WHITE,
+use macroquad::{
+    camera::Camera2D,
+    color::WHITE,
+    input::{
+        is_key_down, is_key_pressed, is_mouse_button_pressed,
+        mouse_position, KeyCode,
+    },
+    math::{Rect, Vec2},
+    miniquad::{window::set_fullscreen, MouseButton},
+    prelude::vec2,
+    shapes::{draw_circle_lines, draw_line},
+    window::{next_frame, screen_height, screen_width, Conf},
 };
-
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng, SeedableRng};
 
 /// Adjust the coordinates according to the borders.
@@ -156,6 +162,10 @@ async fn main() {
         HashMap::with_capacity(unsafe { BODIES_N });
     let mut plants: HashMap<Cell, HashMap<Instant, Plant>> =
         HashMap::with_capacity(cells.rows * cells.columns);
+
+    let mut new_bodies: HashMap<Instant, Body> =
+        HashMap::with_capacity(AVERAGE_MAX_NEW_BODIES);
+
     for i in 0..cells.rows {
         for j in 0..cells.columns {
             plants.insert(
@@ -338,13 +348,6 @@ async fn main() {
         // Whether enough time has passed to draw a new frame
         let is_draw_mode = last_updated.elapsed().as_millis()
             >= Duration::from_secs(1 / FPS).as_millis();
-
-        // Due to certain borrowing rules, it's impossible to modify these during the loop,
-        // so it'll be done after it
-        let mut new_bodies: HashMap<Instant, Body> =
-            HashMap::with_capacity(
-                (bodies.len() as f32 * AVERAGE_PART_DIVIDE) as usize,
-            );
 
         let bodies_shot = bodies.clone();
         let mut bodies_shot_for_statuses = bodies.clone();
@@ -608,7 +611,7 @@ async fn main() {
                             }
                         }
 
-                        match visible_plants
+                        let filtered_visible_plants = visible_plants
                             .iter()
                             .filter(|(plant_id, plant)| {
                                 !removed_plants.contains(&(***plant_id, plant.pos))
@@ -625,19 +628,50 @@ async fn main() {
                                         plant,
                                         &bodies_within_vision_distance,
                                     )
-                            })
-                            .min_by(|(_, a), (_, b)| {
-                                body.pos
-                                    .distance(a.pos)
-                                    .partial_cmp(&body.pos.distance(b.pos))
-                                    .unwrap()
-                            }) {
-                            Some((closest_plant_id, closest_plant)) => {
+                            }).collect::<Vec<_>>();
+
+                        let mut closest_plant =
+                            filtered_visible_plants
+                                .iter()
+                                .filter(|(_, plant)| {
+                                    plant.kind == PlantKind::Banana
+                                })
+                                .min_by(|(_, a), (_, b)| {
+                                    body.pos
+                                        .distance(a.pos)
+                                        .partial_cmp(
+                                            &body.pos.distance(b.pos),
+                                        )
+                                        .unwrap()
+                                });
+
+                        if closest_plant.is_none() {
+                            closest_plant = filtered_visible_plants
+                                .iter()
+                                .filter(|(_, plant)| {
+                                    plant.kind == PlantKind::Grass
+                                })
+                                .min_by(|(_, a), (_, b)| {
+                                    body.pos
+                                        .distance(a.pos)
+                                        .partial_cmp(
+                                            &body.pos.distance(b.pos),
+                                        )
+                                        .unwrap()
+                                })
+                        }
+
+                        match closest_plant {
+                            Some((
+                                closest_plant_id,
+                                closest_plant,
+                            )) => {
                                 food = Some(FoodInfo {
-                                    id:        **closest_plant_id,
+                                    id:        ***closest_plant_id,
                                     food_type: FoodType::Plant,
                                     pos:       closest_plant.pos,
-                                    energy:    PLANT_ENERGY,
+                                    energy:    closest_plant
+                                        .get_contained_energy(),
                                 })
                             }
                             None => {
@@ -748,9 +782,11 @@ async fn main() {
             bodies.remove(body_id);
         }
         removed_bodies.clear();
-        for (new_body_id, new_body) in new_bodies {
-            bodies.insert(new_body_id, new_body);
+
+        for (new_body_id, new_body) in &new_bodies {
+            bodies.insert(*new_body_id, new_body.clone());
         }
+        new_bodies.clear();
 
         if is_draw_mode {
             if !is_draw_prevented {
