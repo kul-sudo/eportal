@@ -1,6 +1,7 @@
 use crate::body::Skill;
 use crate::constants::*;
 use crate::user_constants::*;
+use crate::UI_SHOW_PROPERTIES_N;
 use crate::{Virus, Zoom};
 use crate::{TOTAL_SKILLS_COUNT, VIRUSES_COUNT};
 use macroquad::prelude::*;
@@ -161,6 +162,12 @@ pub fn config_setup() {
 }
 
 pub fn enum_consts() -> (HashSet<usize>, HashSet<usize>) {
+    unsafe {
+        UI_SHOW_PROPERTIES_N = (size_of::<UIField>()
+            - size_of::<u16>())
+            / size_of::<bool>();
+    }
+
     // Skills
     let mut variant_count_ = variant_count::<Skill>();
     unsafe {

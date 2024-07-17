@@ -21,7 +21,6 @@ use user_constants::*;
 use zoom::{default_camera, get_zoom_target, Zoom};
 
 use body::Skill;
-use std::mem::size_of;
 use std::{
     collections::{HashMap, HashSet},
     env::consts::OS,
@@ -97,12 +96,6 @@ async fn main() {
     config_setup();
     // Get all variants of enums (needed somewhere in the code)
     let (all_skills, all_viruses) = enum_consts();
-
-    unsafe {
-        UI_SHOW_PROPERTIES_N = (size_of::<UIField>()
-            - size_of::<u16>())
-            / size_of::<bool>();
-    }
 
     // Workaround
     if OS == "linux" {

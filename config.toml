@@ -23,10 +23,10 @@ plant_spawn_chance = 0.0000001 # 0.0000001 (The probability for a plant to be sp
 plant_die_chance = 0.0004 # 0.0004 (The probability for a plant to die)
 
 [energy]
-energy_spent_const_for_mass = 0.00005 # 0.00005 (Part of energy constantly spent on mass)
+energy_spent_const_for_mass = 0.0002 # 0.0002 (Part of energy constantly spent on mass)
 energy_spent_const_for_skills = 0.04 # 0.04 (Part of energy constantly spent on one skill)
 energy_spent_const_for_vision_distance = 0.00005 # 0.00005 (Part of energy constantly spent on vision distancce)
-energy_spent_const_for_movement = 0.0004 # 0.0004 (Part of energy constantly spent on movement depending on the speed)
+energy_spent_const_for_movement = 0.0006 # 0.0006 (Part of energy constantly spent on movement depending on the speed)
 
 [viruses]
 # first_generation_infection_chance: the probability the 1st generation gets infected with the virus
@@ -49,12 +49,12 @@ body_info_font_size = 17 # 17 (The font size of the info displayed over the bodi
 show_fps = false # Whether to show how many frames roughly happen per second
 
 # Properties of a body to show over it
-show_energy = true # The current energy
+show_energy = false # The current energy
 show_division_threshold = false # The energy a body has to reach to be able to procreate
 show_body_type = false # The type ID the body is part of (can also be distinguished using colors)
 show_lifespan = false # How many seconds a body has left to live if it theoretically doesn't move at all
 
-show_skills = false # The skills of a body
+show_skills = true # The skills of a body
 # DoNotCompeteWithRelatives = 0
 # AliveWhenArrived = 1
 # ProfitableWhenArrived = 2
