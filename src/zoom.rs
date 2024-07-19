@@ -53,7 +53,6 @@ pub fn get_zoom_target(
     set_camera(camera);
 }
 
-#[inline(always)]
 /// Reset the camera zoom.
 pub fn default_camera(camera: &mut Camera2D, area_size: &Vec2) {
     camera.target = vec2(area_size.x / 2.0, area_size.y / 2.0);

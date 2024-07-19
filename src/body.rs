@@ -225,6 +225,7 @@ impl Body {
         !matches!(self.status, Status::Dead(..))
     }
 
+    #[inline(always)]
     pub fn wrap(&mut self, area_size: &Vec2) {
         if self.pos.x >= area_size.x {
             self.pos.x = MIN_GAP;
@@ -298,6 +299,7 @@ impl Body {
         }
     }
 
+    #[inline(always)]
     pub fn draw_info(&self) {
         let mut to_display_components =
             Vec::with_capacity(unsafe { UI_SHOW_PROPERTIES_N });

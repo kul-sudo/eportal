@@ -78,7 +78,6 @@ struct FoodInfo {
     energy:    f32,
 }
 
-#[inline(always)]
 fn window_conf() -> Conf {
     Conf {
         window_title: "eportal".to_owned(),
@@ -94,6 +93,7 @@ pub static mut UI_SHOW_PROPERTIES_N: usize = 0;
 #[macroquad::main(window_conf)]
 async fn main() {
     config_setup();
+    
     // Get all variants of enums (needed somewhere in the code)
     let (all_skills, all_viruses) = enum_consts();
 
@@ -335,6 +335,7 @@ async fn main() {
                 &cells,
                 &mut rng,
             );
+
             plants_n += 1;
         }
 
