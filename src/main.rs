@@ -5,7 +5,7 @@
 
 mod body;
 mod cells;
-mod conditions;
+mod condition;
 mod constants;
 mod plant;
 mod smart_drawing;
@@ -15,7 +15,7 @@ mod zoom;
 
 use body::*;
 use cells::*;
-use conditions::*;
+use condition::*;
 use constants::*;
 use plant::*;
 use user_constants::*;
@@ -109,10 +109,10 @@ async fn main() {
             / (area_size_ratio * DEFAULT_PLANTS_N as f32))
             .sqrt())
     .round() as usize)
-        .max(50)
-        .min(200);
+        .clamp(50, 200);
     cells.columns =
         (cells.rows as f32 * area_size_ratio).round() as usize;
+
     cells.cell_width = area_size.x / cells.columns as f32;
     cells.cell_height = area_size.y / cells.rows as f32;
 
@@ -133,8 +133,8 @@ async fn main() {
     };
 
     // Evolution stuff
-    let mut conditions: HashMap<Condition, (Instant, Duration)> =
-        HashMap::with_capacity(std::mem::variant_count::<Condition>());
+    let mut condition: Option<(Condition, (Instant, Duration))> =
+        None;
 
     let mut bodies: HashMap<Instant, Body> =
         HashMap::with_capacity(unsafe { BODIES_N });
@@ -257,16 +257,18 @@ async fn main() {
             }
         }
 
-        update_conditions(&mut conditions, &mut rng);
+        update_condition(&mut condition, &mut rng);
 
         // Remove plants
         let n_to_remove = (plants_n as f32
-            * unsafe { PLANT_DIE_CHANCE }
-            + if conditions.contains_key(&Condition::FewerPlants) {
-                (unsafe { PLANT_DIE_CHANCE }) * 1.5
-            } else {
-                0.0
-            }) as usize;
+            * (unsafe { PLANT_DIE_CHANCE }
+                + if condition.is_some_and(|(condition, _)| {
+                    condition == Condition::FewerPlants
+                }) {
+                    (unsafe { PLANT_DIE_CHANCE }) * 1.5
+                } else {
+                    0.0
+                })) as usize;
 
         for _ in 0..n_to_remove {
             loop {
@@ -296,7 +298,17 @@ async fn main() {
         }
 
         // Spawn a plant in a random place with a specific chance
-        for _ in 0..unsafe { PLANTS_N_FOR_ONE_STEP } {
+        let n_to_add = unsafe { PLANTS_N_FOR_ONE_STEP }
+            + if condition.is_some_and(|(condition, _)| {
+                condition == Condition::MorePlants
+            }) {
+                (unsafe { PLANTS_N_FOR_ONE_STEP } as f32 * 2.0)
+                    as usize
+            } else {
+                0
+            };
+
+        for _ in 0..n_to_add {
             Plant::randomly_spawn_plant(
                 &bodies,
                 &mut plants,
@@ -833,7 +845,7 @@ async fn main() {
                     removed_plants.len(),
                     bodies.len(),
                     removed_bodies.len(),
-                    &conditions,
+                    &condition,
                 );
             }
 

@@ -44,9 +44,8 @@ visionvirus_vision_distance_decrease = 0.7 # 0.7
 visionvirus_energy_spent_for_healing = 0.02 # 0.02
 visionvirus_heal_energy = 500.0 # 500.0
 
-[conditions]
-fewer_plants_chance = 0.0005 # 0.0005
-more_plants_chance = 0.0005 # 0.0005
+[condition]
+condition_chance = 0.00025
 
 [ui]
 body_info_font_size = 17 # 17 (The font size of the info displayed over the bodies)

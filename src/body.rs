@@ -350,13 +350,23 @@ impl Body {
         }
 
         if unsafe { SHOW_SKILLS } {
-            to_display_components
-                .push(format!("skills = {:?}", self.skills));
+            to_display_components.push(format!(
+                "skills = {:?}",
+                self.skills
+                    .iter()
+                    .map(|skill| *skill as u8)
+                    .collect::<Vec<_>>()
+            ));
         }
 
         if unsafe { SHOW_VIRUSES } {
-            to_display_components
-                .push(format!("viruses = {:?}", self.viruses.keys()));
+            to_display_components.push(format!(
+                "viruses = {:?}",
+                self.viruses
+                    .keys()
+                    .map(|virus| *virus as u8)
+                    .collect::<Vec<_>>()
+            ));
         }
 
         if !to_display_components.is_empty() {

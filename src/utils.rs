@@ -4,7 +4,6 @@ use crate::Condition;
 use crate::Zoom;
 use ::rand::{rngs::StdRng, Rng};
 use macroquad::prelude::*;
-use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 pub fn generate_zoom_struct(
@@ -41,12 +40,22 @@ pub fn show_evolution_info(
     removed_plants_len: usize,
     bodies_len: usize,
     removed_bodies_len: usize,
-    conditions: &HashMap<Condition, (Instant, Duration)>,
+    condition: &Option<(Condition, (Instant, Duration))>,
 ) {
     let evolution_info_fields = [
         format!("plants: {:?}", plants_n - removed_plants_len),
         format!("bodies: {:?}", bodies_len - removed_bodies_len),
-        format!("conditions: {:?}", conditions.keys()),
+        format!(
+            "condition: {}",
+            match condition {
+                Some((condition, _)) => {
+                    format!("{:?}", condition)
+                }
+                None => {
+                    "None".to_string()
+                }
+            }
+        ),
     ];
 
     let mut gap = 0.0;

@@ -1,9 +1,8 @@
+use crate::{adjusted_pos, constants::*};
 use macroquad::{
     camera::{set_camera, Camera2D},
     math::{vec2, Rect, Vec2},
 };
-
-use crate::{adjusted_pos, constants::*};
 
 #[derive(Clone, Copy)]
 pub struct Zoom {
@@ -35,7 +34,7 @@ pub fn get_zoom_target(
     size: &Vec2,
 ) {
     zoom.center_pos =
-        Some(adjusted_pos(&zoom.mouse_pos.unwrap(), &area_size));
+        Some(adjusted_pos(&zoom.mouse_pos.unwrap(), area_size));
     zoom.rect = Some(Rect::new(
         zoom.center_pos.unwrap().x - size.x / 2.0,
         zoom.center_pos.unwrap().y - size.y / 2.0,
@@ -52,6 +51,7 @@ pub fn get_zoom_target(
 
     camera.target = zoom.center_pos.unwrap();
     camera.zoom = vec2(zoom.scaling_width, zoom.scaling_height);
+
     set_camera(camera);
 }
 

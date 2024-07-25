@@ -87,25 +87,26 @@ impl Plant {
     ) -> Vec<&'a Plant> {
         let mut plants_to_draw = Vec::new();
 
-        let extended_rect_center =
-            zoom.extended_rect.unwrap().center();
+        let (i_min, i_max, j_min, j_max);
 
-        let i_min = ((extended_rect_center.y
-            - extended_rect_center.y)
-            / cells.cell_height)
-            .floor() as usize;
-        let i_max = ((extended_rect_center.y
-            + extended_rect_center.y)
-            / cells.cell_height)
-            .floor() as usize;
-        let j_min = ((extended_rect_center.x
-            - extended_rect_center.x)
-            / cells.cell_width)
-            .floor() as usize;
-        let j_max = ((extended_rect_center.x
-            + extended_rect_center.x)
-            / cells.cell_width)
-            .floor() as usize;
+        if let Some(extended_rect) = zoom.extended_rect {
+            let extended_rect_center = extended_rect.center();
+
+            i_min = ((extended_rect_center.y - extended_rect.h / 2.0)
+                / cells.cell_height)
+                .floor() as usize;
+            i_max = ((extended_rect_center.y + extended_rect.h / 2.0)
+                / cells.cell_height)
+                .floor() as usize;
+            j_min = ((extended_rect_center.x - extended_rect.w / 2.0)
+                / cells.cell_width)
+                .floor() as usize;
+            j_max = ((extended_rect_center.x + extended_rect.w / 2.0)
+                / cells.cell_width)
+                .floor() as usize;
+        } else {
+            unreachable!()
+        }
 
         for i in i_min.max(0)..=i_max.min(cells.rows - 1) {
             let i_is_on_border = i == i_min || i == i_max;
