@@ -5,6 +5,7 @@
 
 mod body;
 mod cells;
+mod conditions;
 mod constants;
 mod plant;
 mod smart_drawing;
@@ -12,15 +13,16 @@ mod user_constants;
 mod utils;
 mod zoom;
 
-use crate::plant::PlantKind;
+use body::Skill;
 use body::*;
 use cells::{Cell, Cells};
+use conditions::update_conditions;
 use constants::*;
 use plant::Plant;
+use plant::PlantKind;
 use user_constants::*;
 use zoom::{default_camera, get_zoom_target, Zoom};
 
-use body::Skill;
 use std::{
     collections::{HashMap, HashSet},
     env::consts::OS,
@@ -46,37 +48,9 @@ use macroquad::{
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng, SeedableRng};
 
-/// Adjust the coordinates according to the borders.
-#[inline(always)]
-pub fn adjusted_pos(pos: &Vec2, area_size: &Vec2) -> Vec2 {
-    vec2(
-        (pos.x * MAX_ZOOM)
-            .max(area_size.x / MAX_ZOOM / 2.0)
-            .min(area_size.x * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
-        (pos.y * MAX_ZOOM)
-            .max(area_size.y / MAX_ZOOM / 2.0)
-            .min(area_size.y * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
-    )
-}
-
-/// Used for getting specific values with deviations.
-#[inline(always)]
-pub fn get_with_deviation(value: f32, rng: &mut StdRng) -> f32 {
-    let part = value * unsafe { DEVIATION };
-    rng.gen_range(value - part..value + part)
-}
-
-enum FoodType {
-    Body(HashMap<usize, f32>),
-    Plant,
-}
-
-struct FoodInfo {
-    id:        Instant,
-    food_type: FoodType,
-    pos:       Vec2,
-    energy:    f32,
-}
+pub static mut TOTAL_SKILLS_COUNT: usize = 0;
+pub static mut VIRUSES_COUNT: usize = 0;
+pub static mut UI_SHOW_PROPERTIES_N: usize = 0;
 
 fn window_conf() -> Conf {
     Conf {
@@ -86,18 +60,23 @@ fn window_conf() -> Conf {
     }
 }
 
-pub static mut TOTAL_SKILLS_COUNT: usize = 0;
-pub static mut VIRUSES_COUNT: usize = 0;
-pub static mut UI_SHOW_PROPERTIES_N: usize = 0;
+struct Info {
+    body_info:      bool,
+    evolution_info: bool,
+}
+
+#[derive(Eq, PartialEq, Hash, Debug)]
+enum Condition {
+    FewerPlants,
+}
 
 #[macroquad::main(window_conf)]
 async fn main() {
     config_setup();
-    
     // Get all variants of enums (needed somewhere in the code)
     let (all_skills, all_viruses) = enum_consts();
 
-    // Workaround
+    // A workaround for Linux
     if OS == "linux" {
         set_fullscreen(true);
         sleep(Duration::from_secs(1));
@@ -110,6 +89,10 @@ async fn main() {
         screen_height() * OBJECT_RADIUS,
     );
 
+    // Needed for randomness
+    let mut rng = StdRng::from_entropy();
+
+    // Calculations
     let mut cells = Cells::default();
     let area_space = area_size.x * area_size.y;
 
@@ -136,6 +119,7 @@ async fn main() {
     cells.cell_width = area_size.x / cells.columns as f32;
     cells.cell_height = area_size.y / cells.rows as f32;
 
+    // Camera
     let mut camera = Camera2D::from_display_rect(Rect::new(
         0.0,
         0.0,
@@ -145,11 +129,15 @@ async fn main() {
 
     default_camera(&mut camera, &area_size);
 
-    let mut rng = StdRng::from_entropy();
+    // Info
+    let mut info = Info {
+        body_info:      true,
+        evolution_info: false,
+    };
 
-    let mut zoom_mode = false; // whether we're zoomed in
-    let mut evolution_info = false; // Whether the evolution info has to be shown
-    let mut show_info = true; // Whether the info over the bodies has to be shown
+    // Evolution stuff
+    let mut conditions: HashMap<Condition, (Instant, Duration)> =
+        HashMap::with_capacity(std::mem::variant_count::<Condition>());
 
     let mut bodies: HashMap<Instant, Body> =
         HashMap::with_capacity(unsafe { BODIES_N });
@@ -204,40 +192,19 @@ async fn main() {
 
     let mut removed_plants: Vec<(Instant, Vec2)> =
         Vec::with_capacity(AVERAGE_MAX_PLANTS_REMOVED);
-
     let mut removed_bodies: HashSet<Instant> =
         HashSet::with_capacity(AVERAGE_MAX_BODIES_REMOVED);
 
-    // The timer needed for the FPS
-    let mut last_updated = Instant::now();
-
-    let scaling_width = MAX_ZOOM / area_size.x * 2.0;
-    let scaling_height = MAX_ZOOM / area_size.y * 2.0;
-    let rect_width = screen_width() / MAX_ZOOM * OBJECT_RADIUS;
-    let rect_height = screen_height() / MAX_ZOOM * OBJECT_RADIUS;
-
+    // Zoom
     let rect_size = vec2(
         screen_width() / MAX_ZOOM * OBJECT_RADIUS,
         screen_height() / MAX_ZOOM * OBJECT_RADIUS,
     );
 
-    let extended_rect_width = rect_width + OBJECT_RADIUS * 2.0;
-    let extended_rect_height = rect_height + OBJECT_RADIUS * 2.0;
+    let mut zoom = generate_zoom_struct(&area_size, &rect_size);
 
-    // All the info about the zoom
-    let mut zoom = Zoom {
-        scaling_width,
-        scaling_height,
-        center_pos: None,
-        mouse_pos: None,
-        rect: None,
-        extended_rect: None,
-        diagonal_rect: (rect_width.powi(2) + rect_height.powi(2))
-            .sqrt(),
-        diagonal_extended_rect: (extended_rect_width.powi(2)
-            + extended_rect_height.powi(2))
-        .sqrt(),
-    };
+    // Needed for the FPS
+    let mut last_updated = Instant::now();
 
     loop {
         // Handle interactions
@@ -246,7 +213,7 @@ async fn main() {
         }
 
         if unlikely(is_mouse_button_pressed(MouseButton::Left)) {
-            if zoom_mode {
+            if zoom.zoomed {
                 default_camera(&mut camera, &area_size);
                 zoom.mouse_pos = None;
             } else {
@@ -255,20 +222,20 @@ async fn main() {
                 zoom.rect = None;
             }
 
-            zoom_mode = !zoom_mode
+            zoom.zoomed = !zoom.zoomed
         }
 
         if unlikely(is_key_pressed(KeyCode::Key1)) {
-            show_info = !show_info
+            info.body_info = !info.body_info
         }
 
         if unlikely(is_key_pressed(KeyCode::Key2)) {
-            evolution_info = !evolution_info;
+            info.evolution_info = !info.evolution_info;
         }
 
         let is_draw_prevented = is_key_down(KeyCode::Space);
 
-        if zoom_mode {
+        if zoom.zoomed {
             // There's no reason to zoom in again if the mouse position hasn't been changed
             let current_mouse_pos = Vec2::from(mouse_position());
             match zoom.mouse_pos {
@@ -295,9 +262,18 @@ async fn main() {
             }
         }
 
+        update_conditions(&mut conditions, &mut rng);
+
+        let plant_die_chance = unsafe { PLANT_DIE_CHANCE }
+            + if conditions.contains_key(&Condition::FewerPlants) {
+                0.001
+            } else {
+                0.0
+            };
+
         // Remove plants
         let n_to_remove =
-            (plants_n as f32 * unsafe { PLANT_DIE_CHANCE }) as usize;
+            (plants_n as f32 * plant_die_chance) as usize;
 
         for _ in 0..n_to_remove {
             loop {
@@ -784,7 +760,7 @@ async fn main() {
 
         if is_draw_mode {
             if !is_draw_prevented {
-                if zoom_mode {
+                if zoom.zoomed {
                     for plant in Plant::get_plants_to_draw(
                         &cells,
                         &zoom,
@@ -798,7 +774,7 @@ async fn main() {
                         let drawing_strategy =
                             body.get_drawing_strategy(&zoom);
 
-                        if show_info {
+                        if info.body_info {
                             if drawing_strategy.vision_distance {
                                 draw_circle_lines(
                                     body.pos.x,
@@ -828,9 +804,9 @@ async fn main() {
                         }
 
                         if drawing_strategy.body {
-                            body.draw(&zoom, zoom_mode);
+                            body.draw(&zoom);
 
-                            if show_info && body.is_alive() {
+                            if info.body_info && body.is_alive() {
                                 body.draw_info();
                             }
                         }
@@ -848,7 +824,7 @@ async fn main() {
 
                     for (body_id, body) in &bodies {
                         if !removed_bodies.contains(body_id) {
-                            body.draw(&zoom, zoom_mode);
+                            body.draw(&zoom);
                         }
                     }
                 }
@@ -856,20 +832,20 @@ async fn main() {
                 last_updated = Instant::now();
             }
 
-            if evolution_info {
+            if info.evolution_info {
                 show_evolution_info(
                     &zoom,
-                    zoom_mode,
                     &area_size,
                     plants_n,
                     removed_plants.len(),
                     bodies.len(),
                     removed_bodies.len(),
+                    &conditions,
                 );
             }
 
             if unsafe { SHOW_FPS } {
-                show_fps(&zoom, zoom_mode);
+                show_fps(&zoom);
             }
 
             next_frame().await;

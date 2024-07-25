@@ -7,6 +7,8 @@ use crate::{adjusted_pos, constants::*};
 
 #[derive(Clone, Copy)]
 pub struct Zoom {
+    /// Whether we're zoomed in.
+    pub zoomed:                 bool,
     /// The width of the part of the area size the zoom shows.
     pub scaling_width:          f32,
     /// The height of the part of the area size the zoom shows.

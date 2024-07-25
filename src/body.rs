@@ -24,6 +24,18 @@ use crate::{
     UI_SHOW_PROPERTIES_N,
 };
 
+pub enum FoodType {
+    Body(HashMap<usize, f32>),
+    Plant,
+}
+
+pub struct FoodInfo {
+    pub id:        Instant,
+    pub food_type: FoodType,
+    pub pos:       Vec2,
+    pub energy:    f32,
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Status {
     FollowingTarget((Instant, Vec2)),
@@ -241,8 +253,8 @@ impl Body {
     }
 
     #[inline(always)]
-    pub fn draw(&self, zoom: &Zoom, zoom_mode: bool) {
-        if zoom_mode {
+    pub fn draw(&self, zoom: &Zoom) {
+        if zoom.zoomed {
             if let Some(extended_rect) = zoom.extended_rect {
                 if self.pos.distance(extended_rect.center())
                     >= self.vision_distance
