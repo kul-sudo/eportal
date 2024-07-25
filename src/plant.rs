@@ -1,8 +1,3 @@
-use std::{
-    collections::HashMap,
-    time::{Duration, Instant},
-};
-
 use crate::{constants::*, zoom::Zoom, Body, Cell, Cells};
 use macroquad::{
     color::{GREEN, YELLOW},
@@ -10,14 +5,22 @@ use macroquad::{
     prelude::vec2,
     shapes::{draw_triangle, draw_triangle_lines},
 };
+use rand::prelude::IteratorRandom;
 use rand::{rngs::StdRng, Rng};
-use std::mem::transmute;
-use std::mem::variant_count;
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PlantKind {
     Grass,
     Banana,
+}
+
+impl PlantKind {
+    pub const ALL: [PlantKind; 2] =
+        [PlantKind::Grass, PlantKind::Banana];
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -179,8 +182,6 @@ impl Plant {
                 })
         } {}
 
-        let kind = rng.gen_range(0..variant_count::<PlantKind>());
-
         plants
             .get_mut(&cells.get_cell_by_pos(&pos))
             .unwrap()
@@ -188,9 +189,7 @@ impl Plant {
                 Instant::now(),
                 Plant {
                     pos,
-                    kind: unsafe {
-                        transmute::<u8, PlantKind>(kind as u8)
-                    },
+                    kind: *PlantKind::ALL.iter().choose(rng).unwrap(),
                 },
             );
     }

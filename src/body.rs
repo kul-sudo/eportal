@@ -1,5 +1,4 @@
 use crate::user_constants::*;
-use crate::{TOTAL_SKILLS_COUNT, VIRUSES_COUNT};
 use macroquad::prelude::{
     draw_circle, draw_line, draw_rectangle, draw_text, measure_text,
     rand::gen_range, vec2, Circle, Color, Vec2, Vec3, GREEN, RED,
@@ -9,7 +8,6 @@ use rand::random;
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng};
 use std::collections::HashSet;
 use std::f32::consts::PI;
-use std::mem::transmute;
 use std::{
     collections::HashMap, f32::consts::SQRT_2, intrinsics::unlikely,
     time::Instant,
@@ -25,7 +23,7 @@ use crate::{
 };
 
 pub enum FoodType {
-    Body(HashMap<usize, f32>),
+    Body(HashMap<Virus, f32>),
     Plant,
 }
 
@@ -55,13 +53,19 @@ pub enum EatingStrategy {
 
 #[allow(dead_code)]
 #[repr(usize)]
-#[derive(PartialEq, Hash)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone, Debug)]
 /// https://github.com/kul-sudo/eportal/blob/main/README.md#viruses
 pub enum Virus {
     SpeedVirus,
     VisionVirus,
 }
 
+impl Virus {
+    pub const ALL: [Virus; 2] =
+        [Virus::SpeedVirus, Virus::VisionVirus];
+}
+
+#[derive(Eq, Hash, PartialEq, Copy, Clone, Debug)]
 /// https://github.com/kul-sudo/eportal/blob/main/README.md#skills
 pub enum Skill {
     DoNotCompeteWithRelatives,
@@ -74,6 +78,19 @@ pub enum Skill {
     AvoidInfectedCrosses,
 }
 
+impl Skill {
+    pub const ALL: [Skill; 8] = [
+        Skill::DoNotCompeteWithRelatives,
+        Skill::AliveWhenArrived,
+        Skill::ProfitableWhenArrived,
+        Skill::PrioritizeFasterChasers,
+        Skill::AvoidNewViruses,
+        Skill::WillArriveFirst,
+        Skill::EatCrossesOfMyType,
+        Skill::AvoidInfectedCrosses,
+    ];
+}
+
 #[derive(Clone, PartialEq)]
 /// https://github.com/kul-sudo/eportal/blob/main/README.md#properties
 pub struct Body {
@@ -83,8 +100,8 @@ pub struct Body {
     pub vision_distance:         f32,
     pub eating_strategy:         EatingStrategy,
     pub division_threshold:      f32,
-    pub skills:                  HashSet<usize>,
-    pub viruses:                 HashMap<usize, f32>,
+    pub skills:                  HashSet<Skill>,
+    pub viruses:                 HashMap<Virus, f32>,
     pub color:                   Color,
     pub status:                  Status,
     pub body_type:               u16,
@@ -102,14 +119,12 @@ impl Body {
         energy: Option<f32>,
         eating_strategy: EatingStrategy,
         division_threshold: Option<f32>,
-        skills: Option<HashSet<usize>>,
+        skills: Option<HashSet<Skill>>,
         color: Color,
         body_type: u16,
-        viruses: Option<HashMap<usize, f32>>,
+        viruses: Option<HashMap<Virus, f32>>,
         initial_speed: Option<f32>,
         initial_vision_distance: Option<f32>,
-        all_skills: &HashSet<usize>,
-        all_viruses: &HashSet<usize>,
         rng: &mut StdRng,
     ) -> Self {
         let speed = get_with_deviation(
@@ -156,11 +171,12 @@ impl Body {
                         <= unsafe { SKILLS_CHANGE_CHANCE }
                     {
                         if random::<bool>() {
-                            if let Some(random_skill) = all_skills
-                                .difference(&skills)
-                                .collect::<HashSet<_>>()
-                                .iter()
-                                .choose(rng)
+                            if let Some(random_skill) =
+                                HashSet::from(Skill::ALL)
+                                    .difference(&skills)
+                                    .collect::<HashSet<_>>()
+                                    .iter()
+                                    .choose(rng)
                             {
                                 skills.insert(**random_skill);
                             }
@@ -173,9 +189,7 @@ impl Body {
 
                     skills
                 }
-                None => HashSet::with_capacity(unsafe {
-                    TOTAL_SKILLS_COUNT
-                }),
+                None => HashSet::with_capacity(Skill::ALL.len()),
             },
             color,
             status: Status::Idle,
@@ -185,15 +199,11 @@ impl Body {
                 Some(viruses) => viruses,
                 None => {
                     let mut viruses =
-                        HashMap::with_capacity(unsafe {
-                            VIRUSES_COUNT
-                        });
-                    for virus in all_viruses {
-                        let virus_cast = unsafe {
-                            transmute::<usize, Virus>(*virus)
-                        };
+                        HashMap::with_capacity(Virus::ALL.len());
+
+                    for virus in Virus::ALL {
                         if rng.gen_range(0.0..1.0)
-                            <= match virus_cast {
+                            <= match virus {
                                 Virus::SpeedVirus => unsafe {
                                     SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE
                                 },
@@ -203,9 +213,9 @@ impl Body {
                             }
                         {
                             viruses.insert(
-                                *virus,
+                                virus,
                                 rng.gen_range(
-                                    0.0..match virus_cast {
+                                    0.0..match virus {
                                         Virus::SpeedVirus => unsafe {
                                             SPEEDVIRUS_HEAL_ENERGY
                                         },
@@ -213,8 +223,7 @@ impl Body {
                                             VISIONVIRUS_HEAL_ENERGY
                                         },
                                     },
-                                ), // Assuming the evolution
-                                   // theoretically starts before it starts being shown
+                                ),
                             );
                         }
                     }
@@ -226,7 +235,7 @@ impl Body {
 
         // Applying the effect of the viruses
         for virus in body.viruses.clone().keys() {
-            body.apply_virus(virus);
+            body.apply_virus(*virus);
         }
 
         body
@@ -372,19 +381,19 @@ impl Body {
 
     #[inline(always)]
     /// Get the body infected with every virus it doesnn't have yet.
-    pub fn get_viruses(&mut self, viruses: &HashMap<usize, f32>) {
+    pub fn get_viruses(&mut self, viruses: &HashMap<Virus, f32>) {
         for virus in viruses.keys() {
             if !self.viruses.contains_key(virus) {
                 self.viruses.insert(*virus, 0.0);
-                self.apply_virus(virus);
+                self.apply_virus(*virus);
             }
         }
     }
 
     #[inline(always)]
     /// Make a virus do its job.
-    pub fn apply_virus(&mut self, virus: &usize) {
-        match unsafe { transmute::<usize, Virus>(*virus) } {
+    pub fn apply_virus(&mut self, virus: Virus) {
+        match virus {
             Virus::SpeedVirus => {
                 self.speed -=
                     self.speed * unsafe { SPEEDVIRUS_SPEED_DECREASE }
@@ -532,7 +541,7 @@ impl Body {
     /// Heal from the viruses the body has and spend energy on it.
     pub fn handle_viruses(&mut self) {
         for (virus, energy_spent_for_healing) in &mut self.viruses {
-            match unsafe { transmute::<usize, Virus>(*virus) } {
+            match virus {
                 Virus::SpeedVirus => {
                     self.energy = (self.energy
                         - unsafe {
@@ -558,8 +567,7 @@ impl Body {
 
         self.viruses.retain(|virus, energy_spent_for_healing| {
             *energy_spent_for_healing
-                <= match unsafe { transmute::<usize, Virus>(*virus) }
-                {
+                <= match virus {
                     Virus::SpeedVirus => unsafe {
                         SPEEDVIRUS_HEAL_ENERGY
                     },
@@ -648,8 +656,6 @@ impl Body {
         body_id: &Instant,
         new_bodies: &mut HashMap<Instant, Body>,
         removed_bodies: &mut HashSet<Instant>,
-        all_skills: &HashSet<usize>,
-        all_viruses: &HashSet<usize>,
         rng: &mut StdRng,
     ) -> bool {
         if self.energy > self.division_threshold {
@@ -667,8 +673,6 @@ impl Body {
                         Some(self.viruses.clone()),
                         Some(self.initial_speed),
                         Some(self.initial_vision_distance),
-                        all_skills,
-                        all_viruses,
                         rng,
                     ),
                 );
@@ -699,8 +703,6 @@ impl Body {
         area_size: &Vec2,
         eating_strategy: EatingStrategy,
         body_type: usize,
-        all_skills: &HashSet<usize>,
-        all_viruses: &HashSet<usize>,
         rng: &mut StdRng,
     ) {
         let mut pos = Vec2::default();
@@ -777,8 +779,6 @@ impl Body {
                 None,
                 None,
                 None,
-                all_skills,
-                all_viruses,
                 rng,
             ),
         );
@@ -790,10 +790,7 @@ impl Body {
         other_body: &Body,
         target_immovable: bool,
     ) -> bool {
-        if self
-            .skills
-            .contains(&(Skill::ProfitableWhenArrived as usize))
-        {
+        if self.skills.contains(&Skill::ProfitableWhenArrived) {
             let divisor = if target_immovable {
                 self.speed
             } else {
@@ -817,10 +814,7 @@ impl Body {
         &self,
         plant: &Plant,
     ) -> bool {
-        if self
-            .skills
-            .contains(&(Skill::ProfitableWhenArrived as usize))
-        {
+        if self.skills.contains(&Skill::ProfitableWhenArrived) {
             let time = self.pos.distance(plant.pos) / self.speed;
 
             self.get_spent_energy(time) < plant.get_contained_energy()
@@ -835,7 +829,7 @@ impl Body {
         other_body: &Body,
         target_immovable: bool,
     ) -> bool {
-        if self.skills.contains(&(Skill::AliveWhenArrived as usize)) {
+        if self.skills.contains(&Skill::AliveWhenArrived) {
             let divisor = if target_immovable {
                 self.speed
             } else {
@@ -860,7 +854,7 @@ impl Body {
         &self,
         plant: &Plant,
     ) -> bool {
-        if self.skills.contains(&(Skill::AliveWhenArrived as usize)) {
+        if self.skills.contains(&Skill::AliveWhenArrived) {
             let time = self.pos.distance(plant.pos) / self.speed;
 
             self.energy - self.get_spent_energy(time)
@@ -877,14 +871,9 @@ impl Body {
     ) -> bool {
         let is_alive = self.is_alive();
 
-        if (is_alive
-            && self
-                .skills
-                .contains(&(Skill::AvoidNewViruses as usize)))
+        if (is_alive && self.skills.contains(&Skill::AvoidNewViruses))
             || (!is_alive
-                && self.skills.contains(
-                    &(Skill::AvoidInfectedCrosses as usize),
-                ))
+                && self.skills.contains(&Skill::AvoidInfectedCrosses))
         {
             other_body
                 .viruses
@@ -906,10 +895,7 @@ impl Body {
             &Body,
         )],
     ) -> bool {
-        if self
-            .skills
-            .contains(&(Skill::DoNotCompeteWithRelatives as usize))
-        {
+        if self.skills.contains(&Skill::DoNotCompeteWithRelatives) {
             bodies_within_vision_distance_of_my_type.iter().all(
                 |(other_body_id, _)| {
                     bodies_shot_for_statuses
@@ -937,7 +923,7 @@ impl Body {
             other_body_speed = 0.0;
         }
 
-        if self.skills.contains(&(Skill::WillArriveFirst as usize)) {
+        if self.skills.contains(&Skill::WillArriveFirst) {
             let delta = self.speed - other_body_speed;
             if delta <= 0.0 {
                 return false;
@@ -980,7 +966,7 @@ impl Body {
         plant: &Plant,
         bodies_within_vision_distance: &[(&Instant, &Body)],
     ) -> bool {
-        if self.skills.contains(&(Skill::WillArriveFirst as usize)) {
+        if self.skills.contains(&Skill::WillArriveFirst) {
             let time = self.pos.distance(plant.pos) / self.speed;
 
             bodies_within_vision_distance.iter().any(
@@ -1011,8 +997,6 @@ impl Body {
         cross: &Body,
     ) -> bool {
         self.body_type != cross.body_type
-            || self
-                .skills
-                .contains(&(Skill::EatCrossesOfMyType as usize))
+            || self.skills.contains(&Skill::EatCrossesOfMyType)
     }
 }

@@ -13,20 +13,19 @@ mod user_constants;
 mod utils;
 mod zoom;
 
-use body::Skill;
 use body::*;
-use cells::{Cell, Cells};
-use conditions::update_conditions;
+use cells::*;
+use conditions::*;
 use constants::*;
-use plant::Plant;
-use plant::PlantKind;
+use plant::*;
 use user_constants::*;
-use zoom::{default_camera, get_zoom_target, Zoom};
+use zoom::*;
 
 use std::{
     collections::{HashMap, HashSet},
     env::consts::OS,
     intrinsics::unlikely,
+    mem::variant_count,
     process::exit,
     thread::sleep,
     time::{Duration, Instant},
@@ -65,16 +64,14 @@ struct Info {
     evolution_info: bool,
 }
 
-#[derive(Eq, PartialEq, Hash, Debug)]
-enum Condition {
-    FewerPlants,
-}
-
 #[macroquad::main(window_conf)]
 async fn main() {
+    assert_eq!(Condition::ALL.len(), variant_count::<Condition>());
+    assert_eq!(Virus::ALL.len(), variant_count::<Virus>());
+    assert_eq!(Skill::ALL.len(), variant_count::<Skill>());
+    assert_eq!(PlantKind::ALL.len(), variant_count::<PlantKind>());
+
     config_setup();
-    // Get all variants of enums (needed somewhere in the code)
-    let (all_skills, all_viruses) = enum_consts();
 
     // A workaround for Linux
     if OS == "linux" {
@@ -169,8 +166,6 @@ async fn main() {
                 EatingStrategy::Active
             },
             i + 1,
-            &all_skills,
-            &all_viruses,
             &mut rng,
         );
     }
@@ -264,16 +259,14 @@ async fn main() {
 
         update_conditions(&mut conditions, &mut rng);
 
-        let plant_die_chance = unsafe { PLANT_DIE_CHANCE }
+        // Remove plants
+        let n_to_remove = (plants_n as f32
+            * unsafe { PLANT_DIE_CHANCE }
             + if conditions.contains_key(&Condition::FewerPlants) {
-                0.001
+                (unsafe { PLANT_DIE_CHANCE }) * 1.5
             } else {
                 0.0
-            };
-
-        // Remove plants
-        let n_to_remove =
-            (plants_n as f32 * plant_die_chance) as usize;
+            }) as usize;
 
         for _ in 0..n_to_remove {
             loop {
@@ -387,11 +380,13 @@ async fn main() {
                     })
                     .collect::<Vec<_>>();
 
-                if body.skills.contains(
-                    &(Skill::PrioritizeFasterChasers as usize),
-                ) && chasers.iter().any(|(_, other_body)| {
-                    other_body.speed > body.speed
-                }) {
+                if body
+                    .skills
+                    .contains(&Skill::PrioritizeFasterChasers)
+                    && chasers.iter().any(|(_, other_body)| {
+                        other_body.speed > body.speed
+                    })
+                {
                     chasers.retain(|(_, other_body)| {
                         other_body.speed > body.speed
                     })
@@ -730,8 +725,6 @@ async fn main() {
                 body_id,
                 &mut new_bodies,
                 &mut removed_bodies,
-                &all_skills,
-                &all_viruses,
                 &mut rng,
             ) {
                 continue;

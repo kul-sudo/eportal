@@ -1,40 +1,11 @@
-use crate::body::Skill;
 use crate::constants::*;
 use crate::user_constants::*;
 use crate::Condition;
-use crate::UI_SHOW_PROPERTIES_N;
-use crate::{Virus, Zoom};
-use crate::{TOTAL_SKILLS_COUNT, VIRUSES_COUNT};
+use crate::Zoom;
 use ::rand::{rngs::StdRng, Rng};
 use macroquad::prelude::*;
 use std::collections::HashMap;
-use std::collections::HashSet;
-use std::mem::variant_count;
 use std::time::{Duration, Instant};
-
-pub fn enum_consts() -> (HashSet<usize>, HashSet<usize>) {
-    unsafe {
-        UI_SHOW_PROPERTIES_N = (size_of::<UIField>()
-            - size_of::<u16>())
-            / size_of::<bool>();
-    }
-
-    // Skills
-    let mut variant_count_ = variant_count::<Skill>();
-    unsafe {
-        TOTAL_SKILLS_COUNT = variant_count_;
-    }
-    let all_skills = (0..variant_count_).collect::<HashSet<_>>();
-
-    // Viruses
-    variant_count_ = variant_count::<Virus>();
-    unsafe {
-        VIRUSES_COUNT = variant_count_;
-    }
-    let all_viruses = (0..variant_count_).collect::<HashSet<_>>();
-
-    (all_skills, all_viruses)
-}
 
 pub fn generate_zoom_struct(
     area_size: &Vec2,

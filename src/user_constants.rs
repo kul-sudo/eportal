@@ -48,6 +48,10 @@ pub static mut VISIONVIRUS_VISION_DISTANCE_DECREASE: f32 = 0.0;
 pub static mut VISIONVIRUS_ENERGY_SPENT_FOR_HEALING: f32 = 0.0;
 pub static mut VISIONVIRUS_HEAL_ENERGY: f32 = 0.0;
 
+// Conditions
+pub static mut FEWER_PLANTS_CHANCE: f32 = 0.0;
+pub static mut MORE_PLANTS_CHANCE: f32 = 0.0;
+
 // UI
 pub static mut BODY_INFO_FONT_SIZE: u16 = 0;
 pub static mut SHOW_FPS: bool = false;
@@ -117,12 +121,19 @@ pub struct UIField {
 }
 
 #[derive(Deserialize)]
+pub struct ConditionsField {
+    fewer_plants_chance: f32,
+    more_plants_chance:  f32,
+}
+
+#[derive(Deserialize)]
 struct Data {
-    body:    BodyField,
-    plants:  PlantField,
-    energy:  EnergyField,
-    viruses: VirusesField,
-    ui:      UIField,
+    body:       BodyField,
+    plants:     PlantField,
+    energy:     EnergyField,
+    viruses:    VirusesField,
+    conditions: ConditionsField,
+    ui:         UIField,
 }
 
 pub fn config_setup() {
@@ -146,6 +157,7 @@ pub fn config_setup() {
     let plants = config.plants;
     let energy = config.energy;
     let viruses = config.viruses;
+    let conditions = config.conditions;
     let ui = config.ui;
 
     unsafe {
@@ -194,6 +206,10 @@ pub fn config_setup() {
             energy.energy_spent_const_for_vision_distance;
         ENERGY_SPENT_CONST_FOR_MOVEMENT =
             energy.energy_spent_const_for_movement;
+
+        // Conditions
+        FEWER_PLANTS_CHANCE = conditions.fewer_plants_chance;
+        MORE_PLANTS_CHANCE = conditions.more_plants_chance;
 
         // UI-related
         BODY_INFO_FONT_SIZE = ui.body_info_font_size;
