@@ -83,7 +83,7 @@ impl Plant {
         cells: &'a Cells,
         zoom: &'a Zoom,
         plants: &'a HashMap<Cell, HashMap<Instant, Plant>>,
-        removed_plants: &'a [(Instant, Vec2)],
+        removed_plants: &'a HashMap<Instant, Vec2>,
     ) -> Vec<&'a Plant> {
         let mut plants_to_draw = Vec::new();
 
@@ -118,7 +118,7 @@ impl Plant {
                         plants.get(&Cell { i, j }).unwrap()
                     {
                         if !removed_plants
-                            .contains(&(*plant_id, plant.pos))
+                            .contains_key(plant_id)
                         {
                             plants_to_draw.push(plant);
                         }
@@ -128,7 +128,7 @@ impl Plant {
                         plants.get(&Cell { i, j }).unwrap()
                     {
                         if !removed_plants
-                            .contains(&(*plant_id, plant.pos))
+                            .contains_key(plant_id)
                             && zoom
                                 .extended_rect
                                 .unwrap()
