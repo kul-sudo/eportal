@@ -265,7 +265,7 @@ async fn main() {
                 + if condition.is_some_and(|(condition, _)| {
                     condition == Condition::FewerPlants
                 }) {
-                    (unsafe { PLANT_DIE_CHANCE }) * 1.8
+                    (unsafe { PLANT_DIE_CHANCE }) * 1.7
                 } else {
                     0.0
                 })) as usize;
@@ -282,9 +282,7 @@ async fn main() {
                     .iter()
                     .choose(&mut rng)
                 {
-                    if !removed_plants.contains_key(
-                        random_plant_id,
-                    ) {
+                    if !removed_plants.contains_key(random_plant_id) {
                         removed_plants.insert(
                             *random_plant_id,
                             random_plant.pos,
@@ -590,7 +588,7 @@ async fn main() {
                         let filtered_visible_plants = visible_plants
                             .iter()
                             .filter(|(plant_id, plant)| {
-                                !removed_plants.contains_key(&(***plant_id))
+                                !removed_plants.contains_key(plant_id)
                                     && body.handle_alive_when_arrived_plant(plant)
                                     && body.handle_do_not_complete_with_relatives(
                                         plant_id,
@@ -818,8 +816,7 @@ async fn main() {
                 } else {
                     for cell in plants.values() {
                         for (plant_id, plant) in cell {
-                            if !removed_plants
-                                .contains_key(plant_id)
+                            if !removed_plants.contains_key(plant_id)
                             {
                                 plant.draw();
                             }

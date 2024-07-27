@@ -117,9 +117,7 @@ impl Plant {
                     for (plant_id, plant) in
                         plants.get(&Cell { i, j }).unwrap()
                     {
-                        if !removed_plants
-                            .contains_key(plant_id)
-                        {
+                        if !removed_plants.contains_key(plant_id) {
                             plants_to_draw.push(plant);
                         }
                     }
@@ -127,8 +125,7 @@ impl Plant {
                     for (plant_id, plant) in
                         plants.get(&Cell { i, j }).unwrap()
                     {
-                        if !removed_plants
-                            .contains_key(plant_id)
+                        if !removed_plants.contains_key(plant_id)
                             && zoom
                                 .extended_rect
                                 .unwrap()
