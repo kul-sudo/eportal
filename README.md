@@ -149,6 +149,11 @@ The body gets infected with a virus:
 The body spends energy on healing from the virus. However, if the body has got rid of the virus, the effects
 of the virus stay on.
 
+## Conditions
+The evolution process isn't always the same, because it's periodically struck by conditions.
+- `Drought`: Fewer plants grow.
+- `Rainy`: More plants grow.
+
 ## Zoom
 When the zoom mode is on, you can see:
 - Vision distance circles
