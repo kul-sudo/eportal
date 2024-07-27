@@ -298,7 +298,7 @@ async fn main() {
         // Spawn a plant in a random place with a specific chance
         let n_to_add = unsafe { PLANTS_N_FOR_ONE_STEP }
             + if condition.is_some_and(|(condition, _)| {
-                condition == Condition::Rainy
+                condition == Condition::Rain
             }) {
                 (unsafe { PLANTS_N_FOR_ONE_STEP } as f32
                     * RAINY_PLANTS_N_FOR_ONE_STEP_MULTIPLIER)

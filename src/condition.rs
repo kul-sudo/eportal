@@ -6,11 +6,11 @@ use std::time::{Duration, Instant};
 #[derive(Eq, PartialEq, Hash, Debug, Clone, Copy)]
 pub enum Condition {
     Drought,
-    Rainy,
+    Rain,
 }
 
 impl Condition {
-    pub const ALL: [Self; 2] = [Condition::Drought, Condition::Rainy];
+    pub const ALL: [Self; 2] = [Condition::Drought, Condition::Rain];
 }
 
 #[inline(always)]
