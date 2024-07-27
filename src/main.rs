@@ -59,9 +59,20 @@ fn window_conf() -> Conf {
     }
 }
 
+struct LastInfo {
+    plants_n: usize,
+    bodies_n: usize,
+}
+
+struct EvolutionInfo {
+    show:         bool,
+    last_updated: Option<Instant>,
+    last_info:    Option<LastInfo>,
+}
+
 struct Info {
     body_info:      bool,
-    evolution_info: bool,
+    evolution_info: EvolutionInfo,
 }
 
 #[macroquad::main(window_conf)]
@@ -129,7 +140,11 @@ async fn main() {
     // Info
     let mut info = Info {
         body_info:      true,
-        evolution_info: false,
+        evolution_info: EvolutionInfo {
+            show:         false,
+            last_updated: None,
+            last_info:    None,
+        },
     };
 
     // Evolution stuff
@@ -225,7 +240,8 @@ async fn main() {
         }
 
         if unlikely(is_key_pressed(KeyCode::Key2)) {
-            info.evolution_info = !info.evolution_info;
+            info.evolution_info.show = !info.evolution_info.show;
+            info.evolution_info.last_updated = Some(Instant::now());
         }
 
         let is_draw_prevented = is_key_down(KeyCode::Space);
@@ -263,9 +279,10 @@ async fn main() {
         let n_to_remove = (plants_n as f32
             * (unsafe { PLANT_DIE_CHANCE }
                 + if condition.is_some_and(|(condition, _)| {
-                    condition == Condition::FewerPlants
+                    condition == Condition::Drought
                 }) {
-                    (unsafe { PLANT_DIE_CHANCE }) * 1.7
+                    (unsafe { PLANT_DIE_CHANCE })
+                        * DROUGHT_PLANT_DIE_CHANCE_MULTIPLIER
                 } else {
                     0.0
                 })) as usize;
@@ -297,9 +314,10 @@ async fn main() {
         // Spawn a plant in a random place with a specific chance
         let n_to_add = unsafe { PLANTS_N_FOR_ONE_STEP }
             + if condition.is_some_and(|(condition, _)| {
-                condition == Condition::MorePlants
+                condition == Condition::Rainy
             }) {
-                (unsafe { PLANTS_N_FOR_ONE_STEP } as f32 * 2.0)
+                (unsafe { PLANTS_N_FOR_ONE_STEP } as f32
+                    * RAINY_PLANTS_N_FOR_ONE_STEP_MULTIPLIER)
                     as usize
             } else {
                 0
@@ -604,35 +622,17 @@ async fn main() {
                                     )
                             }).collect::<Vec<_>>();
 
-                        let mut closest_plant =
-                            filtered_visible_plants
-                                .iter()
-                                .filter(|(_, plant)| {
-                                    plant.kind == PlantKind::Banana
-                                })
-                                .min_by(|(_, a), (_, b)| {
-                                    body.pos
-                                        .distance(a.pos)
-                                        .partial_cmp(
-                                            &body.pos.distance(b.pos),
-                                        )
-                                        .unwrap()
-                                });
+                        let mut closest_plant = body
+                            .find_closest_plant(
+                                &filtered_visible_plants,
+                                PlantKind::Banana,
+                            );
 
                         if closest_plant.is_none() {
-                            closest_plant = filtered_visible_plants
-                                .iter()
-                                .filter(|(_, plant)| {
-                                    plant.kind == PlantKind::Grass
-                                })
-                                .min_by(|(_, a), (_, b)| {
-                                    body.pos
-                                        .distance(a.pos)
-                                        .partial_cmp(
-                                            &body.pos.distance(b.pos),
-                                        )
-                                        .unwrap()
-                                })
+                            closest_plant = body.find_closest_plant(
+                                &filtered_visible_plants,
+                                PlantKind::Grass,
+                            );
                         }
 
                         match closest_plant {
@@ -833,10 +833,11 @@ async fn main() {
                 last_updated = Instant::now();
             }
 
-            if info.evolution_info {
+            if info.evolution_info.show {
                 show_evolution_info(
                     &zoom,
                     &area_size,
+                    &mut info,
                     plants_n,
                     removed_plants.len(),
                     bodies.len(),

@@ -2,6 +2,7 @@ use crate::constants::*;
 use macroquad::prelude::*;
 use serde_derive::Deserialize;
 use std::fs::read_to_string;
+use std::ops::Range;
 use std::process::exit;
 use toml::from_str;
 
@@ -50,6 +51,7 @@ pub static mut VISIONVIRUS_HEAL_ENERGY: f32 = 0.0;
 
 // Condition
 pub static mut CONDITION_CHANCE: f32 = 0.0;
+pub static mut CONDITION_LIFETIME: Range<u64> = 0..0;
 
 // UI
 pub static mut BODY_INFO_FONT_SIZE: u16 = 0;
@@ -95,11 +97,10 @@ struct EnergyField {
 
 #[derive(Deserialize)]
 struct VirusesField {
-    speedvirus_first_generation_infection_chance: f32,
-    speedvirus_speed_decrease:                    f32,
-    speedvirus_energy_spent_for_healing:          f32,
-    speedvirus_heal_energy:                       f32,
-
+    speedvirus_first_generation_infection_chance:  f32,
+    speedvirus_speed_decrease:                     f32,
+    speedvirus_energy_spent_for_healing:           f32,
+    speedvirus_heal_energy:                        f32,
     visionvirus_first_generation_infection_chance: f32,
     visionvirus_vision_distance_decrease:          f32,
     visionvirus_energy_spent_for_healing:          f32,
@@ -108,9 +109,8 @@ struct VirusesField {
 
 #[derive(Deserialize)]
 pub struct UIField {
-    body_info_font_size: u16,
-    show_fps:            bool,
-
+    body_info_font_size:     u16,
+    show_fps:                bool,
     show_energy:             bool,
     show_division_threshold: bool,
     show_body_type:          bool,
@@ -121,7 +121,8 @@ pub struct UIField {
 
 #[derive(Deserialize)]
 pub struct ConditionField {
-    condition_chance: f32,
+    condition_chance:   f32,
+    condition_lifetime: [u64; 2],
 }
 
 #[derive(Deserialize)]
@@ -207,6 +208,8 @@ pub fn config_setup() {
 
         // Condition
         CONDITION_CHANCE = condition.condition_chance;
+        CONDITION_LIFETIME = condition.condition_lifetime[0]
+            ..condition.condition_lifetime[1];
 
         // UI-related
         BODY_INFO_FONT_SIZE = ui.body_info_font_size;

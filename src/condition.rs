@@ -1,17 +1,16 @@
-use crate::CONDITION_CHANCE;
+use crate::{CONDITION_CHANCE, CONDITION_LIFETIME};
 use ::rand::{rngs::StdRng, Rng};
 use rand::prelude::IteratorRandom;
 use std::time::{Duration, Instant};
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone, Copy)]
 pub enum Condition {
-    FewerPlants,
-    MorePlants,
+    Drought,
+    Rainy,
 }
 
 impl Condition {
-    pub const ALL: [Self; 2] =
-        [Condition::FewerPlants, Condition::MorePlants];
+    pub const ALL: [Self; 2] = [Condition::Drought, Condition::Rainy];
 }
 
 #[inline(always)]
@@ -32,7 +31,9 @@ pub fn update_condition(
                     *Condition::ALL.iter().choose(rng).unwrap(),
                     (
                         Instant::now(),
-                        Duration::from_secs(rng.gen_range(30..60)),
+                        Duration::from_secs(rng.gen_range(unsafe {
+                            CONDITION_LIFETIME.clone()
+                        })),
                     ),
                 ));
             }

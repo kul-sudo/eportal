@@ -1,6 +1,8 @@
 use crate::constants::*;
 use crate::user_constants::*;
 use crate::Condition;
+use crate::Info;
+use crate::LastInfo;
 use crate::Zoom;
 use ::rand::{rngs::StdRng, Rng};
 use macroquad::prelude::*;
@@ -36,15 +38,71 @@ pub fn generate_zoom_struct(
 pub fn show_evolution_info(
     zoom: &Zoom,
     area_size: &Vec2,
-    plants_n: usize,
+    info: &mut Info,
+    plants_len: usize,
     removed_plants_len: usize,
     bodies_len: usize,
     removed_bodies_len: usize,
     condition: &Option<(Condition, (Instant, Duration))>,
 ) {
+    let real_plants_n = plants_len - removed_plants_len;
+    let real_bodies_n = bodies_len - removed_bodies_len;
+
+    let plants_n_to_show;
+    let bodies_n_to_show;
+
+    let update_evolution_info = info
+        .evolution_info
+        .last_updated
+        .unwrap()
+        .elapsed()
+        .as_secs_f32()
+        > 0.5;
+
+    match info.evolution_info.last_info {
+        Some(_) => {
+            if update_evolution_info {
+                let LastInfo {
+                    plants_n: last_plants_n,
+                    bodies_n: last_bodies_n,
+                } = info.evolution_info.last_info.as_mut().unwrap();
+
+                *last_plants_n = real_plants_n;
+                *last_bodies_n = real_bodies_n;
+
+                plants_n_to_show = real_plants_n;
+                bodies_n_to_show = real_bodies_n;
+
+                info.evolution_info.last_updated =
+                    Some(Instant::now());
+            } else {
+                let LastInfo {
+                    plants_n: last_plants_n,
+                    bodies_n: last_bodies_n,
+                } = info.evolution_info.last_info.as_ref().unwrap();
+
+                plants_n_to_show = *last_plants_n;
+                bodies_n_to_show = *last_bodies_n;
+            }
+        }
+        None => {
+            info.evolution_info.last_info = Some({
+                LastInfo {
+                    plants_n: real_plants_n,
+                    bodies_n: real_bodies_n,
+                }
+            });
+
+            plants_n_to_show = real_plants_n;
+            bodies_n_to_show = real_bodies_n;
+
+            info.evolution_info.last_updated = Some(Instant::now());
+        }
+    }
+
     let evolution_info_fields = [
-        format!("plants: {:?}", plants_n - removed_plants_len),
-        format!("bodies: {:?}", bodies_len - removed_bodies_len),
+        format!("plants: {:?}", plants_n_to_show),
+        format!("bodies: {:?}", bodies_n_to_show),
         format!(
             "condition: {}",
             match condition {
@@ -52,7 +110,7 @@ pub fn show_evolution_info(
                     format!("{:?}", condition)
                 }
                 None => {
-                    "None".to_string()
+                    "Normal".to_string()
                 }
             }
         ),

@@ -1,4 +1,5 @@
 use crate::user_constants::*;
+use crate::PlantKind;
 use macroquad::prelude::{
     draw_circle, draw_line, draw_rectangle, draw_text, measure_text,
     rand::gen_range, vec2, Circle, Color, Vec2, Vec3, GREEN, RED,
@@ -733,7 +734,7 @@ impl Body {
 
         // Make sure the color is different enough
         let real_color_gap = COLOR_GAP
-            / ((unsafe { BODIES_N } + 2) as f32).powf(1.0 / 3.0);
+            / ((unsafe { BODIES_N } + 3) as f32).powf(1.0 / 3.0);
 
         let mut color = Color::from_rgba(
             gen_range(COLOR_MIN, COLOR_MAX),
@@ -792,6 +793,23 @@ impl Body {
                 rng,
             ),
         );
+    }
+
+    #[inline(always)]
+    pub fn find_closest_plant<'a>(
+        &self,
+        visible_plants: &'a [(&&'a Instant, &&'a Plant)],
+        plant_kind: PlantKind,
+    ) -> Option<&'a (&&'a Instant, &&'a Plant)> {
+        visible_plants
+            .iter()
+            .filter(|(_, plant)| plant.kind == plant_kind)
+            .min_by(|(_, a), (_, b)| {
+                self.pos
+                    .distance(a.pos)
+                    .partial_cmp(&self.pos.distance(b.pos))
+                    .unwrap()
+            })
     }
 
     #[inline(always)]
