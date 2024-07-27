@@ -59,22 +59,6 @@ fn window_conf() -> Conf {
     }
 }
 
-struct LastInfo {
-    plants_n: usize,
-    bodies_n: usize,
-}
-
-struct EvolutionInfo {
-    show:         bool,
-    last_updated: Option<Instant>,
-    last_info:    Option<LastInfo>,
-}
-
-struct Info {
-    body_info:      bool,
-    evolution_info: EvolutionInfo,
-}
-
 #[macroquad::main(window_conf)]
 async fn main() {
     assert_eq!(Condition::ALL.len(), variant_count::<Condition>());
@@ -838,10 +822,8 @@ async fn main() {
                     &zoom,
                     &area_size,
                     &mut info,
-                    plants_n,
-                    removed_plants.len(),
-                    bodies.len(),
-                    removed_bodies.len(),
+                    (plants_n, removed_plants.len()),
+                    (bodies.len(), removed_bodies.len()),
                     &condition,
                 );
             }

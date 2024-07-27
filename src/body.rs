@@ -15,12 +15,8 @@ use std::{
 };
 
 use crate::{
-    constants::*,
-    get_with_deviation,
-    plant::Plant,
-    smart_drawing::{DrawingStrategy, RectangleCorner},
-    zoom::Zoom,
-    UI_SHOW_PROPERTIES_N,
+    constants::*, get_with_deviation, plant::Plant,
+    smart_drawing::DrawingStrategy, zoom::Zoom, UI_SHOW_PROPERTIES_N,
 };
 
 pub enum FoodType {
@@ -427,31 +423,6 @@ impl Body {
         let mut target_line = None; // It hasn't been decided yet whether it's needed to draw a
                                     // line
 
-        let mut rectangle_corners = HashMap::with_capacity(4);
-        for corner in [
-            RectangleCorner::TopRight,
-            RectangleCorner::TopLeft,
-            RectangleCorner::BottomRight,
-            RectangleCorner::BottomLeft,
-        ] {
-            let (i, j) = match corner {
-                RectangleCorner::TopRight => (1.0, 1.0),
-                RectangleCorner::TopLeft => (-1.0, 1.0),
-                RectangleCorner::BottomRight => (1.0, -1.0),
-                RectangleCorner::BottomLeft => (-1.0, -1.0),
-            };
-
-            rectangle_corners.insert(
-                corner,
-                vec2(
-                    zoom.center_pos.unwrap().x
-                        + i * zoom.rect.unwrap().w / 2.0,
-                    zoom.center_pos.unwrap().y
-                        + j * zoom.rect.unwrap().h / 2.0,
-                ),
-            );
-        }
-
         // Step 1
         if zoom.extended_rect.unwrap().contains(self.pos) {
             // The body can be partially
@@ -508,36 +479,19 @@ impl Body {
             }
 
             if target_line.is_none() {
-                target_line = Some(false);
-
-                for (i, j) in [
-                    (
-                        RectangleCorner::BottomRight,
-                        RectangleCorner::BottomLeft,
-                    ),
-                    (
-                        RectangleCorner::TopRight,
-                        RectangleCorner::TopLeft,
-                    ),
-                    (
-                        RectangleCorner::TopRight,
-                        RectangleCorner::BottomRight,
-                    ),
-                    (
-                        RectangleCorner::TopLeft,
-                        RectangleCorner::BottomLeft,
-                    ),
-                ] {
-                    if DrawingStrategy::segments_intersect(
-                        &self.pos,
-                        &target_pos,
-                        rectangle_corners.get(&i).unwrap(),
-                        rectangle_corners.get(&j).unwrap(),
-                    ) {
-                        target_line = Some(true);
-                        break;
-                    }
-                }
+                target_line = Some(
+                    zoom.rect.unwrap().x + zoom.rect.unwrap().w / 2.0
+                        > target_pos.x
+                        || zoom.rect.unwrap().x
+                            - zoom.rect.unwrap().w / 2.0
+                            < target_pos.x
+                        || zoom.rect.unwrap().y
+                            + zoom.rect.unwrap().y / 2.0
+                            > target_pos.y
+                        || zoom.rect.unwrap().y
+                            - zoom.rect.unwrap().y / 2.0
+                            < target_pos.y,
+                );
             }
 
             drawing_strategy.target_line = target_line.unwrap();

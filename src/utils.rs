@@ -1,12 +1,26 @@
 use crate::constants::*;
 use crate::user_constants::*;
 use crate::Condition;
-use crate::Info;
-use crate::LastInfo;
 use crate::Zoom;
 use ::rand::{rngs::StdRng, Rng};
 use macroquad::prelude::*;
 use std::time::{Duration, Instant};
+
+pub struct LastInfo {
+    pub plants_n: usize,
+    pub bodies_n: usize,
+}
+
+pub struct EvolutionInfo {
+    pub show:         bool,
+    pub last_updated: Option<Instant>,
+    pub last_info:    Option<LastInfo>,
+}
+
+pub struct Info {
+    pub body_info:      bool,
+    pub evolution_info: EvolutionInfo,
+}
 
 pub fn generate_zoom_struct(
     area_size: &Vec2,
@@ -39,14 +53,15 @@ pub fn show_evolution_info(
     zoom: &Zoom,
     area_size: &Vec2,
     info: &mut Info,
-    plants_len: usize,
-    removed_plants_len: usize,
-    bodies_len: usize,
-    removed_bodies_len: usize,
+    plants_info: (usize, usize),
+    bodies_info: (usize, usize),
     condition: &Option<(Condition, (Instant, Duration))>,
 ) {
-    let real_plants_n = plants_len - removed_plants_len;
-    let real_bodies_n = bodies_len - removed_bodies_len;
+    let (plants_n, removed_plants_len) = plants_info;
+    let (bodies_n, removed_bodies_len) = bodies_info;
+
+    let real_plants_n = plants_n - removed_plants_len;
+    let real_bodies_n = bodies_n - removed_bodies_len;
 
     let plants_n_to_show;
     let bodies_n_to_show;
