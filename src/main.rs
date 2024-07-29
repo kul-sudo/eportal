@@ -82,7 +82,7 @@ async fn main() {
     );
 
     // Needed for randomness
-    let mut rng = StdRng::from_entropy();
+    let mut rng = StdRng::from_rng(&mut rand::thread_rng()).unwrap();
 
     // Calculations
     let mut cells = Cells::default();
@@ -140,9 +140,6 @@ async fn main() {
     let mut plants: HashMap<Cell, HashMap<Instant, Plant>> =
         HashMap::with_capacity(cells.rows * cells.columns);
 
-    let mut new_bodies: HashMap<Instant, Body> =
-        HashMap::with_capacity(AVERAGE_MAX_NEW_BODIES);
-
     for i in 0..cells.rows {
         for j in 0..cells.columns {
             plants.insert(
@@ -183,11 +180,6 @@ async fn main() {
         );
         plants_n += 1;
     }
-
-    let mut removed_plants: HashMap<Instant, Vec2> =
-        HashMap::with_capacity(AVERAGE_MAX_PLANTS_REMOVED);
-    let mut removed_bodies: HashSet<Instant> =
-        HashSet::with_capacity(AVERAGE_MAX_BODIES_REMOVED);
 
     // Zoom
     let rect_size = vec2(
@@ -256,6 +248,14 @@ async fn main() {
                 }
             }
         }
+
+        let mut new_bodies: HashMap<Instant, Body> =
+            HashMap::with_capacity(AVERAGE_MAX_NEW_BODIES);
+
+        let mut removed_plants: HashMap<Instant, Vec2> =
+            HashMap::with_capacity(AVERAGE_MAX_PLANTS_REMOVED);
+        let mut removed_bodies: HashSet<Instant> =
+            HashSet::with_capacity(AVERAGE_MAX_BODIES_REMOVED);
 
         update_condition(&mut condition, &mut rng);
 
@@ -362,9 +362,9 @@ async fn main() {
                 .iter()
                 .filter(|(other_body_id, other_body)| {
                     &body_id != other_body_id
-                        && !removed_bodies.contains(other_body_id)
                         && body.pos.distance(other_body.pos)
                             <= body.vision_distance
+                        && !removed_bodies.contains(other_body_id)
                 })
                 .collect::<Vec<_>>();
 
@@ -449,24 +449,24 @@ async fn main() {
                 .iter()
                 .filter(|(cross_id, cross)| {
                     !cross.is_alive()
-                        && body.handle_avoid_new_viruses(cross)
                         && body.handle_eat_crosses_of_my_type(cross)
-                        && body.handle_do_not_complete_with_relatives(
-                            cross_id,
-                            &cross.pos,
-                            &bodies_shot_for_statuses,
-                            &bodies_within_vision_distance_of_my_type,
-                        )
                         && body.handle_alive_when_arrived_body(
                             cross, true,
                         )
                         && body.handle_profitable_when_arrived_body(
                             cross, true,
                         )
+                        && body.handle_avoid_new_viruses(cross)
                         && body.handle_will_arive_first_body(
                             cross_id,
                             cross,
                             &bodies_within_vision_distance,
+                        )
+                        && body.handle_do_not_complete_with_relatives(
+                            cross_id,
+                            &cross.pos,
+                            &bodies_shot_for_statuses,
+                            &bodies_within_vision_distance_of_my_type,
                         )
                 })
                 .min_by(|(_, a), (_, b)| {
@@ -490,7 +490,9 @@ async fn main() {
                     let mut visible_plants: HashMap<
                         &Instant,
                         &Plant,
-                    > = HashMap::with_capacity(AVERAGE_VISIBLE_PLANTS);
+                    > = HashMap::with_capacity(
+                        AVERAGE_VISIBLE_PLANTS,
+                    );
 
                     // Using these for ease of development
                     let (a, b) = (body.pos.x, body.pos.y);
@@ -589,13 +591,13 @@ async fn main() {
                             .filter(|(plant_id, plant)| {
                                 !removed_plants.contains_key(plant_id)
                                     && body.handle_alive_when_arrived_plant(plant)
+                                    && body.handle_profitable_when_arrived_plant(plant)
                                     && body.handle_do_not_complete_with_relatives(
                                         plant_id,
                                         &plant.pos,
                                         &bodies_shot_for_statuses,
                                         &bodies_within_vision_distance_of_my_type,
                                     )
-                                    && body.handle_profitable_when_arrived_plant(plant)
                                     && body.handle_will_arive_first_plant(
                                         plant_id,
                                         plant,
@@ -638,23 +640,23 @@ async fn main() {
                                             body.body_type != other_body.body_type
                                                 && body.energy > other_body.energy
                                                 && other_body.is_alive()
-                                                && body.handle_avoid_new_viruses(other_body)
-                                                && body.handle_do_not_complete_with_relatives(
-                                                    other_body_id,
-                                                    &other_body.pos,
-                                                    &bodies_shot_for_statuses,
-                                                    &bodies_within_vision_distance_of_my_type,
-                                                )
                                                 && body.handle_alive_when_arrived_body(
                                                     other_body, false,
                                                 )
                                                 && body.handle_profitable_when_arrived_body(
                                                     other_body, false,
                                                 )
+                                                && body.handle_avoid_new_viruses(other_body)
                                                 && body.handle_will_arive_first_body(
                                                     other_body_id,
                                                     other_body,
                                                     &bodies_within_vision_distance,
+                                                )
+                                                && body.handle_do_not_complete_with_relatives(
+                                                    other_body_id,
+                                                    &other_body.pos,
+                                                    &bodies_shot_for_statuses,
+                                                    &bodies_within_vision_distance_of_my_type,
                                                 )
                                         })
                                         .min_by(|(_, a), (_, b)| {
@@ -729,17 +731,14 @@ async fn main() {
                 .unwrap()
                 .remove(plant_id);
         }
-        removed_plants.clear();
 
         for body_id in &removed_bodies {
             bodies.remove(body_id);
         }
-        removed_bodies.clear();
 
         for (new_body_id, new_body) in &new_bodies {
             bodies.insert(*new_body_id, new_body.clone());
         }
-        new_bodies.clear();
 
         if is_draw_mode {
             if !is_draw_prevented {

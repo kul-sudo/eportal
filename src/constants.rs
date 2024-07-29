@@ -16,7 +16,8 @@ pub const AVERAGE_MAX_PLANTS_IN_ONE_CELL: usize = 10;
 pub const AVERAGE_MAX_NEW_BODIES: usize = 30;
 pub const AVERAGE_MAX_PLANTS_REMOVED: usize = 60;
 pub const AVERAGE_MAX_BODIES_REMOVED: usize = 30;
-pub const AVERAGE_VISIBLE_PLANTS: usize = 56;
+pub const AVERAGE_VISIBLE_PLANTS: usize = 50;
+//pub const AVERAGE_PLANTS_TO_DRAW: usize =
 
 /// The recommended constants in config.toml have been detemined for this area space.
 pub static DEFAULT_AREA_SIZE_RATIO: f32 =
