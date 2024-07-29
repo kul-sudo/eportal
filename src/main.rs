@@ -791,10 +791,13 @@ async fn main() {
 
                         if drawing_strategy.body {
                             body.draw(&zoom);
+                        }
 
-                            if info.body_info && body.is_alive() {
-                                body.draw_info();
-                            }
+                        if drawing_strategy.vision_distance
+                            && info.body_info
+                            && body.is_alive()
+                        {
+                            body.draw_info();
                         }
                     }
                 } else {

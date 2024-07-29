@@ -1,3 +1,4 @@
+use crate::smart_drawing::RectangleCorner;
 use crate::user_constants::*;
 use crate::PlantKind;
 use macroquad::prelude::{
@@ -419,84 +420,99 @@ impl Body {
         &self,
         zoom: &Zoom,
     ) -> DrawingStrategy {
-        let mut drawing_strategy = DrawingStrategy::default();
-        let mut target_line = None; // It hasn't been decided yet whether it's needed to draw a
-                                    // line
+        let mut drawing_strategy = DrawingStrategy::default(); // Everything's false
 
-        // Step 1
-        if zoom.extended_rect.unwrap().contains(self.pos) {
-            // The body can be partially
-            // visible/hidden or completely visible
-            drawing_strategy.body = true;
+        match zoom.extended_rect.unwrap().contains(self.pos) {
+            true => {
+                // The body can be partially
+                // visible/hidden or completely visible
+                drawing_strategy.body = true;
 
-            if !self.is_alive() {
-                return drawing_strategy;
-            }
+                if self.is_alive() {
+                    drawing_strategy.vision_distance = true;
 
-            drawing_strategy.vision_distance = true;
-
-            if let Status::FollowingTarget((_, target_pos)) =
-                self.status
-            {
-                // If it isn't inside the rectangle, it's determined later on
-                if zoom.rect.unwrap().contains(target_pos) {
-                    target_line = Some(true);
-                }
-            }
-        } else {
-            if !self.is_alive() {
-                return drawing_strategy;
-            }
-
-            drawing_strategy.body = false;
-            drawing_strategy.vision_distance = Circle::new(
-                self.pos.x,
-                self.pos.y,
-                self.vision_distance,
-            )
-            .overlaps_rect(&zoom.rect.unwrap());
-        }
-
-        // Step 2
-        if let Status::FollowingTarget((_, target_pos)) = self.status
-        {
-            if !drawing_strategy.body {
-                // It's handled here if it's unneeded to draw the target line
-                if drawing_strategy.vision_distance {
-                    target_line = None;
-                } else {
-                    target_line = if unlikely(
-                        self.vision_distance > zoom.diagonal_rect,
-                    )
-                    // It is very unlikely for the vision distance to be big enough to cover the
-                    // whole diagonal of the zoom area
+                    if let Status::FollowingTarget((_, target_pos)) =
+                        self.status
                     {
-                        None
-                    } else {
-                        Some(false)
+                        let mut rectangle_sides =
+                            HashMap::with_capacity(4);
+                        for corner in RectangleCorner::ALL {
+                            let (i, j) = match corner {
+                                RectangleCorner::TopRight => {
+                                    (1.0, 1.0)
+                                }
+                                RectangleCorner::TopLeft => {
+                                    (-1.0, 1.0)
+                                }
+                                RectangleCorner::BottomRight => {
+                                    (1.0, -1.0)
+                                }
+                                RectangleCorner::BottomLeft => {
+                                    (-1.0, -1.0)
+                                }
+                            };
+
+                            rectangle_sides.insert(
+                                corner,
+                                vec2(
+                                    zoom.center_pos.unwrap().x
+                                        + i * zoom.rect.unwrap().w
+                                            / 2.0,
+                                    zoom.center_pos.unwrap().y
+                                        + j * zoom.rect.unwrap().h
+                                            / 2.0,
+                                ),
+                            );
+                        }
+
+                        // If it isn't inside the rectangle, it's determined later on
+                        drawing_strategy.target_line = [
+                            (
+                                RectangleCorner::BottomRight,
+                                RectangleCorner::BottomLeft,
+                            ),
+                            (
+                                RectangleCorner::TopRight,
+                                RectangleCorner::TopLeft,
+                            ),
+                            (
+                                RectangleCorner::TopRight,
+                                RectangleCorner::BottomRight,
+                            ),
+                            (
+                                RectangleCorner::TopLeft,
+                                RectangleCorner::BottomLeft,
+                            ),
+                        ]
+                        .iter()
+                        .any(|(i, j)| {
+                            DrawingStrategy::segments_intersect(
+                                &self.pos,
+                                &target_pos,
+                                rectangle_sides.get(&i).unwrap(),
+                                rectangle_sides.get(&j).unwrap(),
+                            )
+                        });
                     }
                 }
             }
+            false => {
+                if self.is_alive() {
+                    drawing_strategy.vision_distance = Circle::new(
+                        self.pos.x,
+                        self.pos.y,
+                        self.vision_distance,
+                    )
+                    .overlaps_rect(&zoom.rect.unwrap());
 
-            if target_line.is_none() {
-                target_line = Some(
-                    zoom.rect.unwrap().x + zoom.rect.unwrap().w / 2.0
-                        > target_pos.x
-                        || zoom.rect.unwrap().x
-                            - zoom.rect.unwrap().w / 2.0
-                            < target_pos.x
-                        || zoom.rect.unwrap().y
-                            + zoom.rect.unwrap().y / 2.0
-                            > target_pos.y
-                        || zoom.rect.unwrap().y
-                            - zoom.rect.unwrap().y / 2.0
-                            < target_pos.y,
-                );
+                    if let Status::FollowingTarget((_, target_pos)) =
+                        self.status
+                    {
+                        drawing_strategy.target_line =
+                            zoom.rect.unwrap().contains(target_pos);
+                    }
+                }
             }
-
-            drawing_strategy.target_line = target_line.unwrap();
-        } else {
-            drawing_strategy.target_line = false;
         }
 
         drawing_strategy
