@@ -485,8 +485,8 @@ impl Body {
                             ),
                         ]
                         .iter()
-                        .any(|(i, j)| {
-                            DrawingStrategy::segments_intersect(
+                        .all(|(i, j)| {
+                            !DrawingStrategy::segments_intersect(
                                 &self.pos,
                                 &target_pos,
                                 rectangle_sides.get(&i).unwrap(),
