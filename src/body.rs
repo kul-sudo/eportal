@@ -11,7 +11,7 @@ use rand::{rngs::StdRng, seq::IteratorRandom, Rng};
 use std::collections::HashSet;
 use std::f32::consts::PI;
 use std::{
-    collections::HashMap, f32::consts::SQRT_2, intrinsics::unlikely,
+    collections::HashMap, f32::consts::SQRT_2,
     time::Instant,
 };
 

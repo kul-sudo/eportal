@@ -19,10 +19,6 @@ pub struct Zoom {
     pub rect:                   Option<Rect>,
     /// Normal rect size + OBJECT_RADIUS * 2.0.
     pub extended_rect:          Option<Rect>,
-    /// The diagonal of the normal rectangle.
-    pub diagonal_rect:          f32,
-    /// The diagonal of the extended rectangle.
-    pub diagonal_extended_rect: f32,
 }
 
 #[inline(always)]

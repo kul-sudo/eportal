@@ -29,9 +29,6 @@ pub fn generate_zoom_struct(
     let scaling_width = MAX_ZOOM / area_size.x * 2.0;
     let scaling_height = MAX_ZOOM / area_size.y * 2.0;
 
-    let extended_rect_width = rect_size.x + OBJECT_RADIUS * 2.0;
-    let extended_rect_height = rect_size.y + OBJECT_RADIUS * 2.0;
-
     Zoom {
         zoomed: false,
         scaling_width,
@@ -40,11 +37,6 @@ pub fn generate_zoom_struct(
         mouse_pos: None,
         rect: None,
         extended_rect: None,
-        diagonal_rect: (rect_size.x.powi(2) + rect_size.y.powi(2))
-            .sqrt(),
-        diagonal_extended_rect: (extended_rect_width.powi(2)
-            + extended_rect_height.powi(2))
-        .sqrt(),
     }
 }
 
