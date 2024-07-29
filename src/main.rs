@@ -326,8 +326,6 @@ async fn main() {
         let bodies_shot = bodies.clone();
         let mut bodies_shot_for_statuses = bodies.clone();
 
-        let plants_shot = plants.clone();
-
         for (body_id, body) in &mut bodies {
             // Handle if the body was eaten earlier
             if removed_bodies.contains(body_id) {
@@ -492,7 +490,7 @@ async fn main() {
                     let mut visible_plants: HashMap<
                         &Instant,
                         &Plant,
-                    > = HashMap::new();
+                    > = HashMap::with_capacity(AVERAGE_VISIBLE_PLANTS);
 
                     // Using these for ease of development
                     let (a, b) = (body.pos.x, body.pos.y);
@@ -573,9 +571,8 @@ async fn main() {
                                         .powi(2)
                                     < r.powi(2);
 
-                            for (plant_id, plant) in plants_shot
-                                .get(&Cell { i, j })
-                                .unwrap()
+                            for (plant_id, plant) in
+                                plants.get(&Cell { i, j }).unwrap()
                             {
                                 if fully_covered
                                     || body.pos.distance(plant.pos)
