@@ -261,17 +261,6 @@ impl Body {
 
     #[inline(always)]
     pub fn draw(&self, zoom: &Zoom) {
-        if zoom.zoomed {
-            if let Some(extended_rect) = zoom.extended_rect {
-                if self.pos.distance(extended_rect.center())
-                    >= self.vision_distance
-                        + zoom.diagonal_extended_rect / 2.0
-                {
-                    return;
-                }
-            }
-        }
-
         let side_length_half = OBJECT_RADIUS / SQRT_2;
 
         if self.is_alive() {
