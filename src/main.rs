@@ -187,7 +187,7 @@ async fn main() {
         screen_height() / MAX_ZOOM * OBJECT_RADIUS,
     );
 
-    let mut zoom = generate_zoom_struct(&area_size, &rect_size);
+    let mut zoom = generate_zoom_struct(&area_size);
 
     // Needed for the FPS
     let mut last_updated = Instant::now();
@@ -786,7 +786,7 @@ async fn main() {
                         }
 
                         if drawing_strategy.body {
-                            body.draw(&zoom);
+                            body.draw();
                         }
 
                         if drawing_strategy.vision_distance
@@ -808,7 +808,7 @@ async fn main() {
 
                     for (body_id, body) in &bodies {
                         if !removed_bodies.contains(body_id) {
-                            body.draw(&zoom);
+                            body.draw();
                         }
                     }
                 }

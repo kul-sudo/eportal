@@ -24,7 +24,6 @@ pub struct Info {
 
 pub fn generate_zoom_struct(
     area_size: &Vec2,
-    rect_size: &Vec2,
 ) -> Zoom {
     let scaling_width = MAX_ZOOM / area_size.x * 2.0;
     let scaling_height = MAX_ZOOM / area_size.y * 2.0;

@@ -260,7 +260,7 @@ impl Body {
     }
 
     #[inline(always)]
-    pub fn draw(&self, zoom: &Zoom) {
+    pub fn draw(&self) {
         let side_length_half = OBJECT_RADIUS / SQRT_2;
 
         if self.is_alive() {
