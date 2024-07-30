@@ -368,10 +368,7 @@ async fn main() {
                 })
                 .collect::<Vec<_>>();
 
-            if let Some((
-                closest_chasing_body_id,
-                closest_chasing_body,
-            )) = {
+
                 let mut chasers = bodies_within_vision_distance
                     .iter()
                     .filter(|(other_body_id, _)| {
@@ -392,17 +389,16 @@ async fn main() {
                 if body
                     .skills
                     .contains(&Skill::PrioritizeFasterChasers)
-                    && chasers.iter().any(|(_, other_body)| {
-                        other_body.speed > body.speed
-                    })
                 {
                     chasers.retain(|(_, other_body)| {
                         other_body.speed > body.speed
                     })
                 }
 
-                chasers
-            }
+            if let Some((
+                closest_chasing_body_id,
+                closest_chasing_body,
+            )) = chasers
             .iter()
             .min_by(|(_, a), (_, b)| {
                 body.pos
