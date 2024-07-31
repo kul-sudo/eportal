@@ -22,9 +22,7 @@ pub struct Info {
     pub evolution_info: EvolutionInfo,
 }
 
-pub fn generate_zoom_struct(
-    area_size: &Vec2,
-) -> Zoom {
+pub fn generate_zoom_struct(area_size: &Vec2) -> Zoom {
     let scaling_width = MAX_ZOOM / area_size.x * 2.0;
     let scaling_height = MAX_ZOOM / area_size.y * 2.0;
 
@@ -44,40 +42,33 @@ pub fn show_evolution_info(
     zoom: &Zoom,
     area_size: &Vec2,
     info: &mut Info,
-    plants_info: (usize, usize),
-    bodies_info: (usize, usize),
+    plants_n: usize,
+    bodies_n: usize,
     condition: &Option<(Condition, (Instant, Duration))>,
 ) {
-    let (plants_n, removed_plants_len) = plants_info;
-    let (bodies_n, removed_bodies_len) = bodies_info;
-
-    let real_plants_n = plants_n - removed_plants_len;
-    let real_bodies_n = bodies_n - removed_bodies_len;
-
     let plants_n_to_show;
     let bodies_n_to_show;
 
-    let update_evolution_info = info
-        .evolution_info
-        .last_updated
-        .unwrap()
-        .elapsed()
-        .as_secs_f32()
-        > 0.5;
-
     match info.evolution_info.last_info {
         Some(_) => {
-            if update_evolution_info {
+            if info
+                .evolution_info
+                .last_updated
+                .unwrap()
+                .elapsed()
+                .as_secs_f32()
+                > 0.5
+            {
                 let LastInfo {
                     plants_n: last_plants_n,
                     bodies_n: last_bodies_n,
                 } = info.evolution_info.last_info.as_mut().unwrap();
 
-                *last_plants_n = real_plants_n;
-                *last_bodies_n = real_bodies_n;
+                *last_plants_n = plants_n;
+                *last_bodies_n = bodies_n;
 
-                plants_n_to_show = real_plants_n;
-                bodies_n_to_show = real_bodies_n;
+                plants_n_to_show = plants_n;
+                bodies_n_to_show = bodies_n;
 
                 info.evolution_info.last_updated =
                     Some(Instant::now());
@@ -94,13 +85,13 @@ pub fn show_evolution_info(
         None => {
             info.evolution_info.last_info = Some({
                 LastInfo {
-                    plants_n: real_plants_n,
-                    bodies_n: real_bodies_n,
+                    plants_n: plants_n,
+                    bodies_n: bodies_n,
                 }
             });
 
-            plants_n_to_show = real_plants_n;
-            bodies_n_to_show = real_bodies_n;
+            plants_n_to_show = plants_n;
+            bodies_n_to_show = bodies_n;
 
             info.evolution_info.last_updated = Some(Instant::now());
         }

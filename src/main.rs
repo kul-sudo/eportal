@@ -19,6 +19,7 @@ use condition::*;
 use constants::*;
 use plant::*;
 use user_constants::*;
+use utils::*;
 use zoom::*;
 
 use std::{
@@ -30,7 +31,6 @@ use std::{
     thread::sleep,
     time::{Duration, Instant},
 };
-use utils::*;
 
 use macroquad::{
     camera::Camera2D,
@@ -220,8 +220,6 @@ async fn main() {
             info.evolution_info.last_updated = Some(Instant::now());
         }
 
-        let is_draw_prevented = is_key_down(KeyCode::Space);
-
         if zoom.zoomed {
             // There's no reason to zoom in again if the mouse position hasn't been changed
             let current_mouse_pos = Vec2::from(mouse_position());
@@ -368,47 +366,46 @@ async fn main() {
                 })
                 .collect::<Vec<_>>();
 
+            let mut chasers = bodies_within_vision_distance
+                .iter()
+                .filter(|(other_body_id, _)| {
+                    if let Status::FollowingTarget(
+                        other_body_target_id,
+                        _,
+                    ) = bodies_shot_for_statuses
+                        .get(other_body_id)
+                        .unwrap()
+                        .status
+                    {
+                        &other_body_target_id == body_id
+                    } else {
+                        false
+                    }
+                })
+                .collect::<Vec<_>>();
 
-                let mut chasers = bodies_within_vision_distance
-                    .iter()
-                    .filter(|(other_body_id, _)| {
-                        if let Status::FollowingTarget(
-                            other_body_target,
-                        ) = bodies_shot_for_statuses
-                            .get(other_body_id)
-                            .unwrap()
-                            .status
-                        {
-                            &other_body_target.0 == body_id
-                        } else {
-                            false
-                        }
-                    })
-                    .collect::<Vec<_>>();
-
-                if body
-                    .skills
-                    .contains(&Skill::PrioritizeFasterChasers)
-                {
-                    chasers.retain(|(_, other_body)| {
-                        other_body.speed > body.speed
-                    })
-                }
+            if body.skills.contains(&Skill::PrioritizeFasterChasers)
+                && chasers.iter().any(|(_, other_body)| {
+                    other_body.speed > body.speed
+                })
+            {
+                chasers.retain(|(_, other_body)| {
+                    other_body.speed > body.speed
+                })
+            }
 
             if let Some((
                 closest_chasing_body_id,
                 closest_chasing_body,
-            )) = chasers
-            .iter()
-            .min_by(|(_, a), (_, b)| {
+            )) = chasers.iter().min_by(|(_, a), (_, b)| {
                 body.pos
                     .distance(a.pos)
                     .total_cmp(&body.pos.distance(b.pos))
             }) {
-                body.status = Status::EscapingBody((
+                body.status = Status::EscapingBody(
                     **closest_chasing_body_id,
                     closest_chasing_body.body_type,
-                ));
+                );
                 bodies_shot_for_statuses
                     .get_mut(body_id)
                     .unwrap()
@@ -693,7 +690,7 @@ async fn main() {
                     }
                 } else {
                     body.status =
-                        Status::FollowingTarget((food.id, food.pos));
+                        Status::FollowingTarget(food.id, food.pos);
                     bodies_shot_for_statuses
                         .get_mut(body_id)
                         .unwrap()
@@ -737,13 +734,14 @@ async fn main() {
         }
 
         if is_draw_mode {
-            if !is_draw_prevented {
+            if !is_key_down(KeyCode::Space) {
                 if zoom.zoomed {
                     for plant in Plant::get_plants_to_draw(
                         &cells,
                         &zoom,
                         &plants,
                         &removed_plants,
+                        plants_n,
                     ) {
                         plant.draw();
                     }
@@ -764,10 +762,10 @@ async fn main() {
                             }
 
                             if drawing_strategy.target_line {
-                                if let Status::FollowingTarget((
+                                if let Status::FollowingTarget(
                                     _,
                                     target_pos,
-                                )) = body.status
+                                ) = body.status
                                 {
                                     draw_line(
                                         body.pos.x,
@@ -793,18 +791,13 @@ async fn main() {
                         }
                     }
                 } else {
-                    for cell in plants.values() {
-                        for (plant_id, plant) in cell {
-                            if !removed_plants.contains_key(plant_id)
-                            {
-                                plant.draw();
-                            }
-                        }
+                    for body in bodies.values() {
+                        body.draw();
                     }
 
-                    for (body_id, body) in &bodies {
-                        if !removed_bodies.contains(body_id) {
-                            body.draw();
+                    for cell in plants.values() {
+                        for plant in cell.values() {
+                            plant.draw();
                         }
                     }
                 }
@@ -817,8 +810,8 @@ async fn main() {
                     &zoom,
                     &area_size,
                     &mut info,
-                    (plants_n, removed_plants.len()),
-                    (bodies.len(), removed_bodies.len()),
+                    plants_n,
+                    bodies.len(),
                     &condition,
                 );
             }

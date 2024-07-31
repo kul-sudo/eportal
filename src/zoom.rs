@@ -7,18 +7,18 @@ use macroquad::{
 #[derive(Clone, Copy)]
 pub struct Zoom {
     /// Whether we're zoomed in.
-    pub zoomed:                 bool,
+    pub zoomed:         bool,
     /// The width of the part of the area size the zoom shows.
-    pub scaling_width:          f32,
+    pub scaling_width:  f32,
     /// The height of the part of the area size the zoom shows.
-    pub scaling_height:         f32,
+    pub scaling_height: f32,
     /// The position of the center of the zoom rectangle.
-    pub center_pos:             Option<Vec2>,
-    pub mouse_pos:              Option<Vec2>,
+    pub center_pos:     Option<Vec2>,
+    pub mouse_pos:      Option<Vec2>,
     /// The rectangle on the same place as the camera.
-    pub rect:                   Option<Rect>,
+    pub rect:           Option<Rect>,
     /// Normal rect size + OBJECT_RADIUS * 2.0.
-    pub extended_rect:          Option<Rect>,
+    pub extended_rect:  Option<Rect>,
 }
 
 #[inline(always)]

@@ -1,23 +1,17 @@
-use crate::smart_drawing::RectangleCorner;
-use crate::user_constants::*;
-use crate::PlantKind;
+use crate::{
+    constants::*, get_with_deviation, plant::Plant,
+    smart_drawing::DrawingStrategy, smart_drawing::RectangleCorner,
+    user_constants::*, zoom::Zoom, PlantKind, UI_SHOW_PROPERTIES_N,
+};
 use macroquad::prelude::{
     draw_circle, draw_line, draw_rectangle, draw_text, measure_text,
     rand::gen_range, vec2, Circle, Color, Vec2, Vec3, GREEN, RED,
     WHITE,
 };
-use rand::random;
-use rand::{rngs::StdRng, seq::IteratorRandom, Rng};
-use std::collections::HashSet;
-use std::f32::consts::PI;
+use rand::{random, rngs::StdRng, seq::IteratorRandom, Rng};
 use std::{
-    collections::HashMap, f32::consts::SQRT_2,
-    time::Instant,
-};
-
-use crate::{
-    constants::*, get_with_deviation, plant::Plant,
-    smart_drawing::DrawingStrategy, zoom::Zoom, UI_SHOW_PROPERTIES_N,
+    collections::HashMap, collections::HashSet, f32::consts::PI,
+    f32::consts::SQRT_2, time::Instant,
 };
 
 pub enum FoodType {
@@ -34,8 +28,8 @@ pub struct FoodInfo {
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Status {
-    FollowingTarget((Instant, Vec2)),
-    EscapingBody((Instant, u16)),
+    FollowingTarget(Instant, Vec2),
+    EscapingBody(Instant, u16),
     Dead(Instant),
     Walking(Vec2),
     Idle,
@@ -420,7 +414,7 @@ impl Body {
                 if self.is_alive() {
                     drawing_strategy.vision_distance = true;
 
-                    if let Status::FollowingTarget((_, target_pos)) =
+                    if let Status::FollowingTarget(_, target_pos) =
                         self.status
                     {
                         let mut rectangle_sides =
@@ -478,8 +472,8 @@ impl Body {
                             !DrawingStrategy::segments_intersect(
                                 &self.pos,
                                 &target_pos,
-                                rectangle_sides.get(&i).unwrap(),
-                                rectangle_sides.get(&j).unwrap(),
+                                rectangle_sides.get(i).unwrap(),
+                                rectangle_sides.get(j).unwrap(),
                             )
                         });
                     }
@@ -494,7 +488,7 @@ impl Body {
                     )
                     .overlaps_rect(&zoom.rect.unwrap());
 
-                    if let Status::FollowingTarget((_, target_pos)) =
+                    if let Status::FollowingTarget(_, target_pos) =
                         self.status
                     {
                         drawing_strategy.target_line =
@@ -889,7 +883,7 @@ impl Body {
                         .get(other_body_id)
                         .unwrap()
                         .status
-                        != Status::FollowingTarget((*id, *pos))
+                        != Status::FollowingTarget(*id, *pos)
                 },
             )
         } else {
@@ -920,7 +914,7 @@ impl Body {
 
             bodies_within_vision_distance.iter().any(
                 |(_, other_body_1)| {
-                    if let Status::FollowingTarget((target_id, _)) =
+                    if let Status::FollowingTarget(target_id, _) =
                         other_body_1.status
                     {
                         &target_id == other_body_id && {
@@ -958,7 +952,7 @@ impl Body {
 
             bodies_within_vision_distance.iter().any(
                 |(_, other_body_1)| {
-                    if let Status::FollowingTarget((target_id, _)) =
+                    if let Status::FollowingTarget(target_id, _) =
                         other_body_1.status
                     {
                         &target_id == plant_id && {

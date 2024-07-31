@@ -1,6 +1,5 @@
 use crate::{CONDITION_CHANCE, CONDITION_LIFETIME};
-use ::rand::{rngs::StdRng, Rng};
-use rand::prelude::IteratorRandom;
+use rand::{prelude::IteratorRandom, rngs::StdRng, Rng};
 use std::time::{Duration, Instant};
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone, Copy)]

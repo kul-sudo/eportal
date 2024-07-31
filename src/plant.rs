@@ -5,8 +5,7 @@ use macroquad::{
     prelude::vec2,
     shapes::{draw_triangle, draw_triangle_lines},
 };
-use rand::prelude::IteratorRandom;
-use rand::{rngs::StdRng, Rng};
+use rand::{prelude::IteratorRandom, rngs::StdRng, Rng};
 use std::{
     collections::HashMap,
     time::{Duration, Instant},
@@ -84,8 +83,11 @@ impl Plant {
         zoom: &'a Zoom,
         plants: &'a HashMap<Cell, HashMap<Instant, Plant>>,
         removed_plants: &'a HashMap<Instant, Vec2>,
+        plants_n: usize,
     ) -> Vec<&'a Plant> {
-        let mut plants_to_draw = Vec::new();
+        let mut plants_to_draw = Vec::with_capacity(
+            (plants_n as f32 * AVERAGE_PLANTS_PART_DRAWN) as usize,
+        );
 
         let (i_min, i_max, j_min, j_max);
 
@@ -109,10 +111,14 @@ impl Plant {
         }
 
         for i in i_min.max(0)..=i_max.min(cells.rows - 1) {
-            let i_is_on_border = i == i_min || i == i_max;
+            let i_fully_within_rectangle = i != i_min && i != i_max;
 
             for j in j_min.max(0)..=j_max.min(cells.columns - 1) {
-                if !i_is_on_border && (j != j_min && j != j_max) {
+                let j_fully_within_rectangle =
+                    j != j_min && j != j_max;
+                if i_fully_within_rectangle
+                    && j_fully_within_rectangle
+                {
                     // The cell is fully within the rectangle
                     for (plant_id, plant) in
                         plants.get(&Cell { i, j }).unwrap()

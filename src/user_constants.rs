@@ -1,9 +1,7 @@
 use crate::constants::*;
 use macroquad::prelude::*;
 use serde_derive::Deserialize;
-use std::fs::read_to_string;
-use std::ops::Range;
-use std::process::exit;
+use std::{fs::read_to_string, ops::Range, process::exit};
 use toml::from_str;
 
 // Average spawn attributes
