@@ -16,7 +16,7 @@ pub const AVERAGE_MAX_PLANTS_IN_ONE_CELL: usize = 10;
 pub const AVERAGE_MAX_NEW_BODIES: usize = 30;
 pub const AVERAGE_MAX_PLANTS_REMOVED: usize = 60;
 pub const AVERAGE_MAX_BODIES_REMOVED: usize = 30;
-pub const AVERAGE_VISIBLE_PLANTS: usize = 50;
+pub const AVERAGE_PLANTS_PART_VISIBLE: f32 = 0.00014;
 pub const AVERAGE_PLANTS_PART_DRAWN: f32 = 0.014;
 
 /// The recommended constants in config.toml have been detemined for this area space.
@@ -40,7 +40,7 @@ pub const PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 pub static mut PLANTS_N_FOR_ONE_STEP: usize = 0;
 
 // Conditions
-pub const RAINY_PLANTS_N_FOR_ONE_STEP_MULTIPLIER: f32 = 2.0;
+pub const RAIN_PLANTS_N_FOR_ONE_STEP_MULTIPLIER: f32 = 2.0;
 pub const DROUGHT_PLANT_DIE_CHANCE_MULTIPLIER: f32 = 1.3;
 
 // UI
