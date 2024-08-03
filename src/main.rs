@@ -24,7 +24,6 @@ use zoom::*;
 
 use std::{
     collections::{HashMap, HashSet},
-    env::consts::OS,
     intrinsics::unlikely,
     mem::variant_count,
     process::exit,
@@ -69,7 +68,7 @@ async fn main() {
     config_setup();
 
     // A workaround for Linux
-    if OS == "linux" {
+    if cfg!(target_os = "linux") {
         set_fullscreen(true);
         sleep(Duration::from_secs(1));
         next_frame().await;
@@ -449,7 +448,7 @@ async fn main() {
                             cross,
                             &bodies_within_vision_distance,
                         )
-                        && body.handle_do_not_complete_with_relatives(
+                        && body.handle_do_not_compete_with_relatives(
                             cross_id,
                             &cross.pos,
                             &bodies,
@@ -584,7 +583,7 @@ async fn main() {
                             !removed_plants.contains_key(plant_id)
                             && body.handle_alive_when_arrived_plant(plant)
                             && body.handle_profitable_when_arrived_plant(plant)
-                            && body.handle_do_not_complete_with_relatives(
+                            && body.handle_do_not_compete_with_relatives(
                                 plant_id,
                                 &plant.pos,
                                 &bodies,
@@ -639,7 +638,7 @@ async fn main() {
                                         other_body,
                                         &bodies_within_vision_distance,
                                     )
-                                    && body.handle_do_not_complete_with_relatives(
+                                    && body.handle_do_not_compete_with_relatives(
                                         other_body_id,
                                         &other_body.pos,
                                         &bodies,
