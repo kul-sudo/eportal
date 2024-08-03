@@ -870,7 +870,7 @@ impl Body {
         &self,
         id: &Instant,
         pos: &Vec2,
-        bodies_shot_for_statuses: &HashMap<Instant, Body>,
+        bodies: &HashMap<Instant, Body>,
         bodies_within_vision_distance_of_my_type: &[&(
             &Instant,
             &Body,
@@ -879,7 +879,7 @@ impl Body {
         if self.skills.contains(&Skill::DoNotCompeteWithRelatives) {
             bodies_within_vision_distance_of_my_type.iter().all(
                 |(other_body_id, _)| {
-                    bodies_shot_for_statuses
+                    bodies
                         .get(other_body_id)
                         .unwrap()
                         .status

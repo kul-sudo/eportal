@@ -9,6 +9,8 @@ pub const CONFIG_FILE_NAME: &str = "config.toml";
 // Base
 pub const DEFAULT_CELL_ROWS: usize = 129; // May be needed to be changed when the perfect values for the
                                           // evolution process have been determined
+pub const AVERAGE_BODIES_IN_ONE_CELL: usize = 8;
+
 pub const DEFAULT_PLANTS_N: usize = 53914;
 pub static mut PLANTS_N: usize = 0;
 

@@ -24,7 +24,6 @@ use zoom::*;
 
 use std::{
     collections::{HashMap, HashSet},
-    env::consts::OS,
     intrinsics::unlikely,
     mem::variant_count,
     process::exit,
@@ -69,7 +68,7 @@ async fn main() {
     config_setup();
 
     // A workaround for Linux
-    if OS == "linux" {
+    if cfg!(target_os = "linux") {
         set_fullscreen(true);
         sleep(Duration::from_secs(1));
         next_frame().await;
@@ -85,7 +84,7 @@ async fn main() {
     let mut rng = StdRng::from_rng(&mut rand::thread_rng()).unwrap();
 
     // Calculations
-    let mut cells = Cells::default();
+    let mut plants_cells = Cells::default();
     let area_space = area_size.x * area_size.y;
 
     unsafe {
@@ -99,17 +98,21 @@ async fn main() {
     // Get `k` out of PLANTS_N/k = DEFAULT_PLANTS/p
     // where `k` is the real number of cells
     // and `p` is the default number of cells.
-    cells.rows = ((DEFAULT_CELL_ROWS as f32
+    plants_cells.rows = ((DEFAULT_CELL_ROWS as f32
         * (DEFAULT_AREA_SIZE_RATIO * unsafe { PLANTS_N } as f32
             / (area_size_ratio * DEFAULT_PLANTS_N as f32))
             .sqrt())
     .round() as usize)
         .clamp(50, 200);
-    cells.columns =
-        (cells.rows as f32 * area_size_ratio).round() as usize;
+    plants_cells.columns =
+        (plants_cells.rows as f32 * area_size_ratio).round() as usize;
 
-    cells.cell_width = area_size.x / cells.columns as f32;
-    cells.cell_height = area_size.y / cells.rows as f32;
+    plants_cells.cell_width = area_size.x / plants_cells.columns as f32;
+    plants_cells.cell_height = area_size.y / plants_cells.rows as f32;
+
+    let mut bodies_cells = Cells::default();
+    
+    bodies_cells.rows = 
 
     // Camera
     let mut camera = Camera2D::from_display_rect(Rect::new(
@@ -135,13 +138,13 @@ async fn main() {
     let mut condition: Option<(Condition, (Instant, Duration))> =
         None;
 
-    let mut bodies: HashMap<Instant, Body> =
+    let mut bodies: HashMap<Cell, HashMap<Instant, Body>> =
         HashMap::with_capacity(unsafe { BODIES_N });
     let mut plants: HashMap<Cell, HashMap<Instant, Plant>> =
-        HashMap::with_capacity(cells.rows * cells.columns);
+        HashMap::with_capacity(plants_cells.rows * plants_cells.columns);
 
-    for i in 0..cells.rows {
-        for j in 0..cells.columns {
+    for i in 0..plants_cells.rows {
+        for j in 0..plants_cells.columns {
             plants.insert(
                 Cell { i, j },
                 HashMap::with_capacity(
@@ -175,9 +178,10 @@ async fn main() {
             &bodies,
             &mut plants,
             &area_size,
-            &cells,
+            &plants_cells,
             &mut rng,
         );
+
         plants_n += 1;
     }
 
@@ -310,7 +314,7 @@ async fn main() {
                 &bodies,
                 &mut plants,
                 &area_size,
-                &cells,
+                &plants_cells,
                 &mut rng,
             );
 
@@ -321,7 +325,14 @@ async fn main() {
         let is_draw_mode = last_updated.elapsed().as_millis()
             >= Duration::from_secs(1 / FPS).as_millis();
 
-        for (body_id, body) in unsafe { &mut (*(&mut bodies as *mut HashMap<Instant, Body>)) } {
+        let bodies_mut = unsafe {
+            &mut (*(&mut bodies as *mut HashMap<Cell, HashMap<Instant, Body>>))
+        };
+
+        let bodies_const =
+            unsafe { &(*(&bodies as *const HashMap<Cell, HashMap<Instant, Body>>)) };
+
+        for (body_id, body) in bodies_mut {
             // Handle if the body was eaten earlier
             if removed_bodies.contains(body_id) {
                 continue;
@@ -354,7 +365,7 @@ async fn main() {
             }
 
             // Escape
-            let bodies_within_vision_distance = unsafe { &(*(&bodies as *const HashMap<Instant, Body>)) }
+            let bodies_within_vision_distance = bodies_const
                 .iter()
                 .filter(|(other_body_id, other_body)| {
                     &body_id != other_body_id
@@ -370,10 +381,7 @@ async fn main() {
                     if let Status::FollowingTarget(
                         other_body_target_id,
                         _,
-                    ) = bodies
-                        .get(other_body_id)
-                        .unwrap()
-                        .status
+                    ) = bodies.get(other_body_id).unwrap().status
                     {
                         &other_body_target_id == body_id
                     } else {
@@ -487,8 +495,8 @@ async fn main() {
                     let (a, b) = (body.pos.x, body.pos.y);
                     let r = body.vision_distance;
                     let (w, h) =
-                        (cells.cell_width, cells.cell_height);
-                    let (m, n) = (cells.columns, cells.rows);
+                        (plants_cells.cell_width, plants_cells.cell_height);
+                    let (m, n) = (plants_cells.columns, plants_cells.rows);
 
                     // Get the bottommost, topmost, leftmost, and rightmost rows/columns.
                     // If the cell is within the circle or the circle touches the cell, it is
@@ -507,7 +515,7 @@ async fn main() {
                     // Ditch the unneeded cells
                     let Cell {
                         i: circle_center_i, ..
-                    } = cells.get_cell_by_pos(&body.pos);
+                    } = plants_cells.get_cell_by_pos(&body.pos);
 
                     for i in i_min..=i_max {
                         let (
@@ -684,10 +692,8 @@ async fn main() {
                 } else {
                     body.status =
                         Status::FollowingTarget(food.id, food.pos);
-                    bodies
-                        .get_mut(body_id)
-                        .unwrap()
-                        .status = body.status;
+                    bodies.get_mut(body_id).unwrap().status =
+                        body.status;
 
                     body.pos.x += (food.pos.x - body.pos.x)
                         * (body.speed / distance_to_food);
@@ -713,7 +719,7 @@ async fn main() {
 
         for (plant_id, plant_pos) in &removed_plants {
             plants
-                .get_mut(&cells.get_cell_by_pos(plant_pos))
+                .get_mut(&plants_cells.get_cell_by_pos(plant_pos))
                 .unwrap()
                 .remove(plant_id);
         }
@@ -730,7 +736,7 @@ async fn main() {
             if !is_key_down(KeyCode::Space) {
                 if zoom.zoomed {
                     for plant in Plant::get_plants_to_draw(
-                        &cells,
+                        &plants_cells,
                         &zoom,
                         &plants,
                         &removed_plants,
