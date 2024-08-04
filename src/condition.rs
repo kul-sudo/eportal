@@ -2,7 +2,7 @@ use crate::{CONDITION_CHANCE, CONDITION_LIFETIME};
 use rand::{prelude::IteratorRandom, rngs::StdRng, Rng};
 use std::time::{Duration, Instant};
 
-#[derive(Eq, PartialEq, Hash, Debug, Clone, Copy)]
+#[derive(Eq, PartialEq, Hash, Clone, Copy, Debug)]
 pub enum Condition {
     Drought,
     Rain,

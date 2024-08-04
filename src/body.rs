@@ -14,19 +14,19 @@ use std::{
     f32::consts::SQRT_2, time::Instant,
 };
 
-pub enum FoodType {
-    Body(HashMap<Virus, f32>),
+pub enum FoodType<'a> {
+    Body(&'a HashMap<Virus, f32>),
     Plant,
 }
 
-pub struct FoodInfo {
+pub struct FoodInfo<'a> {
     pub id:        Instant,
-    pub food_type: FoodType,
+    pub food_type: FoodType<'a>,
     pub pos:       Vec2,
     pub energy:    f32,
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Status {
     FollowingTarget(Instant, Vec2),
     EscapingBody(Instant, u16),
@@ -45,7 +45,7 @@ pub enum EatingStrategy {
 
 #[allow(dead_code)]
 #[repr(usize)]
-#[derive(Eq, PartialEq, Hash, Copy, Clone, Debug)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
 /// https://github.com/kul-sudo/eportal/blob/main/README.md#viruses
 pub enum Virus {
     SpeedVirus,
@@ -57,7 +57,7 @@ impl Virus {
         [Virus::SpeedVirus, Virus::VisionVirus];
 }
 
-#[derive(Eq, Hash, PartialEq, Copy, Clone, Debug)]
+#[derive(Eq, Hash, PartialEq, Copy, Clone)]
 /// https://github.com/kul-sudo/eportal/blob/main/README.md#skills
 pub enum Skill {
     DoNotCompeteWithRelatives,
@@ -83,7 +83,7 @@ impl Skill {
     ];
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(PartialEq)]
 /// https://github.com/kul-sudo/eportal/blob/main/README.md#properties
 pub struct Body {
     pub pos:                     Vec2,
@@ -879,10 +879,7 @@ impl Body {
         if self.skills.contains(&Skill::DoNotCompeteWithRelatives) {
             bodies_within_vision_distance_of_my_type.iter().all(
                 |(other_body_id, _)| {
-                    bodies
-                        .get(other_body_id)
-                        .unwrap()
-                        .status
+                    bodies.get(other_body_id).unwrap().status
                         != Status::FollowingTarget(*id, *pos)
                 },
             )
@@ -892,7 +889,7 @@ impl Body {
     }
 
     #[inline(always)]
-    pub fn handle_will_arive_first_body(
+    pub fn handle_will_arrive_first_body(
         &self,
         other_body_id: &Instant,
         other_body: &Body,
@@ -912,24 +909,22 @@ impl Body {
 
             let time = self.pos.distance(other_body.pos) / delta;
 
-            bodies_within_vision_distance.iter().any(
-                |(_, other_body_1)| {
+            bodies_within_vision_distance.iter().all(
+                |(_, other_chaser)| {
                     if let Status::FollowingTarget(target_id, _) =
-                        other_body_1.status
+                        other_chaser.status
+                        && &target_id == other_body_id
                     {
-                        &target_id == other_body_id && {
-                            let delta_1 =
-                                other_body_1.speed - other_body_speed;
-                            if delta_1 <= 0.0 {
-                                return false;
-                            }
-                            let time_1 = other_body_1
-                                .pos
-                                .distance(other_body.pos)
-                                / delta_1;
-
-                            time > time_1
+                        let other_chaser_delta =
+                            other_chaser.speed - other_body_speed;
+                        if other_chaser_delta <= 0.0 {
+                            return false;
                         }
+                        let other_chaser_time =
+                            other_chaser.pos.distance(other_body.pos)
+                                / other_chaser_delta;
+
+                        time < other_chaser_time
                     } else {
                         false
                     }
@@ -941,7 +936,7 @@ impl Body {
     }
 
     #[inline(always)]
-    pub fn handle_will_arive_first_plant(
+    pub fn handle_will_arrive_first_plant(
         &self,
         plant_id: &Instant,
         plant: &Plant,
@@ -950,18 +945,14 @@ impl Body {
         if self.skills.contains(&Skill::WillArriveFirst) {
             let time = self.pos.distance(plant.pos) / self.speed;
 
-            bodies_within_vision_distance.iter().any(
-                |(_, other_body_1)| {
+            bodies_within_vision_distance.iter().all(
+                |(_, other_chaser)| {
                     if let Status::FollowingTarget(target_id, _) =
-                        other_body_1.status
+                        other_chaser.status
+                        && &target_id == plant_id
                     {
-                        &target_id == plant_id && {
-                            let time_1 =
-                                other_body_1.pos.distance(plant.pos)
-                                    / other_body_1.speed;
-
-                            time > time_1
-                        }
+                        time < other_chaser.pos.distance(plant.pos)
+                            / other_chaser.speed
                     } else {
                         false
                     }

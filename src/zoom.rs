@@ -4,7 +4,6 @@ use macroquad::{
     math::{vec2, Rect, Vec2},
 };
 
-#[derive(Clone, Copy)]
 pub struct Zoom {
     /// Whether we're zoomed in.
     pub zoomed:         bool,

@@ -2,6 +2,7 @@
 #![feature(core_intrinsics)]
 #![feature(more_float_constants)]
 #![feature(variant_count)]
+#![feature(let_chains)]
 
 mod body;
 mod cells;
@@ -26,8 +27,6 @@ use std::{
     collections::{HashMap, HashSet},
     intrinsics::unlikely,
     mem::variant_count,
-    process::exit,
-    thread::sleep,
     time::{Duration, Instant},
 };
 
@@ -70,7 +69,7 @@ async fn main() {
     // A workaround for Linux
     if cfg!(target_os = "linux") {
         set_fullscreen(true);
-        sleep(Duration::from_secs(1));
+        std::thread::sleep(Duration::from_secs(1));
         next_frame().await;
     }
 
@@ -84,7 +83,6 @@ async fn main() {
     let mut rng = StdRng::from_rng(&mut rand::thread_rng()).unwrap();
 
     // Calculations
-    let mut cells = Cells::default();
     let area_space = area_size.x * area_size.y;
 
     unsafe {
@@ -93,22 +91,7 @@ async fn main() {
             (PLANT_SPAWN_CHANCE * area_space).round() as usize;
     }
 
-    let area_size_ratio = area_size.x / area_size.y;
-
-    // Get `k` out of PLANTS_N/k = DEFAULT_PLANTS/p
-    // where `k` is the real number of cells
-    // and `p` is the default number of cells.
-    cells.rows = ((DEFAULT_CELL_ROWS as f32
-        * (DEFAULT_AREA_SIZE_RATIO * unsafe { PLANTS_N } as f32
-            / (area_size_ratio * DEFAULT_PLANTS_N as f32))
-            .sqrt())
-    .round() as usize)
-        .clamp(50, 200);
-    cells.columns =
-        (cells.rows as f32 * area_size_ratio).round() as usize;
-
-    cells.cell_width = area_size.x / cells.columns as f32;
-    cells.cell_height = area_size.y / cells.rows as f32;
+    let cells = generate_cells(&area_size);
 
     // Camera
     let mut camera = Camera2D::from_display_rect(Rect::new(
@@ -194,7 +177,7 @@ async fn main() {
     loop {
         // Handle interactions
         if unlikely(is_key_pressed(KeyCode::Escape)) {
-            exit(0);
+            std::process::exit(0);
         }
 
         if unlikely(is_mouse_button_pressed(MouseButton::Left)) {
@@ -320,7 +303,9 @@ async fn main() {
         let is_draw_mode = last_updated.elapsed().as_millis()
             >= Duration::from_secs(1 / FPS).as_millis();
 
-        for (body_id, body) in unsafe { &mut (*(&mut bodies as *mut HashMap<Instant, Body>)) } {
+        for (body_id, body) in unsafe {
+            &mut (*(&mut bodies as *mut HashMap<Instant, Body>))
+        } {
             // Handle if the body was eaten earlier
             if removed_bodies.contains(body_id) {
                 continue;
@@ -353,15 +338,17 @@ async fn main() {
             }
 
             // Escape
-            let bodies_within_vision_distance = unsafe { &(*(&bodies as *const HashMap<Instant, Body>)) }
-                .iter()
-                .filter(|(other_body_id, other_body)| {
-                    &body_id != other_body_id
-                        && body.pos.distance(other_body.pos)
-                            <= body.vision_distance
-                        && !removed_bodies.contains(other_body_id)
-                })
-                .collect::<Vec<_>>();
+            let bodies_within_vision_distance = unsafe {
+                &(*(&bodies as *const HashMap<Instant, Body>))
+            }
+            .iter()
+            .filter(|(other_body_id, other_body)| {
+                &body_id != other_body_id
+                    && body.pos.distance(other_body.pos)
+                        <= body.vision_distance
+                    && !removed_bodies.contains(other_body_id)
+            })
+            .collect::<Vec<_>>();
 
             let mut chasers = bodies_within_vision_distance
                 .iter()
@@ -369,10 +356,7 @@ async fn main() {
                     if let Status::FollowingTarget(
                         other_body_target_id,
                         _,
-                    ) = bodies
-                        .get(other_body_id)
-                        .unwrap()
-                        .status
+                    ) = bodies.get(other_body_id).unwrap().status
                     {
                         &other_body_target_id == body_id
                     } else {
@@ -443,7 +427,7 @@ async fn main() {
                             cross, true,
                         )
                         && body.handle_avoid_new_viruses(cross)
-                        && body.handle_will_arive_first_body(
+                        && body.handle_will_arrive_first_body(
                             cross_id,
                             cross,
                             &bodies_within_vision_distance,
@@ -465,7 +449,7 @@ async fn main() {
                     food = Some(FoodInfo {
                         id:        **closest_cross_id,
                         food_type: FoodType::Body(
-                            closest_cross.viruses.clone(),
+                            &closest_cross.viruses,
                         ),
                         pos:       closest_cross.pos,
                         energy:    closest_cross.energy,
@@ -589,7 +573,7 @@ async fn main() {
                                 &bodies,
                                 &bodies_within_vision_distance_of_my_type,
                             )
-                            && body.handle_will_arive_first_plant(
+                            && body.handle_will_arrive_first_plant(
                                 plant_id,
                                 plant,
                                 &bodies_within_vision_distance,
@@ -633,7 +617,7 @@ async fn main() {
                                         other_body, false,
                                     )
                                     && body.handle_avoid_new_viruses(other_body)
-                                    && body.handle_will_arive_first_body(
+                                    && body.handle_will_arrive_first_body(
                                         other_body_id,
                                         other_body,
                                         &bodies_within_vision_distance,
@@ -654,7 +638,7 @@ async fn main() {
                             {
                                 food = Some(FoodInfo {
                                     id:        **closest_body_id,
-                                    food_type: FoodType::Body(closest_body.viruses.clone()),
+                                    food_type: FoodType::Body(&closest_body.viruses),
                                     pos:       closest_body.pos,
                                     energy:    closest_body.energy,
                                 })
@@ -683,10 +667,6 @@ async fn main() {
                 } else {
                     body.status =
                         Status::FollowingTarget(food.id, food.pos);
-                    bodies
-                        .get_mut(body_id)
-                        .unwrap()
-                        .status = body.status;
 
                     body.pos.x += (food.pos.x - body.pos.x)
                         * (body.speed / distance_to_food);

@@ -11,7 +11,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum PlantKind {
     Grass,
     Banana,
@@ -22,7 +22,7 @@ impl PlantKind {
         [PlantKind::Grass, PlantKind::Banana];
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(PartialEq)]
 pub struct Plant {
     pub pos:  Vec2,
     pub kind: PlantKind,

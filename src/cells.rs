@@ -1,6 +1,6 @@
 use macroquad::math::Vec2;
 
-#[derive(Eq, Hash, PartialEq, Clone, Debug)]
+#[derive(Eq, Hash, PartialEq)]
 pub struct Cell {
     /// Row number (0..).
     pub i: usize,
@@ -8,7 +8,7 @@ pub struct Cell {
     pub j: usize,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct Cells {
     pub rows:        usize,
     pub columns:     usize,

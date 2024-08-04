@@ -1,7 +1,6 @@
-use crate::constants::*;
-use crate::user_constants::*;
-use crate::Condition;
-use crate::Zoom;
+use crate::{
+    constants::*, user_constants::*, Cells, Condition, Zoom,
+};
 use ::rand::{rngs::StdRng, Rng};
 use macroquad::prelude::*;
 use std::time::{Duration, Instant};
@@ -35,6 +34,29 @@ pub fn generate_zoom_struct(area_size: &Vec2) -> Zoom {
         rect: None,
         extended_rect: None,
     }
+}
+
+pub fn generate_cells(area_size: &Vec2) -> Cells {
+    let mut cells = Cells::default();
+
+    let area_size_ratio = area_size.x / area_size.y;
+
+    // Get `k` out of PLANTS_N/k = DEFAULT_PLANTS/p
+    // where `k` is the real number of cells
+    // and `p` is the default number of cells.
+    cells.rows = ((DEFAULT_CELL_ROWS as f32
+        * (DEFAULT_AREA_SIZE_RATIO * unsafe { PLANTS_N } as f32
+            / (area_size_ratio * DEFAULT_PLANTS_N as f32))
+            .sqrt())
+    .round() as usize)
+        .clamp(50, 200);
+    cells.columns =
+        (cells.rows as f32 * area_size_ratio).round() as usize;
+
+    cells.cell_width = area_size.x / cells.columns as f32;
+    cells.cell_height = area_size.y / cells.rows as f32;
+
+    cells
 }
 
 #[inline(always)]
