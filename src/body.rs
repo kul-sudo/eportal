@@ -1,7 +1,8 @@
 use crate::{
     constants::*, get_with_deviation, plant::Plant,
     smart_drawing::DrawingStrategy, smart_drawing::RectangleCorner,
-    user_constants::*, zoom::Zoom, PlantKind, UI_SHOW_PROPERTIES_N,
+    user_constants::*, zoom::Zoom, Cell, Cells, PlantKind,
+    UI_SHOW_PROPERTIES_N,
 };
 use macroquad::prelude::{
     draw_circle, draw_line, draw_rectangle, draw_text, measure_text,
@@ -85,25 +86,26 @@ impl Skill {
 
 #[derive(PartialEq)]
 /// https://github.com/kul-sudo/eportal/blob/main/README.md#properties
-pub struct Body {
-    pub pos:                     Vec2,
-    pub energy:                  f32,
-    pub speed:                   f32,
-    pub vision_distance:         f32,
-    pub eating_strategy:         EatingStrategy,
-    pub division_threshold:      f32,
-    pub skills:                  HashSet<Skill>,
-    pub viruses:                 HashMap<Virus, f32>,
-    pub color:                   Color,
-    pub status:                  Status,
-    pub body_type:               u16,
-    pub lifespan:                f32,
-    pub initial_speed:           f32,
-    pub initial_vision_distance: f32,
+pub struct Body<'a> {
+    pub pos:                 Vec2,
+    pub energy:              f32,
+    pub speed:               f32,
+    pub vision_distance:     f32,
+    pub eating_strategy:     EatingStrategy,
+    pub division_threshold:  f32,
+    pub skills:              HashSet<Skill>,
+    pub viruses:             HashMap<Virus, f32>,
+    pub color:               Color,
+    pub status:              Status,
+    pub body_type:           u16,
+    pub lifespan:            f32,
+    initial_speed:           f32,
+    initial_vision_distance: f32,
+    pub followed_by:         HashMap<Instant, &'a Body<'a>>,
 }
 
 #[allow(clippy::too_many_arguments)]
-impl Body {
+impl Body<'_> {
     /// https://github.com/kul-sudo/eportal/blob/main/README.md#procreation may be helpful.
     #[inline(always)]
     pub fn new(
@@ -137,7 +139,7 @@ impl Body {
             rng,
         );
 
-        let mut body = Body {
+        let mut body = Self {
             pos,
             energy: match energy {
                 Some(energy) => energy / 2.0,
@@ -223,6 +225,7 @@ impl Body {
                     viruses
                 }
             },
+            followed_by: HashMap::new(),
         };
 
         // Applying the effect of the viruses
@@ -546,6 +549,10 @@ impl Body {
     /// Handle body-eaters walking and plant-eaters being idle.
     pub fn handle_walking_idle(
         &mut self,
+        body_id: &Instant,
+        cells: &Cells,
+        bodies: &mut HashMap<Instant, Body>,
+        plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,
         area_size: &Vec2,
         rng: &mut StdRng,
     ) {
@@ -559,7 +566,13 @@ impl Body {
                         self.speed * walking_angle.sin(),
                     );
 
-                    self.status = Status::Walking(pos_deviation);
+                    self.set_status(
+                        Status::Walking(pos_deviation),
+                        &body_id,
+                        &cells,
+                        bodies,
+                        plants,
+                    );
                 }
 
                 if let Status::Walking(pos_deviation) = self.status {
@@ -569,7 +582,13 @@ impl Body {
 
                 self.wrap(area_size);
             }
-            EatingStrategy::Passive => self.status = Status::Idle,
+            EatingStrategy::Passive => self.set_status(
+                Status::Idle,
+                &body_id,
+                &cells,
+                bodies,
+                plants,
+            ),
         }
     }
 
@@ -641,6 +660,7 @@ impl Body {
                     ),
                 );
             }
+
             removed_bodies.insert(*body_id);
 
             true
@@ -746,6 +766,18 @@ impl Body {
                 rng,
             ),
         );
+    }
+
+    pub fn set_status(
+        &mut self,
+        status: Status,
+        body_id: &Instant,
+        cells: &Cells,
+        bodies: &mut HashMap<Instant, Body>,
+        plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,
+    ) {
+        Body::followed_by_cleanup(&body_id, &cells, bodies, plants);
+        self.status = status;
     }
 
     #[inline(always)]
@@ -891,9 +923,8 @@ impl Body {
     #[inline(always)]
     pub fn handle_will_arrive_first_body(
         &self,
-        other_body_id: &Instant,
+        body_id: &Instant,
         other_body: &Body,
-        bodies_within_vision_distance: &[(&Instant, &Body)],
     ) -> bool {
         let mut other_body_speed = other_body.speed;
 
@@ -908,25 +939,16 @@ impl Body {
             }
 
             let time = self.pos.distance(other_body.pos) / delta;
+            other_body.followed_by.iter().all(
+                |(chaser_id, chaser)| {
+                    chaser_id != body_id && {
+                        let chaser_delta =
+                            chaser.speed - other_body_speed;
 
-            bodies_within_vision_distance.iter().all(
-                |(_, other_chaser)| {
-                    if let Status::FollowingTarget(target_id, _) =
-                        other_chaser.status
-                        && &target_id == other_body_id
-                    {
-                        let other_chaser_delta =
-                            other_chaser.speed - other_body_speed;
-                        if other_chaser_delta <= 0.0 {
-                            return false;
-                        }
-                        let other_chaser_time =
-                            other_chaser.pos.distance(other_body.pos)
-                                / other_chaser_delta;
-
-                        time < other_chaser_time
-                    } else {
-                        false
+                        chaser_delta > 0.0
+                            && time
+                                < chaser.pos.distance(other_body.pos)
+                                    / chaser_delta
                     }
                 },
             )
@@ -938,26 +960,18 @@ impl Body {
     #[inline(always)]
     pub fn handle_will_arrive_first_plant(
         &self,
-        plant_id: &Instant,
+        body_id: &Instant,
         plant: &Plant,
-        bodies_within_vision_distance: &[(&Instant, &Body)],
     ) -> bool {
         if self.skills.contains(&Skill::WillArriveFirst) {
             let time = self.pos.distance(plant.pos) / self.speed;
 
-            bodies_within_vision_distance.iter().all(
-                |(_, other_chaser)| {
-                    if let Status::FollowingTarget(target_id, _) =
-                        other_chaser.status
-                        && &target_id == plant_id
-                    {
-                        time < other_chaser.pos.distance(plant.pos)
-                            / other_chaser.speed
-                    } else {
-                        false
-                    }
-                },
-            )
+            plant.followed_by.iter().all(|(chaser_id, chaser)| {
+                chaser_id != body_id && {
+                    time < chaser.pos.distance(plant.pos)
+                        / chaser.speed
+                }
+            })
         } else {
             true
         }
@@ -970,5 +984,32 @@ impl Body {
     ) -> bool {
         self.body_type != cross.body_type
             || self.skills.contains(&Skill::EatCrossesOfMyType)
+    }
+
+    pub fn followed_by_cleanup(
+        body_id: &Instant,
+        cells: &Cells,
+        bodies: &mut HashMap<Instant, Body>,
+        plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,
+    ) {
+        let body = bodies.get_mut(&body_id).unwrap();
+        if let Status::FollowingTarget(target_id, target_pos) =
+            body.status
+        {
+            match bodies.get_mut(&target_id) {
+                Some(body) => {
+                    body.followed_by.remove(body_id);
+                }
+                None => {
+                    if let Some(plants) = plants
+                        .get_mut(&cells.get_cell_by_pos(&target_pos))
+                        .unwrap()
+                        .get_mut(&target_id)
+                    {
+                        plants.followed_by.remove(&body_id);
+                    }
+                }
+            }
+        }
     }
 }

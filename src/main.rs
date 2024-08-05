@@ -303,6 +303,9 @@ async fn main() {
         let is_draw_mode = last_updated.elapsed().as_millis()
             >= Duration::from_secs(1 / FPS).as_millis();
 
+        let bodies_const =
+            unsafe { &(*(&bodies as *const HashMap<Instant, Body>)) };
+
         for (body_id, body) in unsafe {
             &mut (*(&mut bodies as *mut HashMap<Instant, Body>))
         } {
@@ -316,6 +319,12 @@ async fn main() {
                 if death_time.elapsed().as_secs()
                     >= unsafe { CROSS_LIFESPAN }
                 {
+                    Body::followed_by_cleanup(
+                        &body_id,
+                        &cells,
+                        &mut bodies,
+                        &mut plants,
+                    );
                     removed_bodies.insert(*body_id);
                 }
                 continue;
@@ -328,7 +337,13 @@ async fn main() {
             if body.energy < unsafe { MIN_ENERGY }
                 || body_id.elapsed().as_secs_f32() > body.lifespan
             {
-                body.status = Status::Dead(Instant::now());
+                body.set_status(
+                    Status::Dead(Instant::now()),
+                    &body_id,
+                    &cells,
+                    &mut bodies,
+                    &mut plants,
+                );
 
                 continue;
             }
@@ -338,17 +353,15 @@ async fn main() {
             }
 
             // Escape
-            let bodies_within_vision_distance = unsafe {
-                &(*(&bodies as *const HashMap<Instant, Body>))
-            }
-            .iter()
-            .filter(|(other_body_id, other_body)| {
-                &body_id != other_body_id
-                    && body.pos.distance(other_body.pos)
-                        <= body.vision_distance
-                    && !removed_bodies.contains(other_body_id)
-            })
-            .collect::<Vec<_>>();
+            let bodies_within_vision_distance = bodies_const
+                .iter()
+                .filter(|(other_body_id, other_body)| {
+                    &body_id != other_body_id
+                        && body.pos.distance(other_body.pos)
+                            <= body.vision_distance
+                        && !removed_bodies.contains(other_body_id)
+                })
+                .collect::<Vec<_>>();
 
             let mut chasers = bodies_within_vision_distance
                 .iter()
@@ -383,9 +396,15 @@ async fn main() {
                     .distance(a.pos)
                     .total_cmp(&body.pos.distance(b.pos))
             }) {
-                body.status = Status::EscapingBody(
-                    **closest_chasing_body_id,
-                    closest_chasing_body.body_type,
+                body.set_status(
+                    Status::EscapingBody(
+                        **closest_chasing_body_id,
+                        closest_chasing_body.body_type,
+                    ),
+                    &body_id,
+                    &cells,
+                    &mut bodies,
+                    &mut plants,
                 );
 
                 let distance_to_closest_chasing_body =
@@ -428,9 +447,7 @@ async fn main() {
                         )
                         && body.handle_avoid_new_viruses(cross)
                         && body.handle_will_arrive_first_body(
-                            cross_id,
-                            cross,
-                            &bodies_within_vision_distance,
+                            body_id, cross,
                         )
                         && body.handle_do_not_compete_with_relatives(
                             cross_id,
@@ -574,9 +591,8 @@ async fn main() {
                                 &bodies_within_vision_distance_of_my_type,
                             )
                             && body.handle_will_arrive_first_plant(
-                                plant_id,
+                                body_id,
                                 plant,
-                                &bodies_within_vision_distance,
                             )
                         }).collect::<Vec<_>>();
 
@@ -618,9 +634,8 @@ async fn main() {
                                     )
                                     && body.handle_avoid_new_viruses(other_body)
                                     && body.handle_will_arrive_first_body(
-                                        other_body_id,
+                                        body_id,
                                         other_body,
-                                        &bodies_within_vision_distance,
                                     )
                                     && body.handle_do_not_compete_with_relatives(
                                         other_body_id,
@@ -673,6 +688,79 @@ async fn main() {
                     body.pos.y += (food.pos.y - body.pos.y)
                         * (body.speed / distance_to_food);
 
+                    match food.food_type {
+                        FoodType::Body(_) => {
+                            if let Status::FollowingTarget(
+                                target_id,
+                                _,
+                            ) = body.status
+                            {
+                                if target_id == food.id {
+                                    continue;
+                                }
+
+                                if let Some(target_body) =
+                                    bodies.get_mut(&target_id)
+                                {
+                                    target_body
+                                        .followed_by
+                                        .remove(&body_id);
+                                }
+                            }
+
+                            bodies
+                                .get_mut(&food.id)
+                                .unwrap()
+                                .followed_by
+                                .insert(
+                                    *body_id,
+                                    &bodies_const
+                                        .get(body_id)
+                                        .unwrap(),
+                                );
+                        }
+                        FoodType::Plant => {
+                            if let Status::FollowingTarget(
+                                target_id,
+                                target_pos,
+                            ) = body.status
+                            {
+                                if target_id == food.id {
+                                    continue;
+                                }
+
+                                if let Some(target_plant) = plants
+                                    .get_mut(
+                                        &cells.get_cell_by_pos(
+                                            &target_pos,
+                                        ),
+                                    )
+                                    .unwrap()
+                                    .get_mut(&target_id)
+                                {
+                                    target_plant
+                                        .followed_by
+                                        .remove(&body_id);
+                                }
+                            }
+
+                            plants
+                                .get_mut(
+                                    &cells.get_cell_by_pos(&food.pos),
+                                )
+                                .unwrap()
+                                .get_mut(&food.id)
+                                .unwrap()
+                                .followed_by
+                                .insert(
+                                    *body_id,
+                                    &bodies_const
+                                        .get(body_id)
+                                        .unwrap(),
+                                );
+                        }
+                    }
+
                     continue;
                 }
             }
@@ -687,7 +775,14 @@ async fn main() {
                 continue;
             }
 
-            body.handle_walking_idle(&area_size, &mut rng);
+            body.handle_walking_idle(
+                &body_id,
+                &cells,
+                &mut bodies,
+                &mut plants,
+                &area_size,
+                &mut rng,
+            );
         }
 
         for (plant_id, plant_pos) in &removed_plants {
@@ -698,6 +793,12 @@ async fn main() {
         }
 
         for body_id in &removed_bodies {
+            Body::followed_by_cleanup(
+                &body_id,
+                &cells,
+                &mut bodies,
+                &mut plants,
+            );
             bodies.remove(body_id);
         }
 
