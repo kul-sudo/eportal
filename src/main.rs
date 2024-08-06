@@ -332,6 +332,20 @@ async fn main() {
             body.handle_viruses();
             body.handle_lifespan();
 
+            if let Status::FollowingTarget(target_id, target_pos) =
+                body.status
+            {
+                if bodies.get(&target_id).is_none()
+                    && plants
+                        .get(&cells.get_cell_by_pos(&target_pos))
+                        .unwrap()
+                        .get(&target_id)
+                        .is_none()
+                {
+                    body.status = Status::Undefined;
+                }
+            }
+
             // Handle if dead to become a cross
             if body.energy < unsafe { MIN_ENERGY }
                 || body_id.elapsed().as_secs_f32() > body.lifespan
@@ -661,26 +675,35 @@ async fn main() {
                         }
                     }
                 } else {
-                    match food.food_type {
-                        FoodType::Body(_) => 'case1: {
-                            if let Status::FollowingTarget(
-                                target_id,
-                                _,
-                            ) = body.status
-                            {
-                                if target_id == food.id {
-                                    break 'case1;
-                                }
-
-                                if let Some(target_body) =
-                                    bodies.get_mut(&target_id)
-                                {
-                                    target_body
-                                        .followed_by
-                                        .remove(&body_id);
-                                }
+                    if let Status::FollowingTarget(
+                        target_id,
+                        target_pos,
+                    ) = body.status
+                    {
+                        match bodies.get_mut(&target_id) {
+                            Some(target_body) => {
+                                target_body
+                                    .followed_by
+                                    .remove(body_id);
                             }
+                            None => {
+                                plants
+                                    .get_mut(
+                                        &cells.get_cell_by_pos(
+                                            &target_pos,
+                                        ),
+                                    )
+                                    .unwrap()
+                                    .get_mut(&target_id)
+                                    .unwrap()
+                                    .followed_by
+                                    .remove(&body_id);
+                            }
+                        }
+                    }
 
+                    match food.food_type {
+                        FoodType::Body(_) => {
                             bodies
                                 .get_mut(&food.id)
                                 .unwrap()
@@ -692,31 +715,7 @@ async fn main() {
                                         .unwrap(),
                                 );
                         }
-                        FoodType::Plant => 'case2: {
-                            if let Status::FollowingTarget(
-                                target_id,
-                                target_pos,
-                            ) = body.status
-                            {
-                                if target_id == food.id {
-                                    break 'case2;
-                                }
-
-                                if let Some(target_plant) = plants
-                                    .get_mut(
-                                        &cells.get_cell_by_pos(
-                                            &target_pos,
-                                        ),
-                                    )
-                                    .unwrap()
-                                    .get_mut(&target_id)
-                                {
-                                    target_plant
-                                        .followed_by
-                                        .remove(&body_id);
-                                }
-                            }
-
+                        FoodType::Plant => {
                             plants
                                 .get_mut(
                                     &cells.get_cell_by_pos(&food.pos),
@@ -765,7 +764,6 @@ async fn main() {
                 &mut rng,
             );
         }
-
 
         for body_id in &removed_bodies {
             Body::followed_by_cleanup(

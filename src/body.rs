@@ -34,6 +34,7 @@ pub enum Status {
     Dead(Instant),
     Walking(Vec2),
     Idle,
+    Undefined,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -908,8 +909,8 @@ impl Body<'_> {
     ) -> bool {
         if self.skills.contains(&Skill::DoNotCompeteWithRelatives) {
             followed_by.iter().all(|(other_body_id, other_body)| {
-                other_body_id != body_id
-                    && other_body.body_type != body.body_type
+                other_body_id == body_id
+                    || other_body.body_type != body.body_type
             })
         } else {
             true
@@ -937,7 +938,7 @@ impl Body<'_> {
             let time = self.pos.distance(other_body.pos) / delta;
             other_body.followed_by.iter().all(
                 |(chaser_id, chaser)| {
-                    chaser_id != body_id && {
+                    chaser_id == body_id || {
                         let chaser_delta =
                             chaser.speed - other_body_speed;
 
@@ -963,10 +964,10 @@ impl Body<'_> {
             let time = self.pos.distance(plant.pos) / self.speed;
 
             plant.followed_by.iter().all(|(chaser_id, chaser)| {
-                chaser_id != body_id && {
-                    time < chaser.pos.distance(plant.pos)
-                        / chaser.speed
-                }
+                chaser_id == body_id
+                    || time
+                        < chaser.pos.distance(plant.pos)
+                            / chaser.speed
             })
         } else {
             true
@@ -996,13 +997,13 @@ impl Body<'_> {
                     target_body.followed_by.remove(body_id);
                 }
                 None => {
-                    if let Some(plants) = plants
+                    plants
                         .get_mut(&cells.get_cell_by_pos(&target_pos))
                         .unwrap()
                         .get_mut(&target_id)
-                    {
-                        plants.followed_by.remove(&body_id);
-                    }
+                        .unwrap()
+                        .followed_by
+                        .remove(&body_id);
                 }
             }
         }
