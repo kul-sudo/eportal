@@ -23,13 +23,13 @@ impl PlantKind {
 }
 
 #[derive(PartialEq)]
-pub struct Plant<'a> {
+pub struct Plant {
     pub pos:         Vec2,
     pub kind:        PlantKind,
-    pub followed_by: HashMap<Instant, &'a Body<'a>>,
+    pub followed_by: HashMap<Instant, Body>,
 }
 
-impl Plant<'_> {
+impl Plant {
     #[inline(always)]
     pub fn draw(&self) {
         match self.kind {
@@ -85,7 +85,7 @@ impl Plant<'_> {
         plants: &'a HashMap<Cell, HashMap<Instant, Plant>>,
         removed_plants: &'a HashMap<Instant, Vec2>,
         plants_n: usize,
-    ) -> Vec<&'a Plant<'a>> {
+    ) -> Vec<&'a Plant> {
         let mut plants_to_draw = Vec::with_capacity(
             (plants_n as f32 * AVERAGE_PLANTS_PART_DRAWN) as usize,
         );

@@ -15,26 +15,29 @@ use std::{
     f32::consts::SQRT_2, time::Instant,
 };
 
-pub enum FoodType<'a> {
-    Body(&'a HashMap<Virus, f32>),
+#[derive(Copy, Clone, PartialEq)]
+pub enum FoodType {
+    Body,
     Plant,
 }
 
+#[derive(Copy, Clone)]
 pub struct FoodInfo<'a> {
     pub id:        Instant,
-    pub food_type: FoodType<'a>,
+    pub food_type: FoodType,
     pub pos:       Vec2,
     pub energy:    f32,
+    pub viruses:   Option<&'a HashMap<Virus, f32>>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Status {
-    FollowingTarget(Instant, Vec2),
+    FollowingTarget(Instant, Vec2, FoodType),
     EscapingBody(Instant, u16),
     Dead(Instant),
     Walking(Vec2),
     Idle,
-    Undefined,
+    Undefined
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -85,9 +88,9 @@ impl Skill {
     ];
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 /// https://github.com/kul-sudo/eportal/blob/main/README.md#properties
-pub struct Body<'a> {
+pub struct Body {
     pub pos:                 Vec2,
     pub energy:              f32,
     pub speed:               f32,
@@ -102,11 +105,11 @@ pub struct Body<'a> {
     pub lifespan:            f32,
     initial_speed:           f32,
     initial_vision_distance: f32,
-    pub followed_by:         HashMap<Instant, &'a Body<'a>>,
+    pub followed_by:         HashMap<Instant, Body>,
 }
 
 #[allow(clippy::too_many_arguments)]
-impl Body<'_> {
+impl Body {
     /// https://github.com/kul-sudo/eportal/blob/main/README.md#procreation may be helpful.
     #[inline(always)]
     pub fn new(
@@ -182,9 +185,15 @@ impl Body<'_> {
                         }
                     }
 
+                    skills.insert(Skill::DoNotCompeteWithRelatives);
                     skills
                 }
-                None => HashSet::with_capacity(Skill::ALL.len()),
+                None => {
+                    let mut a =
+                        HashSet::with_capacity(Skill::ALL.len());
+                    a.insert(Skill::DoNotCompeteWithRelatives);
+                    a
+                }
             },
             color,
             status: Status::Idle,
@@ -420,7 +429,7 @@ impl Body<'_> {
                 if self.is_alive() {
                     drawing_strategy.vision_distance = true;
 
-                    if let Status::FollowingTarget(_, target_pos) =
+                    if let Status::FollowingTarget(_, target_pos, _) =
                         self.status
                     {
                         let mut rectangle_sides =
@@ -494,7 +503,7 @@ impl Body<'_> {
                     )
                     .overlaps_rect(&zoom.rect.unwrap());
 
-                    if let Status::FollowingTarget(_, target_pos) =
+                    if let Status::FollowingTarget(_, target_pos, _) =
                         self.status
                     {
                         drawing_strategy.target_line =
@@ -905,7 +914,7 @@ impl Body<'_> {
         &self,
         body_id: &Instant,
         body: &Body,
-        followed_by: &HashMap<Instant, &Body>,
+        followed_by: &HashMap<Instant, Body>,
     ) -> bool {
         if self.skills.contains(&Skill::DoNotCompeteWithRelatives) {
             followed_by.iter().all(|(other_body_id, other_body)| {
@@ -989,21 +998,28 @@ impl Body<'_> {
         bodies: &mut HashMap<Instant, Body>,
         plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,
     ) {
-        if let Status::FollowingTarget(target_id, target_pos) =
-            bodies.get(&body_id).unwrap().status
+        if let Status::FollowingTarget(
+            target_id,
+            target_pos,
+            target_type,
+        ) = bodies.get(&body_id).unwrap().status
         {
-            match bodies.get_mut(&target_id) {
-                Some(target_body) => {
-                    target_body.followed_by.remove(body_id);
+            match target_type {
+                FoodType::Body => {
+                    if let Some(target_body) =
+                        bodies.get_mut(&target_id)
+                    {
+                        target_body.followed_by.remove(body_id);
+                    }
                 }
-                None => {
-                    plants
+                FoodType::Plant => {
+                    if let Some(plants) = plants
                         .get_mut(&cells.get_cell_by_pos(&target_pos))
                         .unwrap()
                         .get_mut(&target_id)
-                        .unwrap()
-                        .followed_by
-                        .remove(&body_id);
+                    {
+                        plants.followed_by.remove(&body_id);
+                    }
                 }
             }
         }

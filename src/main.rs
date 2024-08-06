@@ -332,17 +332,19 @@ async fn main() {
             body.handle_viruses();
             body.handle_lifespan();
 
-            if let Status::FollowingTarget(target_id, target_pos) =
-                body.status
-            {
-                if bodies.get(&target_id).is_none()
-                    && plants
-                        .get(&cells.get_cell_by_pos(&target_pos))
-                        .unwrap()
-                        .get(&target_id)
-                        .is_none()
-                {
-                    body.status = Status::Undefined;
+
+            if let Status::FollowingTarget(target_id, target_pos, target_type) = body.status {
+                match target_type {
+                    FoodType::Body => {
+                        if bodies.get(&target_id).is_none() {
+                            body.status = Status::Undefined
+                        }
+                    }
+                    FoodType::Plant => {
+                        if plants.get(&cells.get_cell_by_pos(&target_pos)).unwrap().get(&target_id).is_none() {
+                            body.status = Status::Undefined
+                        }
+                    }
                 }
             }
 
@@ -462,11 +464,10 @@ async fn main() {
                 Some((closest_cross_id, closest_cross)) => {
                     food = Some(FoodInfo {
                         id:        **closest_cross_id,
-                        food_type: FoodType::Body(
-                            &closest_cross.viruses,
-                        ),
+                        food_type: FoodType::Body,
                         pos:       closest_cross.pos,
                         energy:    closest_cross.energy,
+                        viruses:   Some(&closest_cross.viruses),
                     })
                 }
                 None => {
@@ -612,6 +613,7 @@ async fn main() {
                                 pos:       closest_plant.pos,
                                 energy:    closest_plant
                                     .get_contained_energy(),
+                                viruses:   None,
                             })
                         }
                         None => {
@@ -648,9 +650,10 @@ async fn main() {
                             {
                                 food = Some(FoodInfo {
                                     id:        **closest_body_id,
-                                    food_type: FoodType::Body(&closest_body.viruses),
+                                    food_type: FoodType::Body,
                                     pos:       closest_body.pos,
                                     energy:    closest_body.energy,
+                                    viruses: Some(&closest_body.viruses)
                                 })
                             }
                         }
@@ -665,8 +668,8 @@ async fn main() {
                     body.pos = food.pos;
 
                     match food.food_type {
-                        FoodType::Body(viruses) => {
-                            body.get_viruses(&viruses);
+                        FoodType::Body => {
+                            body.get_viruses(&food.viruses.unwrap());
                             removed_bodies.insert(food.id);
                         }
                         FoodType::Plant => {
@@ -675,66 +678,87 @@ async fn main() {
                         }
                     }
                 } else {
+                    let mut different_targets = true;
+
                     if let Status::FollowingTarget(
                         target_id,
                         target_pos,
+                        target_type,
                     ) = body.status
                     {
-                        match bodies.get_mut(&target_id) {
-                            Some(target_body) => {
-                                target_body
-                                    .followed_by
-                                    .remove(body_id);
+                        if target_id == food.id {
+                            different_targets = false;
+                        } else {
+                            match target_type {
+                                FoodType::Body => {
+                                    if let Some(target_body) =
+                                        bodies.get_mut(&target_id)
+                                    {
+                                        target_body
+                                            .followed_by
+                                            .remove(body_id);
+                                    }
+                                }
+                                FoodType::Plant => {
+                                    if let Some(plants) = plants
+                                        .get_mut(
+                                            &cells.get_cell_by_pos(
+                                                &target_pos,
+                                            ),
+                                        )
+                                        .unwrap()
+                                        .get_mut(&target_id)
+                                    {
+                                        plants
+                                            .followed_by
+                                            .remove(&body_id);
+                                    }
+                                }
                             }
-                            None => {
+                        }
+                    }
+
+                    if different_targets {
+                        match food.food_type {
+                            FoodType::Body => {
+                                bodies
+                                    .get_mut(&food.id)
+                                    .unwrap()
+                                    .followed_by
+                                    .insert(
+                                        *body_id,
+                                        bodies_const
+                                            .get(body_id)
+                                            .unwrap().clone(),
+                                    );
+                            }
+                            FoodType::Plant => {
                                 plants
                                     .get_mut(
                                         &cells.get_cell_by_pos(
-                                            &target_pos,
+                                            &food.pos,
                                         ),
                                     )
                                     .unwrap()
-                                    .get_mut(&target_id)
+                                    .get_mut(&food.id)
                                     .unwrap()
                                     .followed_by
-                                    .remove(&body_id);
+                                    .insert(
+                                        *body_id,
+                                        bodies_const
+                                            .get(body_id)
+                                            .unwrap().clone(),
+                                    );
+
                             }
                         }
                     }
 
-                    match food.food_type {
-                        FoodType::Body(_) => {
-                            bodies
-                                .get_mut(&food.id)
-                                .unwrap()
-                                .followed_by
-                                .insert(
-                                    *body_id,
-                                    &bodies_const
-                                        .get(body_id)
-                                        .unwrap(),
-                                );
-                        }
-                        FoodType::Plant => {
-                            plants
-                                .get_mut(
-                                    &cells.get_cell_by_pos(&food.pos),
-                                )
-                                .unwrap()
-                                .get_mut(&food.id)
-                                .unwrap()
-                                .followed_by
-                                .insert(
-                                    *body_id,
-                                    &bodies_const
-                                        .get(body_id)
-                                        .unwrap(),
-                                );
-                        }
-                    }
-
-                    body.status =
-                        Status::FollowingTarget(food.id, food.pos);
+                    body.status = Status::FollowingTarget(
+                        food.id,
+                        food.pos,
+                        food.food_type,
+                    );
 
                     body.pos.x += (food.pos.x - body.pos.x)
                         * (body.speed / distance_to_food);
@@ -778,15 +802,15 @@ async fn main() {
             bodies.remove(body_id);
         }
 
+        for (new_body_id, new_body) in new_bodies {
+            bodies.insert(new_body_id, new_body);
+        }
+
         for (plant_id, plant_pos) in &removed_plants {
             plants
                 .get_mut(&cells.get_cell_by_pos(plant_pos))
                 .unwrap()
                 .remove(plant_id);
-        }
-
-        for (new_body_id, new_body) in new_bodies {
-            bodies.insert(new_body_id, new_body);
         }
 
         if is_draw_mode {
@@ -821,6 +845,7 @@ async fn main() {
                                 if let Status::FollowingTarget(
                                     _,
                                     target_pos,
+                                    _,
                                 ) = body.status
                                 {
                                     draw_line(
