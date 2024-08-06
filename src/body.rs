@@ -37,7 +37,6 @@ pub enum Status {
     Dead(Instant),
     Walking(Vec2),
     Idle,
-    Undefined
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -185,15 +184,9 @@ impl Body {
                         }
                     }
 
-                    skills.insert(Skill::DoNotCompeteWithRelatives);
                     skills
                 }
-                None => {
-                    let mut a =
-                        HashSet::with_capacity(Skill::ALL.len());
-                    a.insert(Skill::DoNotCompeteWithRelatives);
-                    a
-                }
+                None => HashSet::with_capacity(Skill::ALL.len()),
             },
             color,
             status: Status::Idle,
@@ -1013,12 +1006,12 @@ impl Body {
                     }
                 }
                 FoodType::Plant => {
-                    if let Some(plants) = plants
+                    if let Some(target_plant) = plants
                         .get_mut(&cells.get_cell_by_pos(&target_pos))
                         .unwrap()
                         .get_mut(&target_id)
                     {
-                        plants.followed_by.remove(&body_id);
+                        target_plant.followed_by.remove(body_id);
                     }
                 }
             }
