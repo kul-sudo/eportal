@@ -138,7 +138,10 @@ async fn main() {
         Body::randomly_spawn_body(
             &mut bodies,
             &area_size,
-            if rng.gen_range(0.0..1.0) <= unsafe { PASSIVE_CHANCE } {
+            if unsafe { PASSIVE_CHANCE } == 1.0
+                || rng.gen_range(0.0..1.0)
+                    <= unsafe { PASSIVE_CHANCE }
+            {
                 EatingStrategy::Passive
             } else {
                 EatingStrategy::Active
@@ -160,6 +163,7 @@ async fn main() {
             &cells,
             &mut rng,
         );
+
         plants_n += 1;
     }
 
@@ -268,6 +272,7 @@ async fn main() {
                             *random_plant_id,
                             random_plant.pos,
                         );
+
                         plants_n -= 1;
                         break;
                     }
@@ -319,12 +324,6 @@ async fn main() {
                 if death_time.elapsed().as_secs()
                     >= unsafe { CROSS_LIFESPAN }
                 {
-                    Body::followed_by_cleanup(
-                        &body_id,
-                        &cells,
-                        &mut bodies,
-                        &mut plants,
-                    );
                     removed_bodies.insert(*body_id);
                 }
                 continue;
@@ -363,80 +362,65 @@ async fn main() {
                 })
                 .collect::<Vec<_>>();
 
-            let mut chasers = bodies_within_vision_distance
-                .iter()
-                .filter(|(other_body_id, _)| {
-                    if let Status::FollowingTarget(
-                        other_body_target_id,
-                        _,
-                    ) = bodies.get(other_body_id).unwrap().status
-                    {
-                        &other_body_target_id == body_id
-                    } else {
-                        false
-                    }
-                })
-                .collect::<Vec<_>>();
+            let mut chasers = body.followed_by.clone();
 
-            if body.skills.contains(&Skill::PrioritizeFasterChasers)
-                && chasers.iter().any(|(_, other_body)| {
-                    other_body.speed > body.speed
-                })
-            {
-                chasers.retain(|(_, other_body)| {
-                    other_body.speed > body.speed
-                })
-            }
+            if !chasers.is_empty() {
+                if body
+                    .skills
+                    .contains(&Skill::PrioritizeFasterChasers)
+                    && chasers.iter().any(|(_, other_body)| {
+                        other_body.speed > body.speed
+                    })
+                {
+                    chasers.retain(|_, other_body| {
+                        other_body.speed > body.speed
+                    })
+                }
 
-            if let Some((
-                closest_chasing_body_id,
-                closest_chasing_body,
-            )) = chasers.iter().min_by(|(_, a), (_, b)| {
-                body.pos
-                    .distance(a.pos)
-                    .total_cmp(&body.pos.distance(b.pos))
-            }) {
-                body.set_status(
-                    Status::EscapingBody(
-                        **closest_chasing_body_id,
-                        closest_chasing_body.body_type,
-                    ),
-                    &body_id,
-                    &cells,
-                    &mut bodies,
-                    &mut plants,
-                );
+                if let Some((
+                    closest_chasing_body_id,
+                    closest_chasing_body,
+                )) = chasers.iter().min_by(|(_, a), (_, b)| {
+                    body.pos
+                        .distance(a.pos)
+                        .total_cmp(&body.pos.distance(b.pos))
+                }) {
+                    body.set_status(
+                        Status::EscapingBody(
+                            *closest_chasing_body_id,
+                            closest_chasing_body.body_type,
+                        ),
+                        &body_id,
+                        &cells,
+                        &mut bodies,
+                        &mut plants,
+                    );
 
-                let distance_to_closest_chasing_body =
-                    body.pos.distance(closest_chasing_body.pos);
+                    let distance_to_closest_chasing_body =
+                        body.pos.distance(closest_chasing_body.pos);
 
-                body.pos.x -= (closest_chasing_body.pos.x
-                    - body.pos.x)
-                    * (body.speed / distance_to_closest_chasing_body);
-                body.pos.y -= (closest_chasing_body.pos.y
-                    - body.pos.y)
-                    * (body.speed / distance_to_closest_chasing_body);
+                    body.pos.x -= (closest_chasing_body.pos.x
+                        - body.pos.x)
+                        * (body.speed
+                            / distance_to_closest_chasing_body);
+                    body.pos.y -= (closest_chasing_body.pos.y
+                        - body.pos.y)
+                        * (body.speed
+                            / distance_to_closest_chasing_body);
 
-                body.wrap(&area_size);
+                    body.wrap(&area_size);
 
-                continue;
+                    continue;
+                }
             }
 
             // Eating
-            let bodies_within_vision_distance_of_my_type =
-                bodies_within_vision_distance
-                    .iter()
-                    .filter(|(_, other_body)| {
-                        other_body.body_type == body.body_type
-                    })
-                    .collect::<Vec<_>>();
-
             let mut food: Option<FoodInfo> = None;
 
             // Find the closest cross
             match bodies_within_vision_distance
                 .iter()
-                .filter(|(cross_id, cross)| {
+                .filter(|(_, cross)| {
                     !cross.is_alive()
                         && body.handle_eat_crosses_of_my_type(cross)
                         && body.handle_alive_when_arrived_body(
@@ -450,10 +434,9 @@ async fn main() {
                             body_id, cross,
                         )
                         && body.handle_do_not_compete_with_relatives(
-                            cross_id,
-                            &cross.pos,
-                            &bodies,
-                            &bodies_within_vision_distance_of_my_type,
+                            &body_id,
+                            &body,
+                            &cross.followed_by,
                         )
                 })
                 .min_by(|(_, a), (_, b)| {
@@ -585,10 +568,9 @@ async fn main() {
                             && body.handle_alive_when_arrived_plant(plant)
                             && body.handle_profitable_when_arrived_plant(plant)
                             && body.handle_do_not_compete_with_relatives(
-                                plant_id,
-                                &plant.pos,
-                                &bodies,
-                                &bodies_within_vision_distance_of_my_type,
+                                &body_id,
+                                &body,
+                                &plant.followed_by
                             )
                             && body.handle_will_arrive_first_plant(
                                 body_id,
@@ -622,7 +604,7 @@ async fn main() {
                             // Find the closest body
                             if let Some((closest_body_id, closest_body)) = bodies_within_vision_distance
                                 .iter()
-                                .filter(|(other_body_id, other_body)| {
+                                .filter(|(_, other_body)| {
                                     body.body_type != other_body.body_type
                                     && body.energy > other_body.energy
                                     && other_body.is_alive()
@@ -638,10 +620,9 @@ async fn main() {
                                         other_body,
                                     )
                                     && body.handle_do_not_compete_with_relatives(
-                                        other_body_id,
-                                        &other_body.pos,
-                                        &bodies,
-                                        &bodies_within_vision_distance_of_my_type,
+                                        &body_id,
+                                        &body,
+                                        &other_body.followed_by
                                     )
                                 })
                                 .min_by(|(_, a), (_, b)| {
@@ -680,23 +661,15 @@ async fn main() {
                         }
                     }
                 } else {
-                    body.status =
-                        Status::FollowingTarget(food.id, food.pos);
-
-                    body.pos.x += (food.pos.x - body.pos.x)
-                        * (body.speed / distance_to_food);
-                    body.pos.y += (food.pos.y - body.pos.y)
-                        * (body.speed / distance_to_food);
-
                     match food.food_type {
-                        FoodType::Body(_) => {
+                        FoodType::Body(_) => 'case1: {
                             if let Status::FollowingTarget(
                                 target_id,
                                 _,
                             ) = body.status
                             {
                                 if target_id == food.id {
-                                    continue;
+                                    break 'case1;
                                 }
 
                                 if let Some(target_body) =
@@ -719,14 +692,14 @@ async fn main() {
                                         .unwrap(),
                                 );
                         }
-                        FoodType::Plant => {
+                        FoodType::Plant => 'case2: {
                             if let Status::FollowingTarget(
                                 target_id,
                                 target_pos,
                             ) = body.status
                             {
                                 if target_id == food.id {
-                                    continue;
+                                    break 'case2;
                                 }
 
                                 if let Some(target_plant) = plants
@@ -761,6 +734,14 @@ async fn main() {
                         }
                     }
 
+                    body.status =
+                        Status::FollowingTarget(food.id, food.pos);
+
+                    body.pos.x += (food.pos.x - body.pos.x)
+                        * (body.speed / distance_to_food);
+                    body.pos.y += (food.pos.y - body.pos.y)
+                        * (body.speed / distance_to_food);
+
                     continue;
                 }
             }
@@ -785,12 +766,6 @@ async fn main() {
             );
         }
 
-        for (plant_id, plant_pos) in &removed_plants {
-            plants
-                .get_mut(&cells.get_cell_by_pos(plant_pos))
-                .unwrap()
-                .remove(plant_id);
-        }
 
         for body_id in &removed_bodies {
             Body::followed_by_cleanup(
@@ -799,7 +774,17 @@ async fn main() {
                 &mut bodies,
                 &mut plants,
             );
+        }
+
+        for body_id in &removed_bodies {
             bodies.remove(body_id);
+        }
+
+        for (plant_id, plant_pos) in &removed_plants {
+            plants
+                .get_mut(&cells.get_cell_by_pos(plant_pos))
+                .unwrap()
+                .remove(plant_id);
         }
 
         for (new_body_id, new_body) in new_bodies {

@@ -196,15 +196,17 @@ impl Body<'_> {
                         HashMap::with_capacity(Virus::ALL.len());
 
                     for virus in Virus::ALL {
-                        if rng.gen_range(0.0..1.0)
-                            <= match virus {
-                                Virus::SpeedVirus => unsafe {
-                                    SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE
-                                },
-                                Virus::VisionVirus => unsafe {
-                                    VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE
-                                },
-                            }
+                        let virus_chance = match virus {
+                            Virus::SpeedVirus => unsafe {
+                                SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE
+                            },
+                            Virus::VisionVirus => unsafe {
+                                VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE
+                            },
+                        };
+
+                        if virus_chance == 1.0
+                            || rng.gen_range(0.0..1.0) <= virus_chance
                         {
                             viruses.insert(
                                 virus,
@@ -900,21 +902,15 @@ impl Body<'_> {
     #[inline(always)]
     pub fn handle_do_not_compete_with_relatives(
         &self,
-        id: &Instant,
-        pos: &Vec2,
-        bodies: &HashMap<Instant, Body>,
-        bodies_within_vision_distance_of_my_type: &[&(
-            &Instant,
-            &Body,
-        )],
+        body_id: &Instant,
+        body: &Body,
+        followed_by: &HashMap<Instant, &Body>,
     ) -> bool {
         if self.skills.contains(&Skill::DoNotCompeteWithRelatives) {
-            bodies_within_vision_distance_of_my_type.iter().all(
-                |(other_body_id, _)| {
-                    bodies.get(other_body_id).unwrap().status
-                        != Status::FollowingTarget(*id, *pos)
-                },
-            )
+            followed_by.iter().all(|(other_body_id, other_body)| {
+                other_body_id != body_id
+                    && other_body.body_type != body.body_type
+            })
         } else {
             true
         }
@@ -992,13 +988,12 @@ impl Body<'_> {
         bodies: &mut HashMap<Instant, Body>,
         plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,
     ) {
-        let body = bodies.get_mut(&body_id).unwrap();
         if let Status::FollowingTarget(target_id, target_pos) =
-            body.status
+            bodies.get(&body_id).unwrap().status
         {
             match bodies.get_mut(&target_id) {
-                Some(body) => {
-                    body.followed_by.remove(body_id);
+                Some(target_body) => {
+                    target_body.followed_by.remove(body_id);
                 }
                 None => {
                     if let Some(plants) = plants
