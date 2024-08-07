@@ -46,7 +46,7 @@ visionvirus_heal_energy = 500.0 # 500.0
 
 [condition]
 condition_chance = 0.0003 # 0.0003 (For one tick)
-condition_lifetime = [60, 90] # [60, 90] (Range in seconds)
+condition_lifetime = [60, 120] # [60, 90] (Range in seconds)
 
 [ui]
 body_info_font_size = 17 # 17 (The font size of the info displayed over the bodies)

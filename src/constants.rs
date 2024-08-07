@@ -40,8 +40,8 @@ pub const PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 pub static mut PLANTS_N_FOR_ONE_STEP: usize = 0;
 
 // Conditions
-pub const RAIN_PLANTS_N_FOR_ONE_STEP_MULTIPLIER: f32 = 2.0;
-pub const DROUGHT_PLANT_DIE_CHANCE_MULTIPLIER: f32 = 1.3;
+pub const RAIN_PLANTS_N_FOR_ONE_STEP_MULTIPLIER: f32 = 2.2;
+pub const DROUGHT_PLANT_DIE_CHANCE_MULTIPLIER: f32 = 1.2;
 
 // UI
 pub const EVOLUTION_INFO_FONT_SIZE: u16 = 500;

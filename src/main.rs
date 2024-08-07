@@ -351,15 +351,17 @@ async fn main() {
             }
 
             // Escape
-            let bodies_within_vision_distance = unsafe { &(*(&bodies as *const HashMap<Instant, Body>)) }
-                .iter()
-                .filter(|(other_body_id, other_body)| {
-                    &body_id != other_body_id
-                        && body.pos.distance(other_body.pos)
-                            <= body.vision_distance
-                        && !removed_bodies.contains(other_body_id)
-                })
-                .collect::<Vec<_>>();
+            let bodies_within_vision_distance = unsafe {
+                &(*(&bodies as *const HashMap<Instant, Body>))
+            }
+            .iter()
+            .filter(|(other_body_id, other_body)| {
+                &body_id != other_body_id
+                    && body.pos.distance(other_body.pos)
+                        <= body.vision_distance
+                    && !removed_bodies.contains(other_body_id)
+            })
+            .collect::<Vec<_>>();
 
             let mut chasers = body.followed_by.clone();
 
@@ -666,19 +668,19 @@ async fn main() {
                         &cells,
                         &mut bodies,
                         &mut plants,
+                        Some(&food),
                     );
 
                     match food.food_type {
                         FoodType::Body => {
-                            unsafe { &mut (*(&mut bodies as *mut HashMap<Instant, Body>)) }
-
-                                .get_mut(&food.id)
-                                .unwrap()
-                                .followed_by
-                                .insert(
-                                    *body_id,
-                                    body.clone()
-                                );
+                            unsafe {
+                                &mut (*(&mut bodies
+                                    as *mut HashMap<Instant, Body>))
+                            }
+                            .get_mut(&food.id)
+                            .unwrap()
+                            .followed_by
+                            .insert(*body_id, body.clone());
                         }
                         FoodType::Plant => {
                             plants
@@ -689,10 +691,7 @@ async fn main() {
                                 .get_mut(&food.id)
                                 .unwrap()
                                 .followed_by
-                                .insert(
-                                    *body_id,
-                                    body.clone()
-                                );
+                                .insert(*body_id, body.clone());
                         }
                     }
 
@@ -737,10 +736,8 @@ async fn main() {
                 &cells,
                 &mut bodies,
                 &mut plants,
+                None,
             );
-        }
-
-        for body_id in &removed_bodies {
             bodies.remove(body_id);
         }
 

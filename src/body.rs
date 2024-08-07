@@ -781,7 +781,9 @@ impl Body {
         bodies: &mut HashMap<Instant, Body>,
         plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,
     ) {
-        Body::followed_by_cleanup(&body_id, &cells, bodies, plants);
+        Body::followed_by_cleanup(
+            &body_id, &cells, bodies, plants, None,
+        );
         self.status = status;
     }
 
@@ -990,6 +992,7 @@ impl Body {
         cells: &Cells,
         bodies: &mut HashMap<Instant, Body>,
         plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,
+        food: Option<&FoodInfo>,
     ) {
         if let Status::FollowingTarget(
             target_id,
@@ -997,6 +1000,10 @@ impl Body {
             target_type,
         ) = bodies.get(&body_id).unwrap().status
         {
+            if food.is_some_and(|food| food.id == target_id) {
+                return;
+            }
+
             match target_type {
                 FoodType::Body => {
                     if let Some(target_body) =
