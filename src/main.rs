@@ -117,19 +117,14 @@ async fn main() {
     let mut condition: Option<(Condition, (Instant, Duration))> =
         None;
 
-    let mut bodies: HashMap<Instant, Body> =
+    let mut bodies: HashMap<BodyId, Body> =
         HashMap::with_capacity(unsafe { BODIES_N });
-    let mut plants: HashMap<Cell, HashMap<Instant, Plant>> =
+    let mut plants: HashMap<Cell, HashMap<PlantId, Plant>> =
         HashMap::with_capacity(cells.rows * cells.columns);
 
     for i in 0..cells.rows {
         for j in 0..cells.columns {
-            plants.insert(
-                Cell { i, j },
-                HashMap::with_capacity(
-                    AVERAGE_MAX_PLANTS_IN_ONE_CELL,
-                ),
-            );
+            plants.insert(Cell { i, j }, HashMap::new());
         }
     }
 
@@ -235,15 +230,15 @@ async fn main() {
             }
         }
 
-        let mut new_bodies: HashMap<Instant, Body> =
-            HashMap::with_capacity(AVERAGE_MAX_NEW_BODIES);
+        let mut new_bodies: HashMap<BodyId, Body> = HashMap::new();
 
-        let mut removed_plants: HashMap<Instant, Vec2> =
-            HashMap::with_capacity(AVERAGE_MAX_PLANTS_REMOVED);
-        let mut removed_bodies: HashSet<Instant> =
-            HashSet::with_capacity(AVERAGE_MAX_BODIES_REMOVED);
+        let mut removed_plants: HashMap<PlantId, Vec2> =
+            HashMap::new();
+        let mut removed_bodies: HashSet<BodyId> =
+            HashSet::new();
 
-        update_condition(&mut condition, &mut rng);
+        println!("{:?}", bodies.len());
+        Condition::update_condition(&mut condition, &mut rng);
 
         // Remove plants
         let n_to_remove = (plants_n as f32
@@ -311,7 +306,7 @@ async fn main() {
             >= Duration::from_secs(1 / FPS).as_millis();
 
         for (body_id, body) in unsafe {
-            &mut (*(&mut bodies as *mut HashMap<Instant, Body>))
+            &mut (*(&mut bodies as *mut HashMap<BodyId, Body>))
         } {
             // Handle if the body was eaten earlier
             if removed_bodies.contains(body_id) {
@@ -351,6 +346,58 @@ async fn main() {
             }
 
             // Escape
+            let mut chasers = body.followed_by.clone();
+
+            if !chasers.is_empty() {
+                if body
+                    .skills
+                    .contains(&Skill::PrioritizeFasterChasers)
+                    && chasers.iter().any(|(_, other_body)| {
+                        other_body.speed > body.speed
+                    })
+                {
+                    chasers.retain(|_, other_body| {
+                        other_body.speed > body.speed
+                    })
+                }
+
+                if let Some((
+                    closest_chasing_body_id,
+                    closest_chasing_body,
+                )) = chasers.iter().min_by(|(_, a), (_, b)| {
+                    body.pos
+                        .distance(a.pos)
+                        .total_cmp(&body.pos.distance(b.pos))
+                }) {
+                    body.set_status(
+                        Status::EscapingBody(
+                            *closest_chasing_body_id,
+                            closest_chasing_body.body_type,
+                        ),
+                        &body_id,
+                        &cells,
+                        &mut bodies,
+                        &mut plants,
+                    );
+
+                    let distance_to_closest_chasing_body =
+                        body.pos.distance(closest_chasing_body.pos);
+
+                    body.pos.x -= (closest_chasing_body.pos.x
+                        - body.pos.x)
+                        * (body.speed
+                            / distance_to_closest_chasing_body);
+                    body.pos.y -= (closest_chasing_body.pos.y
+                        - body.pos.y)
+                        * (body.speed
+                            / distance_to_closest_chasing_body);
+
+                    body.wrap(&area_size);
+
+                    continue;
+                }
+            }
+
             let bodies_within_vision_distance = unsafe {
                 &(*(&bodies as *const HashMap<Instant, Body>))
             }
@@ -436,7 +483,6 @@ async fn main() {
                         )
                         && body.handle_do_not_compete_with_relatives(
                             &body_id,
-                            &body,
                             &cross.followed_by,
                         )
                 })
@@ -449,7 +495,7 @@ async fn main() {
                 Some((closest_cross_id, closest_cross)) => {
                     food = Some(FoodInfo {
                         id:        **closest_cross_id,
-                        food_type: FoodType::Body,
+                        food_type: ObjectType::Body,
                         pos:       closest_cross.pos,
                         energy:    closest_cross.energy,
                         viruses:   Some(&closest_cross.viruses),
@@ -569,7 +615,6 @@ async fn main() {
                             && body.handle_profitable_when_arrived_plant(plant)
                             && body.handle_do_not_compete_with_relatives(
                                 &body_id,
-                                &body,
                                 &plant.followed_by
                             )
                             && body.handle_will_arrive_first_plant(
@@ -594,7 +639,7 @@ async fn main() {
                         Some((closest_plant_id, closest_plant)) => {
                             food = Some(FoodInfo {
                                 id:        ***closest_plant_id,
-                                food_type: FoodType::Plant,
+                                food_type: ObjectType::Plant,
                                 pos:       closest_plant.pos,
                                 energy:    closest_plant
                                     .get_contained_energy(),
@@ -603,11 +648,18 @@ async fn main() {
                         }
                         None => {
                             // Find the closest body
-                            if let Some((closest_body_id, closest_body)) = bodies_within_vision_distance
+                            if let Some((closest_body_id, closest_body)) =  unsafe {
+                                &(*(&bodies as *const HashMap<BodyId, Body>))
+                            }
                                 .iter()
-                                .filter(|(_, other_body)| {
-                                    body.body_type != other_body.body_type
+                                .filter(|(other_body_id, other_body)| {
+                                    body.body_type != other_body.body_type &&
+                                    &body_id != other_body_id
                                     && body.energy > other_body.energy
+                                    && body.pos.distance(other_body.pos)
+                                    <= body.vision_distance
+                                    && !removed_bodies.contains(other_body_id)
+
                                     && other_body.is_alive()
                                     && body.handle_alive_when_arrived_body(
                                         other_body, false,
@@ -622,7 +674,6 @@ async fn main() {
                                     )
                                     && body.handle_do_not_compete_with_relatives(
                                         &body_id,
-                                        &body,
                                         &other_body.followed_by
                                     )
                                 })
@@ -634,8 +685,8 @@ async fn main() {
                                 })
                             {
                                 food = Some(FoodInfo {
-                                    id:        **closest_body_id,
-                                    food_type: FoodType::Body,
+                                    id:        *closest_body_id,
+                                    food_type: ObjectType::Body,
                                     pos:       closest_body.pos,
                                     energy:    closest_body.energy,
                                     viruses: Some(&closest_body.viruses)
@@ -653,11 +704,11 @@ async fn main() {
                     body.pos = food.pos;
 
                     match food.food_type {
-                        FoodType::Body => {
+                        ObjectType::Body => {
                             body.get_viruses(&food.viruses.unwrap());
                             removed_bodies.insert(food.id);
                         }
-                        FoodType::Plant => {
+                        ObjectType::Plant => {
                             removed_plants.insert(food.id, food.pos);
                             plants_n -= 1;
                         }
@@ -672,17 +723,17 @@ async fn main() {
                     );
 
                     match food.food_type {
-                        FoodType::Body => {
+                        ObjectType::Body => {
                             unsafe {
                                 &mut (*(&mut bodies
-                                    as *mut HashMap<Instant, Body>))
+                                    as *mut HashMap<BodyId, Body>))
                             }
                             .get_mut(&food.id)
                             .unwrap()
                             .followed_by
                             .insert(*body_id, body.clone());
                         }
-                        FoodType::Plant => {
+                        ObjectType::Plant => {
                             plants
                                 .get_mut(
                                     &cells.get_cell_by_pos(&food.pos),
@@ -738,6 +789,7 @@ async fn main() {
                 &mut plants,
                 None,
             );
+
             bodies.remove(body_id);
         }
 

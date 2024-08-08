@@ -16,11 +16,11 @@ pub enum RectangleCorner {
 }
 
 impl RectangleCorner {
-    pub const ALL: [RectangleCorner; 4] = [
-        RectangleCorner::TopRight,
-        RectangleCorner::TopLeft,
-        RectangleCorner::BottomRight,
-        RectangleCorner::BottomLeft,
+    pub const ALL: [Self; 4] = [
+        Self::TopRight,
+        Self::TopLeft,
+        Self::BottomRight,
+        Self::BottomLeft,
     ];
 }
 

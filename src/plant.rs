@@ -1,4 +1,4 @@
-use crate::{constants::*, zoom::Zoom, Body, Cell, Cells};
+use crate::{constants::*, Body, BodyId, Cell, Cells, Zoom};
 use macroquad::{
     color::{GREEN, YELLOW},
     math::Vec2,
@@ -18,16 +18,17 @@ pub enum PlantKind {
 }
 
 impl PlantKind {
-    pub const ALL: [PlantKind; 2] =
-        [PlantKind::Grass, PlantKind::Banana];
+    pub const ALL: [Self; 2] = [Self::Grass, Self::Banana];
 }
 
 #[derive(PartialEq)]
 pub struct Plant {
     pub pos:         Vec2,
     pub kind:        PlantKind,
-    pub followed_by: HashMap<Instant, Body>,
+    pub followed_by: HashMap<BodyId, Body>,
 }
+
+pub type PlantId = Instant;
 
 impl Plant {
     #[inline(always)]
@@ -82,10 +83,10 @@ impl Plant {
     pub fn get_plants_to_draw<'a>(
         cells: &'a Cells,
         zoom: &'a Zoom,
-        plants: &'a HashMap<Cell, HashMap<Instant, Plant>>,
-        removed_plants: &'a HashMap<Instant, Vec2>,
+        plants: &'a HashMap<Cell, HashMap<PlantId, Self>>,
+        removed_plants: &'a HashMap<PlantId, Vec2>,
         plants_n: usize,
-    ) -> Vec<&'a Plant> {
+    ) -> Vec<&'a Self> {
         let mut plants_to_draw = Vec::with_capacity(
             (plants_n as f32 * AVERAGE_PLANTS_PART_DRAWN) as usize,
         );
@@ -151,8 +152,8 @@ impl Plant {
     #[inline(always)]
     /// Spawn a plant to a random position on the field.
     pub fn randomly_spawn_plant(
-        bodies: &HashMap<Instant, Body>,
-        plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,
+        bodies: &HashMap<BodyId, Body>,
+        plants: &mut HashMap<Cell, HashMap<PlantId, Self>>,
         area_size: &Vec2,
         cells: &Cells,
         rng: &mut StdRng,
@@ -192,7 +193,7 @@ impl Plant {
             .unwrap()
             .insert(
                 Instant::now(),
-                Plant {
+                Self {
                     pos,
                     kind: *PlantKind::ALL.iter().choose(rng).unwrap(),
                     followed_by: HashMap::new(),

@@ -1,7 +1,9 @@
 use crate::{
-    constants::*, get_with_deviation, plant::Plant,
-    smart_drawing::DrawingStrategy, smart_drawing::RectangleCorner,
-    user_constants::*, zoom::Zoom, Cell, Cells, PlantKind,
+    constants::*,
+    get_with_deviation,
+    smart_drawing::{DrawingStrategy, RectangleCorner},
+    user_constants::*,
+    Cell, Cells, Plant, PlantId, PlantKind, Zoom,
     UI_SHOW_PROPERTIES_N,
 };
 use macroquad::prelude::{
@@ -16,7 +18,7 @@ use std::{
 };
 
 #[derive(Copy, Clone, PartialEq)]
-pub enum FoodType {
+pub enum ObjectType {
     Body,
     Plant,
 }
@@ -24,7 +26,7 @@ pub enum FoodType {
 #[derive(Copy, Clone)]
 pub struct FoodInfo<'a> {
     pub id:        Instant,
-    pub food_type: FoodType,
+    pub food_type: ObjectType,
     pub pos:       Vec2,
     pub energy:    f32,
     pub viruses:   Option<&'a HashMap<Virus, f32>>,
@@ -32,8 +34,8 @@ pub struct FoodInfo<'a> {
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Status {
-    FollowingTarget(Instant, Vec2, FoodType),
-    EscapingBody(Instant, u16),
+    FollowingTarget(Instant, Vec2, ObjectType),
+    EscapingBody(BodyId, u16),
     Dead(Instant),
     Walking(Vec2),
     Idle,
@@ -57,8 +59,7 @@ pub enum Virus {
 }
 
 impl Virus {
-    pub const ALL: [Virus; 2] =
-        [Virus::SpeedVirus, Virus::VisionVirus];
+    pub const ALL: [Self; 2] = [Self::SpeedVirus, Self::VisionVirus];
 }
 
 #[derive(Eq, Hash, PartialEq, Copy, Clone)]
@@ -75,17 +76,19 @@ pub enum Skill {
 }
 
 impl Skill {
-    pub const ALL: [Skill; 8] = [
-        Skill::DoNotCompeteWithRelatives,
-        Skill::AliveWhenArrived,
-        Skill::ProfitableWhenArrived,
-        Skill::PrioritizeFasterChasers,
-        Skill::AvoidNewViruses,
-        Skill::WillArriveFirst,
-        Skill::EatCrossesOfMyType,
-        Skill::AvoidInfectedCrosses,
+    pub const ALL: [Self; 8] = [
+        Self::DoNotCompeteWithRelatives,
+        Self::AliveWhenArrived,
+        Self::ProfitableWhenArrived,
+        Self::PrioritizeFasterChasers,
+        Self::AvoidNewViruses,
+        Self::WillArriveFirst,
+        Self::EatCrossesOfMyType,
+        Self::AvoidInfectedCrosses,
     ];
 }
+
+pub type BodyId = Instant;
 
 #[derive(Clone, PartialEq)]
 /// https://github.com/kul-sudo/eportal/blob/main/README.md#properties
@@ -104,8 +107,92 @@ pub struct Body {
     pub lifespan:            f32,
     initial_speed:           f32,
     initial_vision_distance: f32,
-    pub followed_by:         HashMap<Instant, Body>,
+    pub followed_by:         HashMap<BodyId, Self>,
 }
+
+#[macro_export]
+macro_rules! get_visible {
+    ($body:expr, $cells:expr, $x:expr, $visible_x:expr) => {
+        // Using these for ease of development
+        let (a, b) = ($body.pos.x, $body.pos.y);
+        let r = $body.vision_distance;
+        let (w, h) = ($cells.cell_width, $cells.cell_height);
+        let (m, n) = ($cells.columns, $cells.rows);
+
+        // Get the bottommost, topmost, leftmost, and rightmost rows/columns.
+        // If the cell is within the circle or the circle touches the cell, it is
+        // within the rectangle around the circle. Some of those cells are unneeded.
+        let i_min = ((b - r) / h).floor().max(0.0) as usize;
+        let i_max =
+        ((b + r) / h).floor().min(n as f32 - 1.0) as usize;
+        let j_min = ((a - r) / w).floor().max(0.0) as usize;
+        let j_max =
+        ((a + r) / w).floor().min(m as f32 - 1.0) as usize;
+
+        // Ditch the unneeded cells
+        let Cell {
+        i: circle_center_i, ..
+        } = $cells.get_cell_by_pos(&$body.pos);
+
+        for i in i_min..=i_max {
+        let (
+        // Get the min/max j we have to care about for i
+        j_min_for_i,
+        j_max_for_i,
+        );
+
+        if i == circle_center_i {
+        (j_min_for_i, j_max_for_i) = (j_min, j_max);
+        } else {
+        let i_for_line =
+        if i < circle_center_i { i + 1 } else { i };
+
+        let delta = r
+        * (1.0
+        - ((i_for_line as f32 * h - b) / r)
+        .powi(2))
+        .sqrt();
+        (j_min_for_i, j_max_for_i) = (
+        ((a - delta) / w).floor().max(0.0) as usize,
+        ((a + delta) / w).floor().min((m - 1) as f32)
+        as usize,
+        )
+        }
+
+        for j in j_min_for_i..=j_max_for_i {
+        // Center of the cell
+        let (center_x, center_y) = (
+        j as f32 * w + w / 2.0,
+        i as f32 * h + h / 2.0,
+        );
+
+        // true as usize = 1
+        // false as usize = 0
+        let (i_delta, j_delta) = (
+        (center_y > b) as usize, // If the cell is in the 1st or 2nd quadrant
+        (center_x > a) as usize, // If the cell is in the 1st or 4th quadrant
+        );
+
+        let fully_covered = (((j + j_delta) as f32) * w
+        - a)
+        .powi(2)
+        + (((i + i_delta) as f32) * h - b).powi(2)
+        < r.powi(2);
+
+        for (x_id, x) in
+        $x.get(&Cell { i, j }).unwrap()
+        {
+        if fully_covered
+        || $body.pos.distance(x.pos)
+        <= $body.vision_distance
+        {
+        $visible_x.insert(x_id, x);
+        }
+        }
+        }
+        }
+    }
+    }
 
 #[allow(clippy::too_many_arguments)]
 impl Body {
@@ -426,7 +513,9 @@ impl Body {
                         self.status
                     {
                         let mut rectangle_sides =
-                            HashMap::with_capacity(4);
+                            HashMap::with_capacity(
+                                RectangleCorner::ALL.len(),
+                            );
                         for corner in RectangleCorner::ALL {
                             let (i, j) = match corner {
                                 RectangleCorner::TopRight => {
@@ -554,10 +643,10 @@ impl Body {
     /// Handle body-eaters walking and plant-eaters being idle.
     pub fn handle_walking_idle(
         &mut self,
-        body_id: &Instant,
+        body_id: &BodyId,
         cells: &Cells,
-        bodies: &mut HashMap<Instant, Body>,
-        plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,
+        bodies: &mut HashMap<BodyId, Self>,
+        plants: &mut HashMap<Cell, HashMap<PlantId, Plant>>,
         area_size: &Vec2,
         rng: &mut StdRng,
     ) {
@@ -601,8 +690,8 @@ impl Body {
     /// Handle the energy. The function returns if the body has run out of energy.
     pub fn handle_energy(
         &mut self,
-        body_id: &Instant,
-        removed_bodies: &mut HashSet<Instant>,
+        body_id: &BodyId,
+        removed_bodies: &mut HashSet<BodyId>,
     ) -> bool {
         // The mass is proportional to the energy; to keep the mass up, energy is spent
         self.energy -= unsafe { ENERGY_SPENT_CONST_FOR_MASS }
@@ -641,9 +730,9 @@ impl Body {
     /// Handle procreation and return if one has happened.
     pub fn handle_procreation(
         &mut self,
-        body_id: &Instant,
-        new_bodies: &mut HashMap<Instant, Body>,
-        removed_bodies: &mut HashSet<Instant>,
+        body_id: &BodyId,
+        new_bodies: &mut HashMap<BodyId, Self>,
+        removed_bodies: &mut HashSet<BodyId>,
         rng: &mut StdRng,
     ) -> bool {
         if self.energy > self.division_threshold {
@@ -688,7 +777,7 @@ impl Body {
 
     /// Generate a random position until it suits certain creteria.
     pub fn randomly_spawn_body(
-        bodies: &mut HashMap<Instant, Body>,
+        bodies: &mut HashMap<Instant, Self>,
         area_size: &Vec2,
         eating_strategy: EatingStrategy,
         body_type: usize,
@@ -776,10 +865,10 @@ impl Body {
     pub fn set_status(
         &mut self,
         status: Status,
-        body_id: &Instant,
+        body_id: &BodyId,
         cells: &Cells,
-        bodies: &mut HashMap<Instant, Body>,
-        plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,
+        bodies: &mut HashMap<BodyId, Self>,
+        plants: &mut HashMap<Cell, HashMap<PlantId, Plant>>,
     ) {
         Body::followed_by_cleanup(
             &body_id, &cells, bodies, plants, None,
@@ -790,9 +879,9 @@ impl Body {
     #[inline(always)]
     pub fn find_closest_plant<'a>(
         &self,
-        visible_plants: &'a [(&&'a Instant, &&'a Plant)],
+        visible_plants: &'a [(&&'a PlantId, &&'a Plant)],
         plant_kind: PlantKind,
-    ) -> Option<&'a (&&'a Instant, &&'a Plant)> {
+    ) -> Option<&'a (&&'a PlantId, &&'a Plant)> {
         visible_plants
             .iter()
             .filter(|(_, plant)| plant.kind == plant_kind)
@@ -846,7 +935,7 @@ impl Body {
     #[inline(always)]
     pub fn handle_alive_when_arrived_body(
         &self,
-        other_body: &Body,
+        other_body: &Self,
         target_immovable: bool,
     ) -> bool {
         if self.skills.contains(&Skill::AliveWhenArrived) {
@@ -887,7 +976,7 @@ impl Body {
     #[inline(always)]
     pub fn handle_avoid_new_viruses(
         &self,
-        other_body: &Body,
+        other_body: &Self,
     ) -> bool {
         let is_alive = self.is_alive();
 
@@ -907,14 +996,13 @@ impl Body {
     #[inline(always)]
     pub fn handle_do_not_compete_with_relatives(
         &self,
-        body_id: &Instant,
-        body: &Body,
-        followed_by: &HashMap<Instant, Body>,
+        body_id: &BodyId,
+        followed_by: &HashMap<BodyId, Self>,
     ) -> bool {
         if self.skills.contains(&Skill::DoNotCompeteWithRelatives) {
             followed_by.iter().all(|(other_body_id, other_body)| {
                 other_body_id == body_id
-                    || other_body.body_type != body.body_type
+                    || other_body.body_type != self.body_type
             })
         } else {
             true
@@ -924,8 +1012,8 @@ impl Body {
     #[inline(always)]
     pub fn handle_will_arrive_first_body(
         &self,
-        body_id: &Instant,
-        other_body: &Body,
+        body_id: &BodyId,
+        other_body: &Self,
     ) -> bool {
         let mut other_body_speed = other_body.speed;
 
@@ -961,7 +1049,7 @@ impl Body {
     #[inline(always)]
     pub fn handle_will_arrive_first_plant(
         &self,
-        body_id: &Instant,
+        body_id: &BodyId,
         plant: &Plant,
     ) -> bool {
         if self.skills.contains(&Skill::WillArriveFirst) {
@@ -981,17 +1069,18 @@ impl Body {
     #[inline(always)]
     pub fn handle_eat_crosses_of_my_type(
         &self,
-        cross: &Body,
+        cross: &Self,
     ) -> bool {
         self.body_type != cross.body_type
             || self.skills.contains(&Skill::EatCrossesOfMyType)
     }
 
+    #[inline(always)]
     pub fn followed_by_cleanup(
-        body_id: &Instant,
+        body_id: &BodyId,
         cells: &Cells,
-        bodies: &mut HashMap<Instant, Body>,
-        plants: &mut HashMap<Cell, HashMap<Instant, Plant>>,
+        bodies: &mut HashMap<BodyId, Self>,
+        plants: &mut HashMap<Cell, HashMap<PlantId, Plant>>,
         food: Option<&FoodInfo>,
     ) {
         if let Status::FollowingTarget(
@@ -1005,14 +1094,14 @@ impl Body {
             }
 
             match target_type {
-                FoodType::Body => {
+                ObjectType::Body => {
                     if let Some(target_body) =
                         bodies.get_mut(&target_id)
                     {
                         target_body.followed_by.remove(body_id);
                     }
                 }
-                FoodType::Plant => {
+                ObjectType::Plant => {
                     if let Some(target_plant) = plants
                         .get_mut(&cells.get_cell_by_pos(&target_pos))
                         .unwrap()

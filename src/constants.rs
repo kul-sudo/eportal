@@ -13,9 +13,6 @@ pub const DEFAULT_PLANTS_N: usize = 53914;
 pub static mut PLANTS_N: usize = 0;
 
 pub const AVERAGE_MAX_PLANTS_IN_ONE_CELL: usize = 10;
-pub const AVERAGE_MAX_NEW_BODIES: usize = 30;
-pub const AVERAGE_MAX_PLANTS_REMOVED: usize = 60;
-pub const AVERAGE_MAX_BODIES_REMOVED: usize = 30;
 pub const AVERAGE_PLANTS_PART_VISIBLE: f32 = 0.00014;
 pub const AVERAGE_PLANTS_PART_DRAWN: f32 = 0.014;
 
