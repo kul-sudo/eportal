@@ -1,21 +1,6 @@
-use crate::{
-    constants::*,
-    get_with_deviation,
-    smart_drawing::{DrawingStrategy, RectangleCorner},
-    user_constants::*,
-    Body, BodyId, Cell, Cells, Plant, PlantId, PlantKind, Virus,
-    Zoom, UI_SHOW_PROPERTIES_N,
-};
-use macroquad::prelude::{
-    draw_circle, draw_line, draw_rectangle, draw_text, measure_text,
-    rand::gen_range, vec2, Circle, Color, Vec2, Vec3, GREEN, RED,
-    WHITE,
-};
-use rand::{random, rngs::StdRng, seq::IteratorRandom, Rng};
-use std::{
-    collections::HashMap, collections::HashSet, f32::consts::PI,
-    f32::consts::SQRT_2, time::Instant,
-};
+use crate::{constants::*, Body, BodyId, Virus, Zoom};
+use macroquad::prelude::{draw_circle, draw_line, Color, Vec2, RED};
+use std::{collections::HashMap, f32::consts::SQRT_2, time::Instant};
 
 pub type CrossId = Instant;
 

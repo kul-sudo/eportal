@@ -7,7 +7,7 @@ use crate::{
     UI_SHOW_PROPERTIES_N,
 };
 use macroquad::prelude::{
-    draw_circle, draw_line, draw_rectangle, draw_text, measure_text,
+    draw_circle, draw_rectangle, draw_text, measure_text,
     rand::gen_range, vec2, Circle, Color, Vec2, Vec3, GREEN, RED,
     WHITE,
 };
@@ -553,8 +553,8 @@ impl Body {
                         DrawingStrategy::segments_intersect(
                             &self.pos,
                             &target_pos,
-                            rectangle_sides.get(&i).unwrap(),
-                            rectangle_sides.get(&j).unwrap(),
+                            rectangle_sides.get(i).unwrap(),
+                            rectangle_sides.get(j).unwrap(),
                         )
                     }),
                 );
@@ -633,8 +633,8 @@ impl Body {
 
                     self.set_status(
                         Status::Walking(pos_deviation),
-                        &body_id,
-                        &cells,
+                        body_id,
+                        cells,
                         bodies,
                         crosses,
                         plants,
@@ -650,8 +650,8 @@ impl Body {
             }
             EatingStrategy::Passive => self.set_status(
                 Status::Idle,
-                &body_id,
-                &cells,
+                body_id,
+                cells,
                 bodies,
                 crosses,
                 plants,
@@ -845,7 +845,7 @@ impl Body {
         plants: &mut HashMap<Cell, HashMap<PlantId, Plant>>,
     ) {
         Body::followed_by_cleanup(
-            &body_id, &cells, bodies, crosses, plants, None,
+            body_id, cells, bodies, crosses, plants, None,
         );
         self.status = status;
     }
@@ -1107,7 +1107,7 @@ impl Body {
             target_id,
             target_pos,
             target_type,
-        ) = bodies.get(&body_id).unwrap().status
+        ) = bodies.get(body_id).unwrap().status
         {
             if food.is_some_and(|food| food.id == target_id) {
                 return;

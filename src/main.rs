@@ -197,10 +197,8 @@ async fn main() {
             zoom.zoomed = !zoom.zoomed
         }
 
-        if unlikely(is_key_pressed(KeyCode::Key1)) {
-            if zoom.zoomed {
-                info.body_info = !info.body_info;
-            }
+        if zoom.zoomed && unlikely(is_key_pressed(KeyCode::Key1)) {
+            info.body_info = !info.body_info;
         }
 
         if unlikely(is_key_pressed(KeyCode::Key2)) {
@@ -359,7 +357,7 @@ async fn main() {
                             *closest_chasing_body_id,
                             closest_chasing_body.body_type,
                         ),
-                        &body_id,
+                        body_id,
                         &cells,
                         &mut bodies,
                         unsafe {
@@ -424,7 +422,7 @@ async fn main() {
                             body_id, cross,
                         )
                         && body.handle_do_not_compete_with_relatives(
-                            &body_id,
+                            body_id,
                             &cross.followed_by,
                         )
                 })
@@ -447,7 +445,11 @@ async fn main() {
                     let mut visible_plants: HashMap<
                         &PlantId,
                         &Plant,
-                    > = HashMap::new();
+                    > = HashMap::with_capacity(
+                        (plants_n as f32
+                            * AVERAGE_PLANTS_PART_VISIBLE)
+                            as usize,
+                    );
 
                     get_visible!(body, cells, plants, visible_plants);
 
@@ -458,7 +460,7 @@ async fn main() {
                             && body.handle_alive_when_arrived_plant(plant)
                             && body.handle_profitable_when_arrived_plant(plant)
                             && body.handle_do_not_compete_with_relatives(
-                                &body_id,
+                                body_id,
                                 &plant.followed_by
                             )
                             && body.handle_will_arrive_first_plant(
@@ -515,7 +517,7 @@ async fn main() {
                                         other_body,
                                     )
                                     && body.handle_do_not_compete_with_relatives(
-                                        &body_id,
+                                        body_id,
                                         &other_body.followed_by
                                     )
                                 })
@@ -547,11 +549,11 @@ async fn main() {
 
                     match food.food_type {
                         ObjectType::Body => {
-                            body.get_viruses(&food.viruses.unwrap());
+                            body.get_viruses(food.viruses.unwrap());
                             removed_bodies.insert(food.id);
                         }
                         ObjectType::Cross => {
-                            body.get_viruses(&food.viruses.unwrap());
+                            body.get_viruses(food.viruses.unwrap());
                             removed_crosses.insert(food.id, food.pos);
                         }
                         ObjectType::Plant => {
@@ -561,7 +563,7 @@ async fn main() {
                     }
                 } else {
                     Body::followed_by_cleanup(
-                        &body_id,
+                        body_id,
                         &cells,
                         &mut bodies,
                         unsafe {
@@ -636,7 +638,7 @@ async fn main() {
             }
 
             body.handle_walking_idle(
-                &body_id,
+                body_id,
                 &cells,
                 &mut bodies,
                 &mut crosses,
@@ -662,7 +664,7 @@ async fn main() {
 
         for body_id in &removed_bodies {
             Body::followed_by_cleanup(
-                &body_id,
+                body_id,
                 &cells,
                 &mut bodies,
                 &mut crosses,
@@ -670,13 +672,13 @@ async fn main() {
                 None,
             );
 
-            let body = bodies.get(&body_id).unwrap();
+            let body = bodies.get(body_id).unwrap();
 
             if let Status::Cross = body.status {
                 crosses
                     .get_mut(&cells.get_cell_by_pos(&body.pos))
                     .unwrap()
-                    .insert(*body_id, Cross::new(&body));
+                    .insert(*body_id, Cross::new(body));
             }
 
             bodies.remove(body_id);
@@ -695,6 +697,12 @@ async fn main() {
 
         if is_draw_mode {
             if !is_key_down(KeyCode::Space) {
+                for cell in crosses.values() {
+                    for cross in cell.values() {
+                        cross.draw(&zoom);
+                    }
+                }
+
                 if zoom.zoomed {
                     for plant in Plant::get_plants_to_draw(
                         &cells,
@@ -759,12 +767,6 @@ async fn main() {
                         for plant in cell.values() {
                             plant.draw();
                         }
-                    }
-                }
-
-                for cell in crosses.values() {
-                    for cross in cell.values() {
-                        cross.draw(&zoom);
                     }
                 }
 

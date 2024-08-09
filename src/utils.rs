@@ -105,12 +105,8 @@ pub fn show_evolution_info(
             }
         }
         None => {
-            info.evolution_info.last_info = Some({
-                LastInfo {
-                    plants_n: plants_n,
-                    bodies_n: bodies_n,
-                }
-            });
+            info.evolution_info.last_info =
+                Some(LastInfo { plants_n, bodies_n });
 
             plants_n_to_show = plants_n;
             bodies_n_to_show = bodies_n;
