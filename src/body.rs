@@ -474,6 +474,7 @@ impl Body {
         zoom: &Zoom,
     ) -> DrawingStrategy {
         let mut drawing_strategy = DrawingStrategy::default(); // Everything's false
+        let mut target_line = None;
 
         match zoom.extended_rect.unwrap().contains(self.pos) {
             true => {
@@ -481,38 +482,54 @@ impl Body {
                 // visible/hidden or completely visible
                 drawing_strategy.body = true;
                 drawing_strategy.vision_distance = true;
+                target_line = Some(true);
+            }
+            false => {
+                drawing_strategy.vision_distance = Circle::new(
+                    self.pos.x,
+                    self.pos.y,
+                    self.vision_distance,
+                )
+                .overlaps_rect(&zoom.rect.unwrap());
 
                 if let Status::FollowingTarget(_, target_pos, _) =
                     self.status
                 {
-                    let mut rectangle_sides = HashMap::with_capacity(
-                        RectangleCorner::ALL.len(),
-                    );
-                    for corner in RectangleCorner::ALL {
-                        let (i, j) = match corner {
-                            RectangleCorner::TopRight => (1.0, 1.0),
-                            RectangleCorner::TopLeft => (-1.0, 1.0),
-                            RectangleCorner::BottomRight => {
-                                (1.0, -1.0)
-                            }
-                            RectangleCorner::BottomLeft => {
-                                (-1.0, -1.0)
-                            }
-                        };
-
-                        rectangle_sides.insert(
-                            corner,
-                            vec2(
-                                zoom.center_pos.unwrap().x
-                                    + i * zoom.rect.unwrap().w / 2.0,
-                                zoom.center_pos.unwrap().y
-                                    + j * zoom.rect.unwrap().h / 2.0,
-                            ),
-                        );
+                    if zoom.rect.unwrap().contains(target_pos) {
+                        target_line = Some(true);
                     }
+                }
+            }
+        }
 
-                    // If it isn't inside the rectangle, it's determined later on
-                    drawing_strategy.target_line = [
+        if target_line.is_none() {
+            if let Status::FollowingTarget(_, target_pos, _) =
+                self.status
+            {
+                let mut rectangle_sides = HashMap::with_capacity(
+                    RectangleCorner::ALL.len(),
+                );
+                for corner in RectangleCorner::ALL {
+                    let (i, j) = match corner {
+                        RectangleCorner::TopRight => (1.0, 1.0),
+                        RectangleCorner::TopLeft => (-1.0, 1.0),
+                        RectangleCorner::BottomRight => (1.0, -1.0),
+                        RectangleCorner::BottomLeft => (-1.0, -1.0),
+                    };
+
+                    rectangle_sides.insert(
+                        corner,
+                        vec2(
+                            zoom.center_pos.unwrap().x
+                                + i * zoom.rect.unwrap().w / 2.0,
+                            zoom.center_pos.unwrap().y
+                                + j * zoom.rect.unwrap().h / 2.0,
+                        ),
+                    );
+                }
+
+                target_line = Some(
+                    [
                         (
                             RectangleCorner::BottomRight,
                             RectangleCorner::BottomLeft,
@@ -531,31 +548,20 @@ impl Body {
                         ),
                     ]
                     .iter()
-                    .all(|(i, j)| {
-                        !DrawingStrategy::segments_intersect(
+                    .any(|(i, j)| {
+                        DrawingStrategy::segments_intersect(
                             &self.pos,
                             &target_pos,
-                            rectangle_sides.get(i).unwrap(),
-                            rectangle_sides.get(j).unwrap(),
+                            rectangle_sides.get(&i).unwrap(),
+                            rectangle_sides.get(&j).unwrap(),
                         )
-                    });
-                }
+                    }),
+                );
             }
-            false => {
-                drawing_strategy.vision_distance = Circle::new(
-                    self.pos.x,
-                    self.pos.y,
-                    self.vision_distance,
-                )
-                .overlaps_rect(&zoom.rect.unwrap());
+        }
 
-                if let Status::FollowingTarget(_, target_pos, _) =
-                    self.status
-                {
-                    drawing_strategy.target_line =
-                        zoom.rect.unwrap().contains(target_pos);
-                }
-            }
+        if let Some(target_line_strategy) = target_line {
+            drawing_strategy.target_line = target_line_strategy;
         }
 
         drawing_strategy
@@ -1111,7 +1117,11 @@ impl Body {
                     if let Some(target_body) =
                         bodies.get_mut(&target_id)
                     {
-                        target_body.followed_by.remove(body_id);
+                        bodies
+                            .get_mut(&target_id)
+                            .unwrap()
+                            .followed_by
+                            .remove(body_id);
                     }
                 }
                 ObjectType::Cross => {
