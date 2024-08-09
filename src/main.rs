@@ -239,8 +239,6 @@ async fn main() {
         let mut removed_plants: HashMap<PlantId, Vec2> =
             HashMap::new();
         let mut removed_bodies: HashSet<BodyId> = HashSet::new();
-        let mut removed_crosses: HashMap<CrossId, Vec2> =
-            HashMap::new();
 
         Condition::update_condition(&mut condition, &mut rng);
 
@@ -412,9 +410,8 @@ async fn main() {
             // Find the closest cross
             match visible_crosses
                 .iter()
-                .filter(|(cross_id, cross)| {
-                    !removed_crosses.contains_key(&cross_id)
-                        && body.handle_eat_crosses_of_my_type(cross)
+                .filter(|(_, cross)| {
+                    body.handle_eat_crosses_of_my_type(cross)
                         && body.handle_alive_when_arrived_cross(cross)
                         && body.handle_profitable_when_arrived_cross(
                             cross,
@@ -556,7 +553,12 @@ async fn main() {
                         }
                         ObjectType::Cross => {
                             body.get_viruses(food.viruses.unwrap());
-                            removed_crosses.insert(food.id, food.pos);
+                            crosses
+                                .get_mut(
+                                    &cells.get_cell_by_pos(&food.pos),
+                                )
+                                .unwrap()
+                                .remove(&food.id);
                         }
                         ObjectType::Plant => {
                             removed_plants.insert(food.id, food.pos);
@@ -648,13 +650,6 @@ async fn main() {
                 &area_size,
                 &mut rng,
             );
-        }
-
-        for (cross_id, cross_pos) in &removed_crosses {
-            crosses
-                .get_mut(&cells.get_cell_by_pos(cross_pos))
-                .unwrap()
-                .remove(cross_id);
         }
 
         for crosses in crosses.values_mut() {
