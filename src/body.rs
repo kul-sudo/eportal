@@ -38,6 +38,7 @@ pub enum Status {
     FollowingTarget(Instant, Vec2, ObjectType),
     EscapingBody(BodyId, u16),
     Walking(Vec2),
+    Cross,
     Idle,
 }
 
@@ -1117,11 +1118,7 @@ impl Body {
                     if let Some(target_body) =
                         bodies.get_mut(&target_id)
                     {
-                        bodies
-                            .get_mut(&target_id)
-                            .unwrap()
-                            .followed_by
-                            .remove(body_id);
+                        target_body.followed_by.remove(body_id);
                     }
                 }
                 ObjectType::Cross => {

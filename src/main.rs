@@ -320,6 +320,7 @@ async fn main() {
             if body.energy < unsafe { MIN_ENERGY }
                 || body_id.elapsed().as_secs_f32() > body.lifespan
             {
+                body.status = Status::Cross;
                 removed_bodies.insert(*body_id);
 
                 continue;
@@ -396,106 +397,18 @@ async fn main() {
             let mut visible_crosses: HashMap<&CrossId, &Cross> =
                 HashMap::new();
 
-            // Find the closest plant
-            let mut visible_plants: HashMap<&PlantId, &Plant> =
-                HashMap::new();
-
-            // Using these for ease of development
-            let (a, b) = (body.pos.x, body.pos.y);
-            let r = body.vision_distance;
-            let (w, h) = (cells.cell_width, cells.cell_height);
-            let (m, n) = (cells.columns, cells.rows);
-
-            // Get the bottommost, topmost, leftmost, and rightmost rows/columns.
-            // If the cell is within the circle or the circle touches the cell, it is
-            // within the rectangle around the circle. Some of those cells are unneeded.
-            let i_min = ((b - r) / h).floor().max(0.0) as usize;
-            let i_max =
-                ((b + r) / h).floor().min((n - 1) as f32) as usize;
-            let j_min = ((a - r) / w).floor().max(0.0) as usize;
-            let j_max =
-                ((a + r) / w).floor().min((m - 1) as f32) as usize;
-
-            // Ditch the unneeded cells
-            let Cell {
-                i: circle_center_i, ..
-            } = cells.get_cell_by_pos(&body.pos);
-
-            for i in i_min..=i_max {
-                let (
-                    // Get the min/max j we have to care about for i
-                    j_min_for_i,
-                    j_max_for_i,
-                );
-
-                if i == circle_center_i {
-                    (j_min_for_i, j_max_for_i) = (j_min, j_max);
-                } else {
-                    let i_for_line =
-                        if i < circle_center_i { i + 1 } else { i };
-
-                    let delta = r
-                        * (1.0
-                            - ((i_for_line as f32 * h - b) / r)
-                                .powi(2))
-                        .sqrt();
-                    (j_min_for_i, j_max_for_i) = (
-                        ((a - delta) / w).floor().max(0.0) as usize,
-                        ((a + delta) / w).floor().min((m - 1) as f32)
-                            as usize,
-                    )
-                }
-
-                for j in j_min_for_i..=j_max_for_i {
-                    // Center of the cell
-                    let (center_x, center_y) = (
-                        j as f32 * w + w / 2.0,
-                        i as f32 * h + h / 2.0,
-                    );
-
-                    // true as usize = 1
-                    // false as usize = 0
-                    let (i_delta, j_delta) = (
-                        (center_y > b) as usize, // If the cell is in the 1st or 2nd quadrant
-                        (center_x > a) as usize, // If the cell is in the 1st or 4th quadrant
-                    );
-
-                    let fully_covered = (((j + j_delta) as f32) * w
-                        - a)
-                        .powi(2)
-                        + (((i + i_delta) as f32) * h - b).powi(2)
-                        < r.powi(2);
-
-                    for (cross_id, cross) in unsafe {
-                        &mut (*(&mut crosses
-                            as *mut HashMap<
-                                Cell,
-                                HashMap<CrossId, Cross>,
-                            >))
-                    }
-                    .get(&Cell { i, j })
-                    .unwrap()
-                    {
-                        if fully_covered
-                            || body.pos.distance(cross.pos)
-                                <= body.vision_distance
-                        {
-                            visible_crosses.insert(cross_id, cross);
-                        }
-                    }
-
-                    for (plant_id, plant) in
-                        plants.get(&Cell { i, j }).unwrap()
-                    {
-                        if fully_covered
-                            || body.pos.distance(plant.pos)
-                                <= body.vision_distance
-                        {
-                            visible_plants.insert(plant_id, plant);
-                        }
-                    }
-                }
-            }
+            get_visible!(
+                body,
+                cells,
+                unsafe {
+                    &mut (*(&mut crosses
+                        as *mut HashMap<
+                            Cell,
+                            HashMap<CrossId, Cross>,
+                        >))
+                },
+                visible_crosses
+            );
 
             // Find the closest cross
             match visible_crosses
@@ -522,15 +435,22 @@ async fn main() {
                         .unwrap()
                 }) {
                 Some((closest_cross_id, closest_cross)) => {
-                    //food = Some(FoodInfo {
-                    //    id:        **closest_cross_id,
-                    //    food_type: ObjectType::Cross,
-                    //    pos:       closest_cross.pos,
-                    //    energy:    closest_cross.energy,
-                    //    viruses:   Some(&closest_cross.viruses),
-                    //});
+                    food = Some(FoodInfo {
+                        id:        **closest_cross_id,
+                        food_type: ObjectType::Cross,
+                        pos:       closest_cross.pos,
+                        energy:    closest_cross.energy,
+                        viruses:   Some(&closest_cross.viruses),
+                    });
                 }
                 None => {
+                    let mut visible_plants: HashMap<
+                        &PlantId,
+                        &Plant,
+                    > = HashMap::new();
+
+                    get_visible!(body, cells, plants, visible_plants);
+
                     let filtered_visible_plants = visible_plants
                         .iter()
                         .filter(|(plant_id, plant)| {
@@ -752,10 +672,12 @@ async fn main() {
 
             let body = bodies.get(&body_id).unwrap();
 
-            crosses
-                .get_mut(&cells.get_cell_by_pos(&body.pos))
-                .unwrap()
-                .insert(*body_id, Cross::new(&body));
+            if let Status::Cross = body.status {
+                crosses
+                    .get_mut(&cells.get_cell_by_pos(&body.pos))
+                    .unwrap()
+                    .insert(*body_id, Cross::new(&body));
+            }
 
             bodies.remove(body_id);
         }
