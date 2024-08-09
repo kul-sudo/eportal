@@ -19,7 +19,7 @@ const_for_lifespan = 0.000002 # 0.000002 (Makes the life of a body shorter if it
 
 [plants]
 plants_density = 0.00026 # 0.00026 (The number of plants per unit area for the initial spawning)
-plant_spawn_chance = 0.00001 # 0.0000001 (The probability for a plant to be spawned per unit area)
+plant_spawn_chance = 0.0000001 # 0.0000001 (The probability for a plant to be spawned per unit area)
 plant_die_chance = 0.0004 # 0.0004 (The probability for a plant to die)
 
 [energy]

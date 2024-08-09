@@ -21,6 +21,7 @@ use condition::*;
 use constants::*;
 use cross::*;
 use plant::*;
+use smart_drawing::*;
 use user_constants::*;
 use utils::*;
 use zoom::*;
@@ -411,8 +412,9 @@ async fn main() {
             // Find the closest cross
             match visible_crosses
                 .iter()
-                .filter(|(_, cross)| {
-                    body.handle_eat_crosses_of_my_type(cross)
+                .filter(|(cross_id, cross)| {
+                    !removed_crosses.contains_key(&cross_id)
+                        && body.handle_eat_crosses_of_my_type(cross)
                         && body.handle_alive_when_arrived_cross(cross)
                         && body.handle_profitable_when_arrived_cross(
                             cross,
@@ -715,11 +717,14 @@ async fn main() {
                     }
 
                     for body in bodies.values() {
-                        let drawing_strategy =
-                            body.get_drawing_strategy(&zoom);
+                        let DrawingStrategy {
+                            body: draw_body,
+                            vision_distance: draw_vision_distance,
+                            target_line: draw_target_line,
+                        } = body.get_drawing_strategy(&zoom);
 
                         if info.body_info {
-                            if drawing_strategy.vision_distance {
+                            if draw_vision_distance {
                                 draw_circle_lines(
                                     body.pos.x,
                                     body.pos.y,
@@ -729,7 +734,7 @@ async fn main() {
                                 );
                             }
 
-                            if drawing_strategy.target_line {
+                            if draw_target_line {
                                 if let Status::FollowingTarget(
                                     _,
                                     target_pos,
@@ -748,13 +753,11 @@ async fn main() {
                             }
                         }
 
-                        if drawing_strategy.body {
+                        if draw_body {
                             body.draw();
                         }
 
-                        if drawing_strategy.vision_distance
-                            && info.body_info
-                        {
+                        if draw_vision_distance && info.body_info {
                             body.draw_info();
                         }
                     }
