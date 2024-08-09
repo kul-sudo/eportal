@@ -3,7 +3,7 @@ use crate::{
     get_with_deviation,
     smart_drawing::{DrawingStrategy, RectangleCorner},
     user_constants::*,
-    Cell, Cells, Plant, PlantId, PlantKind, Zoom,
+    Cell, Cells, Cross, CrossId, Plant, PlantId, PlantKind, Zoom,
     UI_SHOW_PROPERTIES_N,
 };
 use macroquad::prelude::{
@@ -21,6 +21,7 @@ use std::{
 pub enum ObjectType {
     Body,
     Plant,
+    Cross,
 }
 
 #[derive(Copy, Clone)]
@@ -36,8 +37,8 @@ pub struct FoodInfo<'a> {
 pub enum Status {
     FollowingTarget(Instant, Vec2, ObjectType),
     EscapingBody(BodyId, u16),
-    Dead(Instant),
     Walking(Vec2),
+    Cross,
     Idle,
 }
 
@@ -329,11 +330,6 @@ impl Body {
     }
 
     #[inline(always)]
-    pub fn is_alive(&self) -> bool {
-        !matches!(self.status, Status::Dead(..))
-    }
-
-    #[inline(always)]
     pub fn wrap(&mut self, area_size: &Vec2) {
         if self.pos.x >= area_size.x {
             self.pos.x = MIN_GAP;
@@ -352,43 +348,23 @@ impl Body {
     pub fn draw(&self) {
         let side_length_half = OBJECT_RADIUS / SQRT_2;
 
-        if self.is_alive() {
-            match self.eating_strategy {
-                EatingStrategy::Active => {
-                    let side_length = side_length_half * 2.0;
-                    draw_rectangle(
-                        self.pos.x - side_length_half,
-                        self.pos.y - side_length_half,
-                        side_length,
-                        side_length,
-                        self.color,
-                    );
-                }
-                EatingStrategy::Passive => draw_circle(
-                    self.pos.x,
-                    self.pos.y,
-                    OBJECT_RADIUS,
+        match self.eating_strategy {
+            EatingStrategy::Active => {
+                let side_length = side_length_half * 2.0;
+                draw_rectangle(
+                    self.pos.x - side_length_half,
+                    self.pos.y - side_length_half,
+                    side_length,
+                    side_length,
                     self.color,
-                ),
+                );
             }
-        } else {
-            draw_line(
-                self.pos.x - side_length_half,
-                self.pos.y - side_length_half,
-                self.pos.x + side_length_half,
-                self.pos.y + side_length_half,
-                2.0,
+            EatingStrategy::Passive => draw_circle(
+                self.pos.x,
+                self.pos.y,
+                OBJECT_RADIUS,
                 self.color,
-            );
-
-            draw_line(
-                self.pos.x + side_length_half,
-                self.pos.y - side_length_half,
-                self.pos.x - side_length_half,
-                self.pos.y + side_length_half,
-                2.0,
-                self.color,
-            )
+            ),
         }
 
         if !self.viruses.is_empty() {
@@ -499,100 +475,94 @@ impl Body {
         zoom: &Zoom,
     ) -> DrawingStrategy {
         let mut drawing_strategy = DrawingStrategy::default(); // Everything's false
+        let mut target_line = None;
 
         match zoom.extended_rect.unwrap().contains(self.pos) {
             true => {
                 // The body can be partially
                 // visible/hidden or completely visible
                 drawing_strategy.body = true;
-
-                if self.is_alive() {
-                    drawing_strategy.vision_distance = true;
-
-                    if let Status::FollowingTarget(_, target_pos, _) =
-                        self.status
-                    {
-                        let mut rectangle_sides =
-                            HashMap::with_capacity(
-                                RectangleCorner::ALL.len(),
-                            );
-                        for corner in RectangleCorner::ALL {
-                            let (i, j) = match corner {
-                                RectangleCorner::TopRight => {
-                                    (1.0, 1.0)
-                                }
-                                RectangleCorner::TopLeft => {
-                                    (-1.0, 1.0)
-                                }
-                                RectangleCorner::BottomRight => {
-                                    (1.0, -1.0)
-                                }
-                                RectangleCorner::BottomLeft => {
-                                    (-1.0, -1.0)
-                                }
-                            };
-
-                            rectangle_sides.insert(
-                                corner,
-                                vec2(
-                                    zoom.center_pos.unwrap().x
-                                        + i * zoom.rect.unwrap().w
-                                            / 2.0,
-                                    zoom.center_pos.unwrap().y
-                                        + j * zoom.rect.unwrap().h
-                                            / 2.0,
-                                ),
-                            );
-                        }
-
-                        // If it isn't inside the rectangle, it's determined later on
-                        drawing_strategy.target_line = [
-                            (
-                                RectangleCorner::BottomRight,
-                                RectangleCorner::BottomLeft,
-                            ),
-                            (
-                                RectangleCorner::TopRight,
-                                RectangleCorner::TopLeft,
-                            ),
-                            (
-                                RectangleCorner::TopRight,
-                                RectangleCorner::BottomRight,
-                            ),
-                            (
-                                RectangleCorner::TopLeft,
-                                RectangleCorner::BottomLeft,
-                            ),
-                        ]
-                        .iter()
-                        .all(|(i, j)| {
-                            !DrawingStrategy::segments_intersect(
-                                &self.pos,
-                                &target_pos,
-                                rectangle_sides.get(i).unwrap(),
-                                rectangle_sides.get(j).unwrap(),
-                            )
-                        });
-                    }
-                }
+                drawing_strategy.vision_distance = true;
+                target_line = Some(true);
             }
             false => {
-                if self.is_alive() {
-                    drawing_strategy.vision_distance = Circle::new(
-                        self.pos.x,
-                        self.pos.y,
-                        self.vision_distance,
-                    )
-                    .overlaps_rect(&zoom.rect.unwrap());
+                drawing_strategy.vision_distance = Circle::new(
+                    self.pos.x,
+                    self.pos.y,
+                    self.vision_distance,
+                )
+                .overlaps_rect(&zoom.rect.unwrap());
 
-                    if let Status::FollowingTarget(_, target_pos, _) =
-                        self.status
-                    {
-                        drawing_strategy.target_line =
-                            zoom.rect.unwrap().contains(target_pos);
+                if let Status::FollowingTarget(_, target_pos, _) =
+                    self.status
+                {
+                    if zoom.rect.unwrap().contains(target_pos) {
+                        target_line = Some(true);
                     }
                 }
             }
+        }
+
+        if target_line.is_none() {
+            if let Status::FollowingTarget(_, target_pos, _) =
+                self.status
+            {
+                let mut rectangle_sides = HashMap::with_capacity(
+                    RectangleCorner::ALL.len(),
+                );
+                for corner in RectangleCorner::ALL {
+                    let (i, j) = match corner {
+                        RectangleCorner::TopRight => (1.0, 1.0),
+                        RectangleCorner::TopLeft => (-1.0, 1.0),
+                        RectangleCorner::BottomRight => (1.0, -1.0),
+                        RectangleCorner::BottomLeft => (-1.0, -1.0),
+                    };
+
+                    rectangle_sides.insert(
+                        corner,
+                        vec2(
+                            zoom.center_pos.unwrap().x
+                                + i * zoom.rect.unwrap().w / 2.0,
+                            zoom.center_pos.unwrap().y
+                                + j * zoom.rect.unwrap().h / 2.0,
+                        ),
+                    );
+                }
+
+                target_line = Some(
+                    [
+                        (
+                            RectangleCorner::BottomRight,
+                            RectangleCorner::BottomLeft,
+                        ),
+                        (
+                            RectangleCorner::TopRight,
+                            RectangleCorner::TopLeft,
+                        ),
+                        (
+                            RectangleCorner::TopRight,
+                            RectangleCorner::BottomRight,
+                        ),
+                        (
+                            RectangleCorner::TopLeft,
+                            RectangleCorner::BottomLeft,
+                        ),
+                    ]
+                    .iter()
+                    .any(|(i, j)| {
+                        DrawingStrategy::segments_intersect(
+                            &self.pos,
+                            &target_pos,
+                            rectangle_sides.get(&i).unwrap(),
+                            rectangle_sides.get(&j).unwrap(),
+                        )
+                    }),
+                );
+            }
+        }
+
+        if let Some(target_line_strategy) = target_line {
+            drawing_strategy.target_line = target_line_strategy;
         }
 
         drawing_strategy
@@ -646,6 +616,7 @@ impl Body {
         body_id: &BodyId,
         cells: &Cells,
         bodies: &mut HashMap<BodyId, Self>,
+        crosses: &mut HashMap<Cell, HashMap<CrossId, Cross>>,
         plants: &mut HashMap<Cell, HashMap<PlantId, Plant>>,
         area_size: &Vec2,
         rng: &mut StdRng,
@@ -665,6 +636,7 @@ impl Body {
                         &body_id,
                         &cells,
                         bodies,
+                        crosses,
                         plants,
                     );
                 }
@@ -681,6 +653,7 @@ impl Body {
                 &body_id,
                 &cells,
                 bodies,
+                crosses,
                 plants,
             ),
         }
@@ -868,10 +841,11 @@ impl Body {
         body_id: &BodyId,
         cells: &Cells,
         bodies: &mut HashMap<BodyId, Self>,
+        crosses: &mut HashMap<Cell, HashMap<CrossId, Cross>>,
         plants: &mut HashMap<Cell, HashMap<PlantId, Plant>>,
     ) {
         Body::followed_by_cleanup(
-            &body_id, &cells, bodies, plants, None,
+            &body_id, &cells, bodies, crosses, plants, None,
         );
         self.status = status;
     }
@@ -897,22 +871,17 @@ impl Body {
     pub fn handle_profitable_when_arrived_body(
         &self,
         other_body: &Body,
-        target_immovable: bool,
     ) -> bool {
         if self.skills.contains(&Skill::ProfitableWhenArrived) {
-            let divisor = if target_immovable {
-                self.speed
-            } else {
-                self.speed - other_body.speed
-            };
+            let divisor = self.speed - other_body.speed;
 
             if divisor <= 0.0 {
                 return false;
             }
 
-            let time = self.pos.distance(other_body.pos) / divisor;
-
-            self.get_spent_energy(time) < other_body.energy
+            self.get_spent_energy(
+                self.pos.distance(other_body.pos) / divisor,
+            ) < other_body.energy
         } else {
             true
         }
@@ -924,9 +893,39 @@ impl Body {
         plant: &Plant,
     ) -> bool {
         if self.skills.contains(&Skill::ProfitableWhenArrived) {
-            let time = self.pos.distance(plant.pos) / self.speed;
+            self.get_spent_energy(
+                self.pos.distance(plant.pos) / self.speed,
+            ) < plant.get_contained_energy()
+        } else {
+            true
+        }
+    }
 
-            self.get_spent_energy(time) < plant.get_contained_energy()
+    #[inline(always)]
+    pub fn handle_profitable_when_arrived_cross(
+        &self,
+        cross: &Cross,
+    ) -> bool {
+        if self.skills.contains(&Skill::ProfitableWhenArrived) {
+            self.get_spent_energy(
+                self.pos.distance(cross.pos) / self.speed,
+            ) < cross.energy
+        } else {
+            true
+        }
+    }
+
+    #[inline(always)]
+    pub fn handle_alive_when_arrived_cross(
+        &self,
+        cross: &Cross,
+    ) -> bool {
+        if self.skills.contains(&Skill::AliveWhenArrived) {
+            self.energy
+                - self.get_spent_energy(
+                    self.pos.distance(cross.pos) / self.speed,
+                )
+                > unsafe { MIN_ENERGY }
         } else {
             true
         }
@@ -936,22 +935,18 @@ impl Body {
     pub fn handle_alive_when_arrived_body(
         &self,
         other_body: &Self,
-        target_immovable: bool,
     ) -> bool {
         if self.skills.contains(&Skill::AliveWhenArrived) {
-            let divisor = if target_immovable {
-                self.speed
-            } else {
-                self.speed - other_body.speed
-            };
+            let divisor = self.speed - other_body.speed;
 
             if divisor <= 0.0 {
                 return false;
             }
 
-            let time = self.pos.distance(other_body.pos) / divisor;
-
-            self.energy - self.get_spent_energy(time)
+            self.energy
+                - self.get_spent_energy(
+                    self.pos.distance(other_body.pos) / divisor,
+                )
                 > unsafe { MIN_ENERGY }
         } else {
             true
@@ -964,9 +959,10 @@ impl Body {
         plant: &Plant,
     ) -> bool {
         if self.skills.contains(&Skill::AliveWhenArrived) {
-            let time = self.pos.distance(plant.pos) / self.speed;
-
-            self.energy - self.get_spent_energy(time)
+            self.energy
+                - self.get_spent_energy(
+                    self.pos.distance(plant.pos) / self.speed,
+                )
                 > unsafe { MIN_ENERGY }
         } else {
             true
@@ -974,16 +970,26 @@ impl Body {
     }
 
     #[inline(always)]
-    pub fn handle_avoid_new_viruses(
+    pub fn handle_avoid_new_viruses_cross(
+        &self,
+        cross: &Cross,
+    ) -> bool {
+        if self.skills.contains(&Skill::AvoidNewViruses) {
+            cross
+                .viruses
+                .keys()
+                .all(|virus| self.viruses.contains_key(virus))
+        } else {
+            true
+        }
+    }
+
+    #[inline(always)]
+    pub fn handle_avoid_new_viruses_body(
         &self,
         other_body: &Self,
     ) -> bool {
-        let is_alive = self.is_alive();
-
-        if (is_alive && self.skills.contains(&Skill::AvoidNewViruses))
-            || (!is_alive
-                && self.skills.contains(&Skill::AvoidInfectedCrosses))
-        {
+        if self.skills.contains(&Skill::AvoidNewViruses) {
             other_body
                 .viruses
                 .keys()
@@ -1009,20 +1015,33 @@ impl Body {
         }
     }
 
+    pub fn handle_will_arrive_first_cross(
+        &self,
+        body_id: &BodyId,
+        cross: &Cross,
+    ) -> bool {
+        if self.skills.contains(&Skill::WillArriveFirst) {
+            let time = self.pos.distance(cross.pos) / self.speed;
+
+            cross.followed_by.iter().all(|(chaser_id, chaser)| {
+                chaser_id == body_id
+                    || time
+                        < chaser.pos.distance(cross.pos)
+                            / chaser.speed
+            })
+        } else {
+            true
+        }
+    }
+
     #[inline(always)]
     pub fn handle_will_arrive_first_body(
         &self,
         body_id: &BodyId,
         other_body: &Self,
     ) -> bool {
-        let mut other_body_speed = other_body.speed;
-
-        if self.is_alive() {
-            other_body_speed = 0.0;
-        }
-
         if self.skills.contains(&Skill::WillArriveFirst) {
-            let delta = self.speed - other_body_speed;
+            let delta = self.speed - other_body.speed;
             if delta <= 0.0 {
                 return false;
             }
@@ -1032,7 +1051,7 @@ impl Body {
                 |(chaser_id, chaser)| {
                     chaser_id == body_id || {
                         let chaser_delta =
-                            chaser.speed - other_body_speed;
+                            chaser.speed - other_body.speed;
 
                         chaser_delta > 0.0
                             && time
@@ -1069,7 +1088,7 @@ impl Body {
     #[inline(always)]
     pub fn handle_eat_crosses_of_my_type(
         &self,
-        cross: &Self,
+        cross: &Cross,
     ) -> bool {
         self.body_type != cross.body_type
             || self.skills.contains(&Skill::EatCrossesOfMyType)
@@ -1080,6 +1099,7 @@ impl Body {
         body_id: &BodyId,
         cells: &Cells,
         bodies: &mut HashMap<BodyId, Self>,
+        crosses: &mut HashMap<Cell, HashMap<CrossId, Cross>>,
         plants: &mut HashMap<Cell, HashMap<PlantId, Plant>>,
         food: Option<&FoodInfo>,
     ) {
@@ -1099,6 +1119,15 @@ impl Body {
                         bodies.get_mut(&target_id)
                     {
                         target_body.followed_by.remove(body_id);
+                    }
+                }
+                ObjectType::Cross => {
+                    if let Some(target_cross) = crosses
+                        .get_mut(&cells.get_cell_by_pos(&target_pos))
+                        .unwrap()
+                        .get_mut(&target_id)
+                    {
+                        target_cross.followed_by.remove(body_id);
                     }
                 }
                 ObjectType::Plant => {

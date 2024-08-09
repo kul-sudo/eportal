@@ -1,6 +1,6 @@
 use macroquad::math::Vec2;
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Eq, Hash, PartialEq, Debug)]
 pub struct Cell {
     /// Row number (0..).
     pub i: usize,

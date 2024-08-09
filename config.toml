@@ -71,3 +71,4 @@ show_skills = true # The skills of a body
 show_viruses = false # The viruses a body has been infected with
 # SpeedVirus = 0
 # VisionVirus = 1
+
