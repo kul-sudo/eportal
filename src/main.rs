@@ -67,7 +67,7 @@ async fn main() {
     assert_eq!(Skill::ALL.len(), variant_count::<Skill>());
     assert_eq!(PlantKind::ALL.len(), variant_count::<PlantKind>());
 
-    config_setup();
+    config_setup(true);
 
     // A workaround for Linux
     if cfg!(target_os = "linux") {
@@ -207,6 +207,10 @@ async fn main() {
             info.evolution_info.last_updated = Some(Instant::now());
         }
 
+        if unlikely(is_key_pressed(KeyCode::Key3)) {
+            config_setup(false);
+        }
+
         if zoom.zoomed {
             // There's no reason to zoom in again if the mouse position hasn't been changed
             let current_mouse_pos = Vec2::from(mouse_position());
@@ -303,10 +307,10 @@ async fn main() {
             plants_n += 1;
         }
 
-        // Whether enough time has passed to draw a new frame
         let is_draw_mode = last_updated.elapsed().as_millis()
             >= Duration::from_secs(1 / FPS).as_millis();
 
+        // Whether enough time has passed to draw a new frame
         for (body_id, body) in unsafe {
             &mut (*(&mut bodies as *mut HashMap<BodyId, Body>))
         } {

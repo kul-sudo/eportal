@@ -133,20 +133,28 @@ struct Data {
     ui:        UIField,
 }
 
-pub fn config_setup() {
+pub fn config_setup(first_run: bool) {
     let contents = match read_to_string(CONFIG_FILE_NAME) {
         Ok(contents) => contents,
         Err(_) => {
-            eprintln!("The config file hasn't been found.");
-            exit(1);
+            if first_run {
+                eprintln!("The config file hasn't been found.");
+                exit(1);
+            } else {
+                return;
+            }
         }
     };
 
     let config: Data = match from_str(&contents) {
         Ok(config) => config,
         Err(_) => {
-            eprintln!("The file style isn't correct.");
-            exit(1);
+            if first_run {
+                eprintln!("The file style isn't correct.");
+                exit(1);
+            } else {
+                return;
+            }
         }
     };
 
