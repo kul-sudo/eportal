@@ -681,6 +681,7 @@ impl Body {
         }
 
         if self.energy <= 0.0 {
+            self.status = Status::Cross;
             removed_bodies.insert(*body_id);
             true
         } else {
