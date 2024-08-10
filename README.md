@@ -130,14 +130,13 @@ It becomes an eatable cross in the first 2 cases.
 Every body can coincidentally get any of the following skills:
 
 0. `Do not compete with relatives`: When the body sees another body of its type is following a plant, body, or cross, it doesn't try to follow the same object.
-1. `Do not compete with younger`: `next release`
-2. `Alive when arrived`: When the body sees a plant or a dead body, it makes sure it doesn't die before it gets to it.
-3. `Profitable when arrived`: When the body sees a living body, cross, or plant, it makes sure it'll get more energy when it eats it than it spends on getting to that food.
-4. `Prioritize faster chasers`: When the body sees it's being chased by several other bodies, it escapes from the faster one.
-5. `Avoid new viruses`: When the body sees a living body, it makes sure that eating it won't result in getting viruses the body doesn't have yet.
+1. `Alive when arrived`: When the body sees a plant or a dead body, it makes sure it doesn't die before it gets to it.
+2. `Profitable when arrived`: When the body sees a living body, cross, or plant, it makes sure it'll get more energy when it eats it than it spends on getting to that food.
+3. `Prioritize faster chasers`: When the body sees it's being chased by several other bodies, it escapes from the faster one.
+4. `Avoid new viruses`: When the body sees a living body, it makes sure that eating it won't result in getting viruses the body doesn't have yet.
+5. `Will arrive first`: When the body sees there are other bodies following the same food as it is following, it makes sure it gets there the fastest.
 6. `Eat crosses of my type`: When the body sees a cross of its type, it eats it to make sure bodies of other types don't eat it and therefore don't get energy from it.
-7. `Will arrive first`: When the body sees there are other bodies following the same food as it is following, it makes sure it gets there the fastest.
-8. `Avoid infected crosses`: When the body sees a cross contains viruses the body itself doesn't have yet, it avoids the cross.
+7. `Avoid infected crosses`: When the body sees a cross contains viruses the body itself doesn't have yet, it avoids the cross.
 
 ### Viruses
 Every body can be infected (a red dot is shown on top of the body) with the following viruses:
@@ -167,6 +166,7 @@ When the zoom mode is on, you can see:
 - <kbd>left mouse button</kbd>: toggle the [zoom](#zoom) mode
 - <kbd>1</kbd>: toggle showing the info
 - <kbd>2</kbd>: toggle showing the info about the current evolution
+- <kbd>3</kbd>: update the settings from the config if there have been changes
 - <kbd>space</kbd>: toggle drawing
 
 ## Configuration
