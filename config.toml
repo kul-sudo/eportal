@@ -60,13 +60,14 @@ show_lifespan = false # How many seconds a body has left to live if it theoretic
 
 show_skills = true # The skills of a body
 # DoNotCompeteWithRelatives = 0
-# AliveWhenArrived = 1
-# ProfitableWhenArrived = 2
-# PrioritizeFasterChasers = 3
-# AvoidNewViruses = 4
-# WillArriveFirst = 5
-# EatCrossesOfMyType = 6
-# AvoidInfectedCrosses = 7
+# DoNotCompeteWithYoungerRelatives = 1
+# AliveWhenArrived = 2
+# ProfitableWhenArrived = 3
+# PrioritizeFasterChasers = 4
+# AvoidNewViruses = 5
+# WillArriveFirst = 6
+# EatCrossesOfMyType = 7
+# AvoidInfectedCrosses = 8
 
 show_viruses = false # The viruses a body has been infected with
 # SpeedVirus = 0

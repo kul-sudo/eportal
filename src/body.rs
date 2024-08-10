@@ -67,6 +67,7 @@ impl Virus {
 /// https://github.com/kul-sudo/eportal/blob/main/README.md#skills
 pub enum Skill {
     DoNotCompeteWithRelatives,
+    DoNotCompeteWithYoungerRelatives,
     AliveWhenArrived,
     ProfitableWhenArrived,
     PrioritizeFasterChasers,
@@ -77,15 +78,16 @@ pub enum Skill {
 }
 
 impl Skill {
-    pub const ALL: [Self; 8] = [
-        Self::DoNotCompeteWithRelatives,
-        Self::AliveWhenArrived,
-        Self::ProfitableWhenArrived,
-        Self::PrioritizeFasterChasers,
-        Self::AvoidNewViruses,
-        Self::WillArriveFirst,
-        Self::EatCrossesOfMyType,
-        Self::AvoidInfectedCrosses,
+    pub const ALL: [Self; 9] = [
+        Skill::DoNotCompeteWithRelatives,
+        Skill::DoNotCompeteWithYoungerRelatives,
+        Skill::AliveWhenArrived,
+        Skill::ProfitableWhenArrived,
+        Skill::PrioritizeFasterChasers,
+        Skill::AvoidNewViruses,
+        Skill::WillArriveFirst,
+        Skill::EatCrossesOfMyType,
+        Skill::AvoidInfectedCrosses,
     ];
 }
 
@@ -1010,6 +1012,26 @@ impl Body {
             followed_by.iter().all(|(other_body_id, other_body)| {
                 other_body_id == body_id
                     || other_body.body_type != self.body_type
+            })
+        } else {
+            true
+        }
+    }
+
+    #[inline(always)]
+    pub fn handle_do_not_compete_with_younger_relatives(
+        &self,
+        body_id: &BodyId,
+        followed_by: &HashMap<BodyId, Self>,
+    ) -> bool {
+        if self.skills.contains(&Skill::DoNotCompeteWithRelatives) {
+            followed_by.iter().all(|(other_body_id, other_body)| {
+                other_body_id == body_id
+                    || if other_body.body_type == self.body_type {
+                        other_body.lifespan < self.lifespan
+                    } else {
+                        true
+                    }
             })
         } else {
             true

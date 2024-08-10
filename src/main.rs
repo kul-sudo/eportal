@@ -428,6 +428,10 @@ async fn main() {
                             body_id,
                             &cross.followed_by,
                         )
+                        && body.handle_do_not_compete_with_younger_relatives(
+                            body_id,
+                            &cross.followed_by,
+                        )
                 })
                 .min_by(|(_, a), (_, b)| {
                     body.pos
@@ -463,6 +467,10 @@ async fn main() {
                             && body.handle_alive_when_arrived_plant(plant)
                             && body.handle_profitable_when_arrived_plant(plant)
                             && body.handle_do_not_compete_with_relatives(
+                                body_id,
+                                &plant.followed_by
+                            )
+                            && body.handle_do_not_compete_with_younger_relatives(
                                 body_id,
                                 &plant.followed_by
                             )
@@ -522,6 +530,10 @@ async fn main() {
                                     && body.handle_do_not_compete_with_relatives(
                                         body_id,
                                         &other_body.followed_by
+                                    )
+                                    && body.handle_do_not_compete_with_younger_relatives(
+                                        body_id,
+                                        &other_body.followed_by,
                                     )
                                 })
                                 .min_by(|(_, a), (_, b)| {
