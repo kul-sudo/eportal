@@ -1024,7 +1024,10 @@ impl Body {
         body_id: &BodyId,
         followed_by: &HashMap<BodyId, Self>,
     ) -> bool {
-        if self.skills.contains(&Skill::DoNotCompeteWithYoungerRelatives) {
+        if self
+            .skills
+            .contains(&Skill::DoNotCompeteWithYoungerRelatives)
+        {
             followed_by.iter().all(|(other_body_id, other_body)| {
                 other_body_id == body_id
                     || if other_body.body_type == self.body_type {
