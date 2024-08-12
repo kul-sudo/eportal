@@ -11,7 +11,7 @@ pub struct Cross {
     pub energy:      f32,
     pub viruses:     HashMap<Virus, f32>,
     pub color:       Color,
-    pub body_type:   u16,
+    pub body_type:   u32,
     pub followed_by: HashMap<BodyId, Body>,
 }
 

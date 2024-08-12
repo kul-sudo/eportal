@@ -3,8 +3,8 @@ use crate::{
     get_with_deviation,
     smart_drawing::{DrawingStrategy, RectangleCorner},
     user_constants::*,
-    Cell, Cells, Cross, CrossId, Plant, PlantId, PlantKind, Zoom,
-    UI_SHOW_PROPERTIES_N,
+    Cell, Cross, CrossId, Plant, PlantId, PlantKind, Zoom, AREA_SIZE,
+    CELLS,
 };
 use macroquad::prelude::{
     draw_circle, draw_rectangle, draw_text, measure_text,
@@ -36,7 +36,7 @@ pub struct FoodInfo<'a> {
 #[derive(Clone, Copy, PartialEq)]
 pub enum Status {
     FollowingTarget(Instant, Vec2, ObjectType),
-    EscapingBody(BodyId, u16),
+    EscapingBody(BodyId, u32),
     Walking(Vec2),
     Cross,
     Idle,
@@ -106,7 +106,7 @@ pub struct Body {
     pub viruses:             HashMap<Virus, f32>,
     pub color:               Color,
     pub status:              Status,
-    pub body_type:           u16,
+    pub body_type:           u32,
     pub lifespan:            f32,
     initial_speed:           f32,
     initial_vision_distance: f32,
@@ -115,12 +115,12 @@ pub struct Body {
 
 #[macro_export]
 macro_rules! get_visible {
-    ($body:expr, $cells:expr, $x:expr, $visible_x:expr) => {
+    ($body:expr, $x:expr, $visible_x:expr) => {
         // Using these for ease of development
         let (a, b) = ($body.pos.x, $body.pos.y);
         let r = $body.vision_distance;
-        let (w, h) = ($cells.cell_width, $cells.cell_height);
-        let (m, n) = ($cells.columns, $cells.rows);
+        let (w, h) = (CELLS.cell_width, CELLS.cell_height);
+        let (m, n) = (CELLS.columns, CELLS.rows);
 
         // Get the bottommost, topmost, leftmost, and rightmost rows/columns.
         // If the cell is within the circle or the circle touches the cell, it is
@@ -135,7 +135,7 @@ macro_rules! get_visible {
         // Ditch the unneeded cells
         let Cell {
         i: circle_center_i, ..
-        } = $cells.get_cell_by_pos(&$body.pos);
+        } = CELLS.get_cell_by_pos(&$body.pos);
 
         for i in i_min..=i_max {
         let (
@@ -208,7 +208,7 @@ impl Body {
         division_threshold: Option<f32>,
         skills: Option<HashSet<Skill>>,
         color: Color,
-        body_type: u16,
+        body_type: u32,
         viruses: Option<HashMap<Virus, f32>>,
         initial_speed: Option<f32>,
         initial_vision_distance: Option<f32>,
@@ -301,8 +301,7 @@ impl Body {
                         if virus_chance == 1.0
                             || rng.gen_range(0.0..1.0) <= virus_chance
                         {
-                            viruses.insert(
-                                virus,
+                            viruses.entry(virus).or_insert(
                                 rng.gen_range(
                                     0.0..match virus {
                                         Virus::SpeedVirus => unsafe {
@@ -332,17 +331,17 @@ impl Body {
     }
 
     #[inline(always)]
-    pub fn wrap(&mut self, area_size: &Vec2) {
-        if self.pos.x >= area_size.x {
+    pub fn wrap(&mut self) {
+        if self.pos.x >= AREA_SIZE.x {
             self.pos.x = MIN_GAP;
         } else if self.pos.x <= 0.0 {
-            self.pos.x = area_size.x - MIN_GAP;
+            self.pos.x = AREA_SIZE.x - MIN_GAP;
         }
 
-        if self.pos.y >= area_size.y {
+        if self.pos.y >= AREA_SIZE.y {
             self.pos.y = MIN_GAP;
         } else if self.pos.y <= 0.0 {
-            self.pos.y = area_size.y - MIN_GAP;
+            self.pos.y = AREA_SIZE.y - MIN_GAP;
         }
     }
 
@@ -376,8 +375,7 @@ impl Body {
 
     #[inline(always)]
     pub fn draw_info(&self) {
-        let mut to_display_components =
-            Vec::with_capacity(unsafe { UI_SHOW_PROPERTIES_N });
+        let mut to_display_components = Vec::new();
 
         if unsafe { SHOW_ENERGY } {
             to_display_components
@@ -616,11 +614,9 @@ impl Body {
     pub fn handle_walking_idle(
         &mut self,
         body_id: &BodyId,
-        cells: &Cells,
         bodies: &mut HashMap<BodyId, Self>,
-        crosses: &mut Vec<Vec<HashMap<CrossId, Cross>>>,
-        plants: &mut Vec<Vec<HashMap<PlantId, Plant>>>,
-        area_size: &Vec2,
+        crosses: &mut [Vec<HashMap<CrossId, Cross>>],
+        plants: &mut [Vec<HashMap<PlantId, Plant>>],
         rng: &mut StdRng,
     ) {
         match self.eating_strategy {
@@ -636,7 +632,6 @@ impl Body {
                     self.set_status(
                         Status::Walking(pos_deviation),
                         body_id,
-                        cells,
                         bodies,
                         crosses,
                         plants,
@@ -648,12 +643,11 @@ impl Body {
                     self.pos.y += pos_deviation.y;
                 }
 
-                self.wrap(area_size);
+                self.wrap();
             }
             EatingStrategy::Passive => self.set_status(
                 Status::Idle,
                 body_id,
-                cells,
                 bodies,
                 crosses,
                 plants,
@@ -754,7 +748,6 @@ impl Body {
     /// Generate a random position until it suits certain creteria.
     pub fn randomly_spawn_body(
         bodies: &mut HashMap<Instant, Self>,
-        area_size: &Vec2,
         eating_strategy: EatingStrategy,
         body_type: usize,
         rng: &mut StdRng,
@@ -763,12 +756,12 @@ impl Body {
 
         // Make sure the position is far enough from the rest of the bodies and the borders of the area
         while {
-            pos.x = rng.gen_range(0.0..area_size.x);
-            pos.y = rng.gen_range(0.0..area_size.y);
+            pos.x = rng.gen_range(0.0..AREA_SIZE.x);
+            pos.y = rng.gen_range(0.0..AREA_SIZE.y);
             (pos.x <= OBJECT_RADIUS + MIN_GAP
-                || pos.x >= area_size.x - OBJECT_RADIUS - MIN_GAP)
+                || pos.x >= AREA_SIZE.x - OBJECT_RADIUS - MIN_GAP)
                 || (pos.y <= OBJECT_RADIUS + MIN_GAP
-                    || pos.y >= area_size.y - OBJECT_RADIUS - MIN_GAP)
+                    || pos.y >= AREA_SIZE.y - OBJECT_RADIUS - MIN_GAP)
                 || bodies.values().any(|body| {
                     body.pos.distance(pos)
                         < OBJECT_RADIUS * 2.0 + MIN_GAP
@@ -829,7 +822,7 @@ impl Body {
                 None,
                 None,
                 color,
-                body_type as u16,
+                body_type as u32,
                 None,
                 None,
                 None,
@@ -842,13 +835,12 @@ impl Body {
         &mut self,
         status: Status,
         body_id: &BodyId,
-        cells: &Cells,
         bodies: &mut HashMap<BodyId, Self>,
-        crosses: &mut Vec<Vec<HashMap<CrossId, Cross>>>,
-        plants: &mut Vec<Vec<HashMap<PlantId, Plant>>>,
+        crosses: &mut [Vec<HashMap<CrossId, Cross>>],
+        plants: &mut [Vec<HashMap<PlantId, Plant>>],
     ) {
         Body::followed_by_cleanup(
-            body_id, cells, bodies, crosses, plants, None,
+            body_id, bodies, crosses, plants, None,
         );
         self.status = status;
     }
@@ -1123,10 +1115,9 @@ impl Body {
     #[inline(always)]
     pub fn followed_by_cleanup(
         body_id: &BodyId,
-        cells: &Cells,
         bodies: &mut HashMap<BodyId, Self>,
-        crosses: &mut Vec<Vec<HashMap<CrossId, Cross>>>,
-        plants: &mut Vec<Vec<HashMap<PlantId, Plant>>>,
+        crosses: &mut [Vec<HashMap<CrossId, Cross>>],
+        plants: &mut [Vec<HashMap<PlantId, Plant>>],
         food: Option<&FoodInfo>,
     ) {
         if let Status::FollowingTarget(
@@ -1139,7 +1130,7 @@ impl Body {
                 return;
             }
 
-            let Cell { i, j } = cells.get_cell_by_pos(&target_pos);
+            let Cell { i, j } = CELLS.get_cell_by_pos(&target_pos);
             match target_type {
                 ObjectType::Body => {
                     if let Some(target_body) =

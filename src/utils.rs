@@ -1,5 +1,6 @@
 use crate::{
     constants::*, user_constants::*, Cells, Condition, Zoom,
+    AREA_SIZE,
 };
 use ::rand::{rngs::StdRng, Rng};
 use macroquad::prelude::*;
@@ -21,9 +22,9 @@ pub struct Info {
     pub evolution_info: EvolutionInfo,
 }
 
-pub fn generate_zoom_struct(area_size: &Vec2) -> Zoom {
-    let scaling_width = MAX_ZOOM / area_size.x * 2.0;
-    let scaling_height = MAX_ZOOM / area_size.y * 2.0;
+pub fn generate_zoom_struct() -> Zoom {
+    let scaling_width = MAX_ZOOM / AREA_SIZE.x * 2.0;
+    let scaling_height = MAX_ZOOM / AREA_SIZE.y * 2.0;
 
     Zoom {
         zoomed: false,
@@ -36,10 +37,10 @@ pub fn generate_zoom_struct(area_size: &Vec2) -> Zoom {
     }
 }
 
-pub fn generate_cells(area_size: &Vec2) -> Cells {
+pub fn generate_cells() -> Cells {
     let mut cells = Cells::default();
 
-    let area_size_ratio = area_size.x / area_size.y;
+    let area_size_ratio = AREA_SIZE.x / AREA_SIZE.y;
 
     // Get `k` out of PLANTS_N/k = DEFAULT_PLANTS/p
     // where `k` is the real number of cells
@@ -53,8 +54,8 @@ pub fn generate_cells(area_size: &Vec2) -> Cells {
     cells.columns =
         (cells.rows as f32 * area_size_ratio).round() as usize;
 
-    cells.cell_width = area_size.x / cells.columns as f32;
-    cells.cell_height = area_size.y / cells.rows as f32;
+    cells.cell_width = AREA_SIZE.x / cells.columns as f32;
+    cells.cell_height = AREA_SIZE.y / cells.rows as f32;
 
     cells
 }
@@ -62,7 +63,6 @@ pub fn generate_cells(area_size: &Vec2) -> Cells {
 #[inline(always)]
 pub fn show_evolution_info(
     zoom: &Zoom,
-    area_size: &Vec2,
     info: &mut Info,
     plants_n: usize,
     bodies_n: usize,
@@ -166,7 +166,7 @@ pub fn show_evolution_info(
 
             draw_text(
                 &field,
-                area_size.x - measured.width,
+                AREA_SIZE.x - measured.width,
                 measured.offset_y + gap,
                 EVOLUTION_INFO_FONT_SIZE as f32,
                 WHITE,
@@ -211,14 +211,14 @@ pub fn show_fps(zoom: &Zoom) {
 
 /// Adjust the coordinates according to the borders.
 #[inline(always)]
-pub fn adjusted_pos(pos: &Vec2, area_size: &Vec2) -> Vec2 {
+pub fn adjusted_pos(pos: &Vec2) -> Vec2 {
     vec2(
         (pos.x * MAX_ZOOM)
-            .max(area_size.x / MAX_ZOOM / 2.0)
-            .min(area_size.x * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
+            .max(AREA_SIZE.x / MAX_ZOOM / 2.0)
+            .min(AREA_SIZE.x * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
         (pos.y * MAX_ZOOM)
-            .max(area_size.y / MAX_ZOOM / 2.0)
-            .min(area_size.y * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
+            .max(AREA_SIZE.y / MAX_ZOOM / 2.0)
+            .min(AREA_SIZE.y * (1.0 - 1.0 / (2.0 * MAX_ZOOM))),
     )
 }
 

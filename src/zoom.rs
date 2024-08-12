@@ -1,4 +1,7 @@
-use crate::{adjusted_pos, constants::*};
+use crate::{
+    adjusted_pos, constants::*, screen_height, screen_width,
+    AREA_SIZE,
+};
 use macroquad::{
     camera::{set_camera, Camera2D},
     math::{vec2, Rect, Vec2},
@@ -22,14 +25,13 @@ pub struct Zoom {
 
 #[inline(always)]
 /// Set the camera zoom to where the mouse cursor is.
-pub fn get_zoom_target(
-    camera: &mut Camera2D,
-    area_size: &Vec2,
-    zoom: &mut Zoom,
-    size: &Vec2,
-) {
-    zoom.center_pos =
-        Some(adjusted_pos(&zoom.mouse_pos.unwrap(), area_size));
+pub fn get_zoom_target(camera: &mut Camera2D, zoom: &mut Zoom) {
+    let size = vec2(
+        screen_width() / MAX_ZOOM * OBJECT_RADIUS,
+        screen_height() / MAX_ZOOM * OBJECT_RADIUS,
+    );
+
+    zoom.center_pos = Some(adjusted_pos(&zoom.mouse_pos.unwrap()));
     zoom.rect = Some(Rect::new(
         zoom.center_pos.unwrap().x - size.x / 2.0,
         zoom.center_pos.unwrap().y - size.y / 2.0,
@@ -51,11 +53,12 @@ pub fn get_zoom_target(
 }
 
 /// Reset the camera zoom.
-pub fn default_camera(camera: &mut Camera2D, area_size: &Vec2) {
-    camera.target = vec2(area_size.x / 2.0, area_size.y / 2.0);
+pub fn default_camera(camera: &mut Camera2D) {
+    camera.target = vec2(AREA_SIZE.x / 2.0, AREA_SIZE.y / 2.0);
     camera.zoom = vec2(
-        MIN_ZOOM / area_size.x * 2.0,
-        MIN_ZOOM / area_size.y * 2.0,
+        MIN_ZOOM / AREA_SIZE.x * 2.0,
+        MIN_ZOOM / AREA_SIZE.y * 2.0,
     );
+
     set_camera(camera);
 }

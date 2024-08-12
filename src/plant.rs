@@ -1,4 +1,6 @@
-use crate::{constants::*, Body, BodyId, Cell, Cells, Zoom};
+use crate::{
+    constants::*, Body, BodyId, Cell, Zoom, AREA_SIZE, CELLS,
+};
 use macroquad::{
     color::{GREEN, YELLOW},
     math::Vec2,
@@ -81,9 +83,8 @@ impl Plant {
     #[inline(always)]
     /// Get the plants needed to be drawn.
     pub fn get_plants_to_draw<'a>(
-        cells: &'a Cells,
         zoom: &'a Zoom,
-        plants: &'a Vec<Vec<HashMap<PlantId, Plant>>>,
+        plants: &'a [Vec<HashMap<PlantId, Plant>>],
         removed_plants: &'a HashMap<PlantId, Vec2>,
         plants_n: usize,
     ) -> Vec<&'a Self> {
@@ -97,38 +98,48 @@ impl Plant {
             let extended_rect_center = extended_rect.center();
 
             i_min = ((extended_rect_center.y - extended_rect.h / 2.0)
-                / cells.cell_height)
+                / CELLS.cell_height)
                 .floor() as usize;
             i_max = ((extended_rect_center.y + extended_rect.h / 2.0)
-                / cells.cell_height)
+                / CELLS.cell_height)
                 .floor() as usize;
             j_min = ((extended_rect_center.x - extended_rect.w / 2.0)
-                / cells.cell_width)
+                / CELLS.cell_width)
                 .floor() as usize;
             j_max = ((extended_rect_center.x + extended_rect.w / 2.0)
-                / cells.cell_width)
+                / CELLS.cell_width)
                 .floor() as usize;
         } else {
             unreachable!()
         }
 
-        for i in i_min.max(0)..=i_max.min(cells.rows - 1) {
+        for (i, row) in plants
+            .iter()
+            .enumerate()
+            .take(i_max.min(CELLS.rows - 1) + 1)
+            .skip(i_min.max(0))
+        {
             let i_fully_within_rectangle = i != i_min && i != i_max;
 
-            for j in j_min.max(0)..=j_max.min(cells.columns - 1) {
+            for (j, plants) in row
+                .iter()
+                .enumerate()
+                .take(j_max.min(CELLS.columns - 1) + 1)
+                .skip(j_min.max(0))
+            {
                 let j_fully_within_rectangle =
                     j != j_min && j != j_max;
                 if i_fully_within_rectangle
                     && j_fully_within_rectangle
                 {
                     // The cell is fully within the rectangle
-                    for (plant_id, plant) in &plants[i][j] {
+                    for (plant_id, plant) in plants {
                         if !removed_plants.contains_key(plant_id) {
                             plants_to_draw.push(plant);
                         }
                     }
                 } else {
-                    for (plant_id, plant) in &plants[i][j] {
+                    for (plant_id, plant) in plants {
                         if !removed_plants.contains_key(plant_id)
                             && zoom
                                 .extended_rect
@@ -149,9 +160,7 @@ impl Plant {
     /// Spawn a plant to a random position on the field.
     pub fn randomly_spawn_plant(
         bodies: &HashMap<BodyId, Body>,
-        plants: &mut Vec<Vec<HashMap<PlantId, Self>>>,
-        area_size: &Vec2,
-        cells: &Cells,
+        plants: &mut [Vec<HashMap<PlantId, Self>>],
         rng: &mut StdRng,
     ) {
         let mut pos = Vec2::default();
@@ -167,19 +176,19 @@ impl Plant {
             {
                 return;
             }
-            pos.x = rng.gen_range(0.0..area_size.x);
-            pos.y = rng.gen_range(0.0..area_size.y);
+            pos.x = rng.gen_range(0.0..AREA_SIZE.x);
+            pos.y = rng.gen_range(0.0..AREA_SIZE.y);
             (pos.x <= OBJECT_RADIUS + MIN_GAP
-                || pos.x >= area_size.x - OBJECT_RADIUS - MIN_GAP)
+                || pos.x >= AREA_SIZE.x - OBJECT_RADIUS - MIN_GAP)
                 || (pos.y <= OBJECT_RADIUS + MIN_GAP
-                    || pos.y >= area_size.y - OBJECT_RADIUS - MIN_GAP)
+                    || pos.y >= AREA_SIZE.y - OBJECT_RADIUS - MIN_GAP)
                 || bodies.values().any(|body| {
                     body.pos.distance(pos)
                         <= OBJECT_RADIUS * 2.0 + MIN_GAP
                 })
         } {}
 
-        let Cell { i, j } = cells.get_cell_by_pos(&pos);
+        let Cell { i, j } = CELLS.get_cell_by_pos(&pos);
         plants[i][j].insert(
             Instant::now(),
             Self {

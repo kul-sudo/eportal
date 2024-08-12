@@ -30,25 +30,17 @@ use std::{
     collections::{HashMap, HashSet},
     intrinsics::unlikely,
     mem::variant_count,
+    sync::LazyLock,
     time::{Duration, Instant},
 };
 
-use macroquad::{
-    camera::Camera2D,
-    color::WHITE,
-    input::{
-        is_key_pressed, is_mouse_button_pressed, mouse_position,
-        KeyCode,
-    },
-    math::{Rect, Vec2},
-    miniquad::{window::set_fullscreen, MouseButton},
-    prelude::vec2,
-    shapes::{draw_circle_lines, draw_line},
-    window::{next_frame, screen_height, screen_width, Conf},
+use macroquad::prelude::{
+    draw_circle_lines, draw_line, is_key_pressed,
+    is_mouse_button_pressed, mouse_position, next_frame,
+    screen_height, screen_width, set_fullscreen, vec2, Camera2D,
+    Conf, KeyCode, MouseButton, Rect, Vec2, WHITE,
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng, SeedableRng};
-
-pub static mut UI_SHOW_PROPERTIES_N: usize = 0;
 
 fn window_conf() -> Conf {
     Conf {
@@ -57,6 +49,17 @@ fn window_conf() -> Conf {
         ..Default::default()
     }
 }
+
+static FPS_DURATION: LazyLock<u128> =
+    LazyLock::new(|| Duration::from_secs(1 / FPS).as_millis());
+pub static AREA_SIZE: LazyLock<Vec2> = LazyLock::new(|| {
+    vec2(
+        // OBJECT_RADIUS is equal to one pixel when unzoomed
+        screen_width() * OBJECT_RADIUS,
+        screen_height() * OBJECT_RADIUS,
+    )
+});
+pub static CELLS: LazyLock<Cells> = LazyLock::new(generate_cells);
 
 #[macroquad::main(window_conf)]
 async fn main() {
@@ -74,17 +77,11 @@ async fn main() {
         next_frame().await;
     }
 
-    let area_size = vec2(
-        // OBJECT_RADIUS is equal to one pixel when unzoomed
-        screen_width() * OBJECT_RADIUS,
-        screen_height() * OBJECT_RADIUS,
-    );
-
     // Needed for randomness
     let mut rng = StdRng::from_rng(&mut rand::thread_rng()).unwrap();
 
     // Calculations
-    let area_space = area_size.x * area_size.y;
+    let area_space = AREA_SIZE.x * AREA_SIZE.y;
 
     unsafe {
         PLANTS_N = (PLANTS_DENSITY * area_space).round() as usize;
@@ -92,17 +89,15 @@ async fn main() {
             (PLANT_SPAWN_CHANCE * area_space).round() as usize;
     }
 
-    let cells = generate_cells(&area_size);
-
     // Camera
     let mut camera = Camera2D::from_display_rect(Rect::new(
         0.0,
         0.0,
-        area_size.x,
-        area_size.y,
+        AREA_SIZE.x,
+        AREA_SIZE.y,
     ));
 
-    default_camera(&mut camera, &area_size);
+    default_camera(&mut camera);
 
     // Info
     let mut info = Info {
@@ -121,15 +116,14 @@ async fn main() {
     let mut bodies: HashMap<BodyId, Body> =
         HashMap::with_capacity(unsafe { BODIES_N });
     let mut plants: Vec<Vec<HashMap<PlantId, Plant>>> =
-        vec![vec![HashMap::new(); cells.columns]; cells.rows];
+        vec![vec![HashMap::new(); CELLS.columns]; CELLS.rows];
     let mut crosses: Vec<Vec<HashMap<CrossId, Cross>>> =
-        vec![vec![HashMap::new(); cells.columns]; cells.rows];
+        vec![vec![HashMap::new(); CELLS.columns]; CELLS.rows];
 
     // Spawn the bodies
     for i in 0..unsafe { BODIES_N } {
         Body::randomly_spawn_body(
             &mut bodies,
-            &area_size,
             if unsafe { PASSIVE_CHANCE } == 1.0
                 || rng.gen_range(0.0..1.0)
                     <= unsafe { PASSIVE_CHANCE }
@@ -148,24 +142,13 @@ async fn main() {
 
     // Spawn the plants
     for _ in 0..unsafe { PLANTS_N } {
-        Plant::randomly_spawn_plant(
-            &bodies,
-            &mut plants,
-            &area_size,
-            &cells,
-            &mut rng,
-        );
+        Plant::randomly_spawn_plant(&bodies, &mut plants, &mut rng);
 
         plants_n += 1;
     }
 
     // Zoom
-    let rect_size = vec2(
-        screen_width() / MAX_ZOOM * OBJECT_RADIUS,
-        screen_height() / MAX_ZOOM * OBJECT_RADIUS,
-    );
-
-    let mut zoom = generate_zoom_struct(&area_size);
+    let mut zoom = generate_zoom_struct();
 
     // Needed for the FPS
     let mut last_updated = Instant::now();
@@ -184,7 +167,7 @@ async fn main() {
 
         if unlikely(is_mouse_button_pressed(MouseButton::Left)) {
             if zoom.zoomed {
-                default_camera(&mut camera, &area_size);
+                default_camera(&mut camera);
                 zoom.mouse_pos = None;
             } else {
                 zoom.rect = None;
@@ -215,22 +198,12 @@ async fn main() {
                 Some(mouse_pos) => {
                     if mouse_pos != current_mouse_pos {
                         zoom.mouse_pos = Some(current_mouse_pos);
-                        get_zoom_target(
-                            &mut camera,
-                            &area_size,
-                            &mut zoom,
-                            &rect_size,
-                        );
+                        get_zoom_target(&mut camera, &mut zoom);
                     }
                 }
                 None => {
                     zoom.mouse_pos = Some(current_mouse_pos);
-                    get_zoom_target(
-                        &mut camera,
-                        &area_size,
-                        &mut zoom,
-                        &rect_size,
-                    );
+                    get_zoom_target(&mut camera, &mut zoom);
                 }
             }
         }
@@ -295,8 +268,6 @@ async fn main() {
             Plant::randomly_spawn_plant(
                 &bodies,
                 &mut plants,
-                &area_size,
-                &cells,
                 &mut rng,
             );
 
@@ -304,8 +275,7 @@ async fn main() {
         }
 
         let is_draw_mode = !is_draw_prevented
-            && last_updated.elapsed().as_millis()
-                >= Duration::from_secs(1 / FPS).as_millis();
+            && last_updated.elapsed().as_millis() >= *FPS_DURATION;
 
         // Whether enough time has passed to draw a new frame
         for (body_id, body) in unsafe {
@@ -358,7 +328,6 @@ async fn main() {
                             closest_chasing_body.body_type,
                         ),
                         body_id,
-                        &cells,
                         &mut bodies,
                         unsafe {
                             &mut (*(&mut crosses
@@ -381,7 +350,7 @@ async fn main() {
                         * (body.speed
                             / distance_to_closest_chasing_body);
 
-                    body.wrap(&area_size);
+                    body.wrap();
 
                     continue;
                 }
@@ -396,7 +365,6 @@ async fn main() {
 
             get_visible!(
                 body,
-                cells,
                 unsafe {
                     &mut (*(&mut crosses
                         as *mut Vec<Vec<HashMap<CrossId, Cross>>>))
@@ -451,7 +419,7 @@ async fn main() {
                             as usize,
                     );
 
-                    get_visible!(body, cells, plants, visible_plants);
+                    get_visible!(body,plants, visible_plants);
 
                     let filtered_visible_plants = visible_plants
                         .iter()
@@ -562,7 +530,7 @@ async fn main() {
                         }
                         ObjectType::Cross => {
                             let Cell { i, j } =
-                                cells.get_cell_by_pos(&food.pos);
+                                CELLS.get_cell_by_pos(&food.pos);
 
                             body.get_viruses(food.viruses.unwrap());
                             crosses[i][j].remove(&food.id);
@@ -575,7 +543,6 @@ async fn main() {
                 } else {
                     Body::followed_by_cleanup(
                         body_id,
-                        &cells,
                         &mut bodies,
                         unsafe {
                             &mut (*(&mut crosses
@@ -588,7 +555,7 @@ async fn main() {
                     );
 
                     let Cell { i, j } =
-                        cells.get_cell_by_pos(&food.pos);
+                        CELLS.get_cell_by_pos(&food.pos);
 
                     match food.food_type {
                         ObjectType::Body => {
@@ -599,21 +566,24 @@ async fn main() {
                             .get_mut(&food.id)
                             .unwrap()
                             .followed_by
-                            .insert(*body_id, body.clone());
+                            .entry(*body_id)
+                            .or_insert(body.clone());
                         }
                         ObjectType::Cross => {
                             crosses[i][j]
                                 .get_mut(&food.id)
                                 .unwrap()
                                 .followed_by
-                                .insert(*body_id, body.clone());
+                                .entry(*body_id)
+                                .or_insert(body.clone());
                         }
                         ObjectType::Plant => {
                             plants[i][j]
                                 .get_mut(&food.id)
                                 .unwrap()
                                 .followed_by
-                                .insert(*body_id, body.clone());
+                                .entry(*body_id)
+                                .or_insert(body.clone());
                         }
                     }
 
@@ -644,18 +614,16 @@ async fn main() {
 
             body.handle_walking_idle(
                 body_id,
-                &cells,
                 &mut bodies,
                 &mut crosses,
                 &mut plants,
-                &area_size,
                 &mut rng,
             );
         }
 
-        for i in 0..crosses.len() {
-            for j in 0..i {
-                crosses[i][j].retain(|_, cross| {
+        for row in &mut crosses {
+            for plants in row {
+                plants.retain(|_, cross| {
                     cross.timestamp.elapsed().as_secs()
                         <= unsafe { CROSS_LIFESPAN }
                 })
@@ -665,7 +633,6 @@ async fn main() {
         for body_id in &removed_bodies {
             Body::followed_by_cleanup(
                 body_id,
-                &cells,
                 &mut bodies,
                 &mut crosses,
                 &mut plants,
@@ -675,7 +642,7 @@ async fn main() {
             let body = bodies.get(body_id).unwrap();
 
             if let Status::Cross = body.status {
-                let Cell { i, j } = cells.get_cell_by_pos(&body.pos);
+                let Cell { i, j } = CELLS.get_cell_by_pos(&body.pos);
                 crosses[i][j].insert(*body_id, Cross::new(body));
             }
 
@@ -687,7 +654,7 @@ async fn main() {
         }
 
         for (plant_id, plant_pos) in &removed_plants {
-            let Cell { i, j } = cells.get_cell_by_pos(plant_pos);
+            let Cell { i, j } = CELLS.get_cell_by_pos(plant_pos);
 
             plants[i][j].remove(plant_id);
         }
@@ -703,7 +670,6 @@ async fn main() {
 
             if zoom.zoomed {
                 for plant in Plant::get_plants_to_draw(
-                    &cells,
                     &zoom,
                     &plants,
                     &removed_plants,
@@ -776,7 +742,6 @@ async fn main() {
             if info.evolution_info.show {
                 show_evolution_info(
                     &zoom,
-                    &area_size,
                     &mut info,
                     plants_n,
                     bodies.len(),

@@ -53,4 +53,4 @@ pub const MIN_ZOOM: f32 = 1.0;
 pub static COSINE_OF_30_DEGREES: f32 = SQRT_3 / 2.0;
 
 // Misc
-pub const FPS: u64 = 144;
+pub const FPS: u64 = 30;
