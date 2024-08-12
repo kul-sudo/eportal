@@ -21,7 +21,7 @@ impl PlantKind {
     pub const ALL: [Self; 2] = [Self::Grass, Self::Banana];
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct Plant {
     pub pos:         Vec2,
     pub kind:        PlantKind,
@@ -83,7 +83,7 @@ impl Plant {
     pub fn get_plants_to_draw<'a>(
         cells: &'a Cells,
         zoom: &'a Zoom,
-        plants: &'a HashMap<Cell, HashMap<PlantId, Self>>,
+        plants: &'a Vec<Vec<HashMap<PlantId, Plant>>>,
         removed_plants: &'a HashMap<PlantId, Vec2>,
         plants_n: usize,
     ) -> Vec<&'a Self> {
@@ -122,17 +122,13 @@ impl Plant {
                     && j_fully_within_rectangle
                 {
                     // The cell is fully within the rectangle
-                    for (plant_id, plant) in
-                        plants.get(&Cell { i, j }).unwrap()
-                    {
+                    for (plant_id, plant) in &plants[i][j] {
                         if !removed_plants.contains_key(plant_id) {
                             plants_to_draw.push(plant);
                         }
                     }
                 } else {
-                    for (plant_id, plant) in
-                        plants.get(&Cell { i, j }).unwrap()
-                    {
+                    for (plant_id, plant) in &plants[i][j] {
                         if !removed_plants.contains_key(plant_id)
                             && zoom
                                 .extended_rect
@@ -153,7 +149,7 @@ impl Plant {
     /// Spawn a plant to a random position on the field.
     pub fn randomly_spawn_plant(
         bodies: &HashMap<BodyId, Body>,
-        plants: &mut HashMap<Cell, HashMap<PlantId, Self>>,
+        plants: &mut Vec<Vec<HashMap<PlantId, Self>>>,
         area_size: &Vec2,
         cells: &Cells,
         rng: &mut StdRng,
@@ -183,16 +179,14 @@ impl Plant {
                 })
         } {}
 
-        plants
-            .get_mut(&cells.get_cell_by_pos(&pos))
-            .unwrap()
-            .insert(
-                Instant::now(),
-                Self {
-                    pos,
-                    kind: *PlantKind::ALL.iter().choose(rng).unwrap(),
-                    followed_by: HashMap::new(),
-                },
-            );
+        let Cell { i, j } = cells.get_cell_by_pos(&pos);
+        plants[i][j].insert(
+            Instant::now(),
+            Self {
+                pos,
+                kind: *PlantKind::ALL.iter().choose(rng).unwrap(),
+                followed_by: HashMap::new(),
+            },
+        );
     }
 }

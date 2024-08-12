@@ -183,7 +183,7 @@ macro_rules! get_visible {
         < r.powi(2);
 
         for (x_id, x) in
-        $x.get(&Cell { i, j }).unwrap()
+        &$x[i][j]
         {
         if fully_covered
         || $body.pos.distance(x.pos)
@@ -618,8 +618,8 @@ impl Body {
         body_id: &BodyId,
         cells: &Cells,
         bodies: &mut HashMap<BodyId, Self>,
-        crosses: &mut HashMap<Cell, HashMap<CrossId, Cross>>,
-        plants: &mut HashMap<Cell, HashMap<PlantId, Plant>>,
+        crosses: &mut Vec<Vec<HashMap<CrossId, Cross>>>,
+        plants: &mut Vec<Vec<HashMap<PlantId, Plant>>>,
         area_size: &Vec2,
         rng: &mut StdRng,
     ) {
@@ -844,8 +844,8 @@ impl Body {
         body_id: &BodyId,
         cells: &Cells,
         bodies: &mut HashMap<BodyId, Self>,
-        crosses: &mut HashMap<Cell, HashMap<CrossId, Cross>>,
-        plants: &mut HashMap<Cell, HashMap<PlantId, Plant>>,
+        crosses: &mut Vec<Vec<HashMap<CrossId, Cross>>>,
+        plants: &mut Vec<Vec<HashMap<PlantId, Plant>>>,
     ) {
         Body::followed_by_cleanup(
             body_id, cells, bodies, crosses, plants, None,
@@ -1125,8 +1125,8 @@ impl Body {
         body_id: &BodyId,
         cells: &Cells,
         bodies: &mut HashMap<BodyId, Self>,
-        crosses: &mut HashMap<Cell, HashMap<CrossId, Cross>>,
-        plants: &mut HashMap<Cell, HashMap<PlantId, Plant>>,
+        crosses: &mut Vec<Vec<HashMap<CrossId, Cross>>>,
+        plants: &mut Vec<Vec<HashMap<PlantId, Plant>>>,
         food: Option<&FoodInfo>,
     ) {
         if let Status::FollowingTarget(
@@ -1139,6 +1139,7 @@ impl Body {
                 return;
             }
 
+            let Cell { i, j } = cells.get_cell_by_pos(&target_pos);
             match target_type {
                 ObjectType::Body => {
                     if let Some(target_body) =
@@ -1148,19 +1149,15 @@ impl Body {
                     }
                 }
                 ObjectType::Cross => {
-                    if let Some(target_cross) = crosses
-                        .get_mut(&cells.get_cell_by_pos(&target_pos))
-                        .unwrap()
-                        .get_mut(&target_id)
+                    if let Some(target_cross) =
+                        crosses[i][j].get_mut(&target_id)
                     {
                         target_cross.followed_by.remove(body_id);
                     }
                 }
                 ObjectType::Plant => {
-                    if let Some(target_plant) = plants
-                        .get_mut(&cells.get_cell_by_pos(&target_pos))
-                        .unwrap()
-                        .get_mut(&target_id)
+                    if let Some(target_plant) =
+                        plants[i][j].get_mut(&target_id)
                     {
                         target_plant.followed_by.remove(body_id);
                     }

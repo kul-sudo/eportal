@@ -48,8 +48,6 @@ use macroquad::{
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng, SeedableRng};
 
-pub static mut TOTAL_SKILLS_COUNT: usize = 0;
-pub static mut VIRUSES_COUNT: usize = 0;
 pub static mut UI_SHOW_PROPERTIES_N: usize = 0;
 
 fn window_conf() -> Conf {
@@ -122,17 +120,10 @@ async fn main() {
 
     let mut bodies: HashMap<BodyId, Body> =
         HashMap::with_capacity(unsafe { BODIES_N });
-    let mut plants: HashMap<Cell, HashMap<PlantId, Plant>> =
-        HashMap::with_capacity(cells.rows * cells.columns);
-    let mut crosses: HashMap<Cell, HashMap<CrossId, Cross>> =
-        HashMap::with_capacity(cells.rows * cells.columns);
-
-    for i in 0..cells.rows {
-        for j in 0..cells.columns {
-            plants.insert(Cell { i, j }, HashMap::new());
-            crosses.insert(Cell { i, j }, HashMap::new());
-        }
-    }
+    let mut plants: Vec<Vec<HashMap<PlantId, Plant>>> =
+        vec![vec![HashMap::new(); cells.columns]; cells.rows];
+    let mut crosses: Vec<Vec<HashMap<CrossId, Cross>>> =
+        vec![vec![HashMap::new(); cells.columns]; cells.rows];
 
     // Spawn the bodies
     for i in 0..unsafe { BODIES_N } {
@@ -261,13 +252,12 @@ async fn main() {
         for _ in 0..n_to_remove {
             loop {
                 // Pick a random cell and remove a random plant from it
-                let random_cell =
-                    plants.iter().choose(&mut rng).unwrap().0;
-
-                if let Some((random_plant_id, random_plant)) = plants
-                    .get(random_cell)
-                    .unwrap()
-                    .iter()
+                let random_row = 
+                    plants.iter().choose(&mut rng).unwrap();
+                let random_column = 
+                    random_row.iter().choose(&mut rng).unwrap();
+                
+                if let Some((random_plant_id, random_plant)) = random_column                    .iter()
                     .choose(&mut rng)
                 {
                     if !removed_plants.contains_key(random_plant_id) {
@@ -365,9 +355,8 @@ async fn main() {
                         &mut bodies,
                         unsafe {
                             &mut (*(&mut crosses
-                                as *mut HashMap<
-                                    Cell,
-                                    HashMap<CrossId, Cross>,
+                                as *mut Vec<
+                                    Vec<HashMap<Instant, Cross>>,
                                 >))
                         },
                         &mut plants,
@@ -403,10 +392,7 @@ async fn main() {
                 cells,
                 unsafe {
                     &mut (*(&mut crosses
-                        as *mut HashMap<
-                            Cell,
-                            HashMap<CrossId, Cross>,
-                        >))
+                        as *mut Vec<Vec<HashMap<Instant, Cross>>>))
                 },
                 visible_crosses
             );
@@ -568,13 +554,11 @@ async fn main() {
                             removed_bodies.insert(food.id);
                         }
                         ObjectType::Cross => {
+                            let Cell { i, j } =
+                                cells.get_cell_by_pos(&food.pos);
+
                             body.get_viruses(food.viruses.unwrap());
-                            crosses
-                                .get_mut(
-                                    &cells.get_cell_by_pos(&food.pos),
-                                )
-                                .unwrap()
-                                .remove(&food.id);
+                            crosses[i][j].remove(&food.id);
                         }
                         ObjectType::Plant => {
                             removed_plants.insert(food.id, food.pos);
@@ -588,14 +572,16 @@ async fn main() {
                         &mut bodies,
                         unsafe {
                             &mut (*(&mut crosses
-                                as *mut HashMap<
-                                    Cell,
-                                    HashMap<CrossId, Cross>,
+                                as *mut Vec<
+                                    Vec<HashMap<Instant, Cross>>,
                                 >))
                         },
                         &mut plants,
                         Some(&food),
                     );
+
+                    let Cell { i, j } =
+                        cells.get_cell_by_pos(&food.pos);
 
                     match food.food_type {
                         ObjectType::Body => {
@@ -609,22 +595,14 @@ async fn main() {
                             .insert(*body_id, body.clone());
                         }
                         ObjectType::Cross => {
-                            crosses
-                                .get_mut(
-                                    &cells.get_cell_by_pos(&food.pos),
-                                )
-                                .unwrap()
+                            crosses[i][j]
                                 .get_mut(&food.id)
                                 .unwrap()
                                 .followed_by
                                 .insert(*body_id, body.clone());
                         }
                         ObjectType::Plant => {
-                            plants
-                                .get_mut(
-                                    &cells.get_cell_by_pos(&food.pos),
-                                )
-                                .unwrap()
+                            plants[i][j]
                                 .get_mut(&food.id)
                                 .unwrap()
                                 .followed_by
@@ -668,11 +646,13 @@ async fn main() {
             );
         }
 
-        for crosses in crosses.values_mut() {
-            crosses.retain(|_, cross| {
-                cross.timestamp.elapsed().as_secs()
-                    <= unsafe { CROSS_LIFESPAN }
-            })
+        for i in 0..crosses.len() {
+            for j in 0..i {
+                crosses[i][j].retain(|_, cross| {
+                    cross.timestamp.elapsed().as_secs()
+                        <= unsafe { CROSS_LIFESPAN }
+                })
+            }
         }
 
         for body_id in &removed_bodies {
@@ -688,10 +668,8 @@ async fn main() {
             let body = bodies.get(body_id).unwrap();
 
             if let Status::Cross = body.status {
-                crosses
-                    .get_mut(&cells.get_cell_by_pos(&body.pos))
-                    .unwrap()
-                    .insert(*body_id, Cross::new(body));
+                let Cell { i, j } = cells.get_cell_by_pos(&body.pos);
+                crosses[i][j].insert(*body_id, Cross::new(body));
             }
 
             bodies.remove(body_id);
@@ -702,17 +680,18 @@ async fn main() {
         }
 
         for (plant_id, plant_pos) in &removed_plants {
-            plants
-                .get_mut(&cells.get_cell_by_pos(plant_pos))
-                .unwrap()
-                .remove(plant_id);
+            let Cell { i, j } = cells.get_cell_by_pos(plant_pos);
+
+            plants[i][j].remove(plant_id);
         }
 
         if is_draw_mode {
             if !is_key_down(KeyCode::Space) {
-                for cell in crosses.values() {
-                    for cross in cell.values() {
-                        cross.draw(&zoom);
+                for i in 0..crosses.len() {
+                    for j in 0..i {
+                        for cross in crosses[i][j].values() {
+                            cross.draw(&zoom);
+                        }
                     }
                 }
 
@@ -777,9 +756,11 @@ async fn main() {
                         body.draw();
                     }
 
-                    for cell in plants.values() {
-                        for plant in cell.values() {
-                            plant.draw();
+                    for row in &plants {
+                        for plants in row {
+                            for plant in plants.values() {
+                                plant.draw();
+                            }
                         }
                     }
                 }
