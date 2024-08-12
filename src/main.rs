@@ -37,8 +37,8 @@ use macroquad::{
     camera::Camera2D,
     color::WHITE,
     input::{
-        is_key_down, is_key_pressed, is_mouse_button_pressed,
-        mouse_position, KeyCode,
+        is_key_pressed, is_mouse_button_pressed, mouse_position,
+        KeyCode,
     },
     math::{Rect, Vec2},
     miniquad::{window::set_fullscreen, MouseButton},
@@ -170,10 +170,16 @@ async fn main() {
     // Needed for the FPS
     let mut last_updated = Instant::now();
 
+    let mut is_draw_prevented = false;
+
     loop {
         // Handle interactions
         if unlikely(is_key_pressed(KeyCode::Escape)) {
             std::process::exit(0);
+        }
+
+        if unlikely(is_key_pressed(KeyCode::Space)) {
+            is_draw_prevented = !is_draw_prevented;
         }
 
         if unlikely(is_mouse_button_pressed(MouseButton::Left)) {
@@ -252,13 +258,13 @@ async fn main() {
         for _ in 0..n_to_remove {
             loop {
                 // Pick a random cell and remove a random plant from it
-                let random_row = 
+                let random_row =
                     plants.iter().choose(&mut rng).unwrap();
-                let random_column = 
+                let random_column =
                     random_row.iter().choose(&mut rng).unwrap();
-                
-                if let Some((random_plant_id, random_plant)) = random_column                    .iter()
-                    .choose(&mut rng)
+
+                if let Some((random_plant_id, random_plant)) =
+                    random_column.iter().choose(&mut rng)
                 {
                     if !removed_plants.contains_key(random_plant_id) {
                         removed_plants.insert(
@@ -297,8 +303,9 @@ async fn main() {
             plants_n += 1;
         }
 
-        let is_draw_mode = last_updated.elapsed().as_millis()
-            >= Duration::from_secs(1 / FPS).as_millis();
+        let is_draw_mode = !is_draw_prevented
+            && last_updated.elapsed().as_millis()
+                >= Duration::from_secs(1 / FPS).as_millis();
 
         // Whether enough time has passed to draw a new frame
         for (body_id, body) in unsafe {
@@ -392,7 +399,7 @@ async fn main() {
                 cells,
                 unsafe {
                     &mut (*(&mut crosses
-                        as *mut Vec<Vec<HashMap<Instant, Cross>>>))
+                        as *mut Vec<Vec<HashMap<CrossId, Cross>>>))
                 },
                 visible_crosses
             );
@@ -573,7 +580,7 @@ async fn main() {
                         unsafe {
                             &mut (*(&mut crosses
                                 as *mut Vec<
-                                    Vec<HashMap<Instant, Cross>>,
+                                    Vec<HashMap<CrossId, Cross>>,
                                 >))
                         },
                         &mut plants,
@@ -686,81 +693,79 @@ async fn main() {
         }
 
         if is_draw_mode {
-            if !is_key_down(KeyCode::Space) {
-                for i in 0..crosses.len() {
-                    for j in 0..i {
-                        for cross in crosses[i][j].values() {
-                            cross.draw(&zoom);
-                        }
+            for row in &crosses {
+                for crosses in row {
+                    for cross in crosses.values() {
+                        cross.draw(&zoom);
                     }
                 }
+            }
 
-                if zoom.zoomed {
-                    for plant in Plant::get_plants_to_draw(
-                        &cells,
-                        &zoom,
-                        &plants,
-                        &removed_plants,
-                        plants_n,
-                    ) {
-                        plant.draw();
-                    }
+            if zoom.zoomed {
+                for plant in Plant::get_plants_to_draw(
+                    &cells,
+                    &zoom,
+                    &plants,
+                    &removed_plants,
+                    plants_n,
+                ) {
+                    plant.draw();
+                }
 
-                    for body in bodies.values() {
-                        let DrawingStrategy {
-                            body: draw_body,
-                            vision_distance: draw_vision_distance,
-                            target_line: draw_target_line,
-                        } = body.get_drawing_strategy(&zoom);
+                for body in bodies.values() {
+                    let DrawingStrategy {
+                        body: draw_body,
+                        vision_distance: draw_vision_distance,
+                        target_line: draw_target_line,
+                    } = body.get_drawing_strategy(&zoom);
 
-                        if info.body_info {
-                            if draw_vision_distance {
-                                draw_circle_lines(
+                    if info.body_info {
+                        if draw_vision_distance {
+                            draw_circle_lines(
+                                body.pos.x,
+                                body.pos.y,
+                                body.vision_distance,
+                                2.0,
+                                body.color,
+                            );
+                        }
+
+                        if draw_target_line {
+                            if let Status::FollowingTarget(
+                                _,
+                                target_pos,
+                                _,
+                            ) = body.status
+                            {
+                                draw_line(
                                     body.pos.x,
                                     body.pos.y,
-                                    body.vision_distance,
+                                    target_pos.x,
+                                    target_pos.y,
                                     2.0,
-                                    body.color,
+                                    WHITE,
                                 );
                             }
-
-                            if draw_target_line {
-                                if let Status::FollowingTarget(
-                                    _,
-                                    target_pos,
-                                    _,
-                                ) = body.status
-                                {
-                                    draw_line(
-                                        body.pos.x,
-                                        body.pos.y,
-                                        target_pos.x,
-                                        target_pos.y,
-                                        2.0,
-                                        WHITE,
-                                    );
-                                }
-                            }
-                        }
-
-                        if draw_body {
-                            body.draw();
-                        }
-
-                        if draw_vision_distance && info.body_info {
-                            body.draw_info();
                         }
                     }
-                } else {
-                    for body in bodies.values() {
+
+                    if draw_body {
                         body.draw();
                     }
 
-                    for row in &plants {
-                        for plants in row {
-                            for plant in plants.values() {
-                                plant.draw();
-                            }
+                    if draw_vision_distance && info.body_info {
+                        body.draw_info();
+                    }
+                }
+            } else {
+                for body in bodies.values() {
+                    body.draw();
+                }
+
+                for row in &plants {
+                    for plants in row {
+                        for plant in plants.values() {
+                            plant.draw();
                         }
                     }
                 }
@@ -782,8 +787,8 @@ async fn main() {
             if unsafe { SHOW_FPS } {
                 show_fps(&zoom);
             }
-
-            next_frame().await;
         }
+
+        next_frame().await;
     }
 }
