@@ -31,7 +31,7 @@ pub fn get_zoom_target(camera: &mut Camera2D, zoom: &mut Zoom) {
         screen_height() / MAX_ZOOM * OBJECT_RADIUS,
     );
 
-    zoom.center_pos = Some(adjusted_pos(&zoom.mouse_pos.unwrap()));
+    zoom.center_pos = Some(adjusted_pos(zoom.mouse_pos.unwrap()));
     zoom.rect = Some(Rect::new(
         zoom.center_pos.unwrap().x - size.x / 2.0,
         zoom.center_pos.unwrap().y - size.y / 2.0,

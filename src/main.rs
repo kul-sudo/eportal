@@ -441,19 +441,13 @@ async fn main() {
                             )
                         }).collect::<Vec<_>>();
 
-                    let mut closest_plant = body.find_closest_plant(
+                    match body.find_closest_plant(
                         &filtered_visible_plants,
                         PlantKind::Banana,
-                    );
-
-                    if closest_plant.is_none() {
-                        closest_plant = body.find_closest_plant(
+                    ).or_else(|| body.find_closest_plant(
                             &filtered_visible_plants,
                             PlantKind::Grass,
-                        );
-                    }
-
-                    match closest_plant {
+                        )) {
                         Some((closest_plant_id, closest_plant)) => {
                             food = Some(FoodInfo {
                                 id:        ***closest_plant_id,
@@ -529,10 +523,10 @@ async fn main() {
                             removed_bodies.insert(food.id);
                         }
                         ObjectType::Cross => {
-                            let Cell { i, j } =
-                                CELLS.get_cell_by_pos(&food.pos);
-
                             body.get_viruses(food.viruses.unwrap());
+
+                            let Cell { i, j } =
+                                CELLS.get_cell_by_pos(food.pos);
                             crosses[i][j].remove(&food.id);
                         }
                         ObjectType::Plant => {
@@ -555,7 +549,7 @@ async fn main() {
                     );
 
                     let Cell { i, j } =
-                        CELLS.get_cell_by_pos(&food.pos);
+                        CELLS.get_cell_by_pos(food.pos);
 
                     match food.food_type {
                         ObjectType::Body => {
@@ -642,7 +636,7 @@ async fn main() {
             let body = bodies.get(body_id).unwrap();
 
             if let Status::Cross = body.status {
-                let Cell { i, j } = CELLS.get_cell_by_pos(&body.pos);
+                let Cell { i, j } = CELLS.get_cell_by_pos(body.pos);
                 crosses[i][j].insert(*body_id, Cross::new(body));
             }
 
@@ -654,8 +648,7 @@ async fn main() {
         }
 
         for (plant_id, plant_pos) in &removed_plants {
-            let Cell { i, j } = CELLS.get_cell_by_pos(plant_pos);
-
+            let Cell { i, j } = CELLS.get_cell_by_pos(*plant_pos);
             plants[i][j].remove(plant_id);
         }
 

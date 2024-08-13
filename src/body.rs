@@ -111,6 +111,7 @@ pub struct Body {
     initial_speed:           f32,
     initial_vision_distance: f32,
     pub followed_by:         HashMap<BodyId, Self>,
+    pub cell:                Cell,
 }
 
 #[macro_export]
@@ -135,7 +136,7 @@ macro_rules! get_visible {
         // Ditch the unneeded cells
         let Cell {
         i: circle_center_i, ..
-        } = CELLS.get_cell_by_pos(&$body.pos);
+        } = CELLS.get_cell_by_pos($body.pos);
 
         for i in i_min..=i_max {
         let (
@@ -320,6 +321,7 @@ impl Body {
                 }
             },
             followed_by: HashMap::new(),
+            cell: CELLS.get_cell_by_pos(pos),
         };
 
         // Applying the effect of the viruses
@@ -555,10 +557,10 @@ impl Body {
                     .iter()
                     .any(|(i, j)| {
                         DrawingStrategy::segments_intersect(
-                            &self.pos,
-                            &target_pos,
-                            rectangle_sides.get(i).unwrap(),
-                            rectangle_sides.get(j).unwrap(),
+                            self.pos,
+                            target_pos,
+                            *rectangle_sides.get(i).unwrap(),
+                            *rectangle_sides.get(j).unwrap(),
                         )
                     }),
                 );
@@ -751,7 +753,7 @@ impl Body {
 
     /// Generate a random position until it suits certain creteria.
     pub fn randomly_spawn_body(
-        bodies: &mut HashMap<Instant, Self>,
+        bodies: &mut HashMap<BodyId, Self>,
         eating_strategy: EatingStrategy,
         body_type: usize,
         rng: &mut StdRng,
@@ -1135,7 +1137,7 @@ impl Body {
                 return;
             }
 
-            let Cell { i, j } = CELLS.get_cell_by_pos(&target_pos);
+            let Cell { i, j } = CELLS.get_cell_by_pos(target_pos);
             match target_type {
                 ObjectType::Body => {
                     if let Some(target_body) =

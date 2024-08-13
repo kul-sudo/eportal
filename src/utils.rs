@@ -211,7 +211,7 @@ pub fn show_fps(zoom: &Zoom) {
 
 /// Adjust the coordinates according to the borders.
 #[inline(always)]
-pub fn adjusted_pos(pos: &Vec2) -> Vec2 {
+pub fn adjusted_pos(pos: Vec2) -> Vec2 {
     vec2(
         (pos.x * MAX_ZOOM)
             .max(AREA_SIZE.x / MAX_ZOOM / 2.0)

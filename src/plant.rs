@@ -188,7 +188,7 @@ impl Plant {
                 })
         } {}
 
-        let Cell { i, j } = CELLS.get_cell_by_pos(&pos);
+        let Cell { i, j } = CELLS.get_cell_by_pos(pos);
         plants[i][j].insert(
             Instant::now(),
             Self {
