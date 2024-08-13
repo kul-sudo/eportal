@@ -27,7 +27,7 @@ use utils::*;
 use zoom::*;
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     intrinsics::unlikely,
     mem::variant_count,
     sync::LazyLock,
@@ -149,7 +149,7 @@ async fn main() {
 
         bodies_n += 1;
     }
-    
+
     // Spawn the plants
     for _ in 0..unsafe { PLANTS_N } {
         Plant::randomly_spawn_plant(&bodies, &mut plants, &mut rng);
@@ -421,9 +421,7 @@ async fn main() {
                         .filter(|(_, cross)| {
                             body.handle_eat_crosses_of_my_type(cross)
                             && body.handle_alive_when_arrived_cross(cross)
-                            && body.handle_profitable_when_arrived_cross(
-                                cross,
-                            )
+                            && body.handle_profitable_when_arrived_cross(cross)
                             && body.handle_avoid_new_viruses_cross(cross)
                             && body.handle_will_arrive_first_cross(
                                 body_id, cross,
@@ -440,7 +438,9 @@ async fn main() {
                         .min_by(|(_, a), (_, b)| {
                             body.pos
                                 .distance(a.pos)
-                                .partial_cmp(&body.pos.distance(b.pos))
+                                .partial_cmp(
+                                    &body.pos.distance(b.pos),
+                                )
                                 .unwrap()
                         }) {
                         Some((closest_cross_id, closest_cross)) => {
@@ -449,7 +449,9 @@ async fn main() {
                                 food_type: ObjectType::Cross,
                                 pos:       closest_cross.pos,
                                 energy:    closest_cross.energy,
-                                viruses:   Some(&closest_cross.viruses),
+                                viruses:   Some(
+                                    &closest_cross.viruses,
+                                ),
                             });
                         }
                         None => {
@@ -462,7 +464,11 @@ async fn main() {
                                 as usize,
                             );
 
-                            get_visible!(body, plants, visible_plants);
+                            get_visible!(
+                                body,
+                                plants,
+                                visible_plants
+                            );
 
                             let filtered_visible_plants = visible_plants
                                 .iter()
@@ -484,16 +490,24 @@ async fn main() {
                                     )
                                 }).collect::<Vec<_>>();
 
-                            match body.find_closest_plant(
-                                &filtered_visible_plants,
-                                PlantKind::Banana,
-                            ).or_else(|| body.find_closest_plant(
+                            match body
+                                .find_closest_plant(
                                     &filtered_visible_plants,
-                                    PlantKind::Grass,
-                                )) {
-                                Some((closest_plant_id, closest_plant)) => {
+                                    PlantKind::Banana,
+                                )
+                                .or_else(|| {
+                                    body.find_closest_plant(
+                                        &filtered_visible_plants,
+                                        PlantKind::Grass,
+                                    )
+                                }) {
+                                Some((
+                                    closest_plant_id,
+                                    closest_plant,
+                                )) => {
                                     food = Some(FoodInfo {
-                                        id:        ***closest_plant_id,
+                                        id:
+                                        ***closest_plant_id,
                                         food_type: ObjectType::Plant,
                                         pos:       closest_plant.pos,
                                         energy:    closest_plant
@@ -511,22 +525,21 @@ async fn main() {
                                     get_visible!(
                                         body,
                                         unsafe {
-                                        &mut (*(&mut bodies
+                                            &mut (*(&mut bodies
                                             as *mut Vec<
-                                                Vec<
-                                                    HashMap<
-                                                        BodyId,
-                                                        Body,
-                                                    >,
-                                                >,
+                                            Vec<
+                                            HashMap<
+                                            BodyId,
+                                            Body,
+                                            >,
+                                            >,
                                             >))
-                                    },
+                                        },
                                         visible_bodies
                                     );
 
                                     // Find the closest body
                                     if let Some((closest_body_id, closest_body)) =  visible_bodies
-                                    
                                         .iter()
                                         .filter(|(other_body_id, other_body)| {
                                             body.body_type != other_body.body_type &&
@@ -860,11 +873,7 @@ async fn main() {
 
             if info.evolution_info.show {
                 show_evolution_info(
-                    &zoom,
-                    &mut info,
-                    plants_n,
-                    bodies_n,
-                    &condition,
+                    &zoom, &mut info, plants_n, bodies_n, &condition,
                 );
             }
 
