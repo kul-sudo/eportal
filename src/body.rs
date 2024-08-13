@@ -97,6 +97,7 @@ pub type BodyId = Instant;
 /// https://github.com/kul-sudo/eportal/blob/main/README.md#properties
 pub struct Body {
     pub pos:                 Vec2,
+    pub last_pos:            Vec2,
     pub energy:              f32,
     pub speed:               f32,
     pub vision_distance:     f32,
@@ -235,6 +236,7 @@ impl Body {
 
         let mut body = Self {
             pos,
+            last_pos: pos,
             energy: match energy {
                 Some(energy) => energy / 2.0,
                 None => {
@@ -338,16 +340,16 @@ impl Body {
 
     #[inline(always)]
     pub fn wrap(&mut self) {
-        if self.pos.x >= AREA_SIZE.x {
-            self.pos.x = MIN_GAP;
-        } else if self.pos.x <= 0.0 {
-            self.pos.x = AREA_SIZE.x - MIN_GAP;
+        if self.last_pos.x >= AREA_SIZE.x {
+            self.last_pos.x = MIN_GAP;
+        } else if self.last_pos.x <= 0.0 {
+            self.last_pos.x = AREA_SIZE.x - MIN_GAP;
         }
 
-        if self.pos.y >= AREA_SIZE.y {
-            self.pos.y = MIN_GAP;
-        } else if self.pos.y <= 0.0 {
-            self.pos.y = AREA_SIZE.y - MIN_GAP;
+        if self.last_pos.y >= AREA_SIZE.y {
+            self.last_pos.y = MIN_GAP;
+        } else if self.last_pos.y <= 0.0 {
+            self.last_pos.y = AREA_SIZE.y - MIN_GAP;
         }
     }
 
@@ -620,7 +622,7 @@ impl Body {
     pub fn handle_walking_idle(
         &mut self,
         body_id: &BodyId,
-        bodies: &mut HashMap<BodyId, Self>,
+        bodies: &mut [Vec<HashMap<BodyId, Self>>],
         crosses: &mut [Vec<HashMap<CrossId, Cross>>],
         plants: &mut [Vec<HashMap<PlantId, Plant>>],
         rng: &mut StdRng,
@@ -645,8 +647,8 @@ impl Body {
                 }
 
                 if let Status::Walking(pos_deviation) = self.status {
-                    self.pos.x += pos_deviation.x;
-                    self.pos.y += pos_deviation.y;
+                    self.last_pos.x += pos_deviation.x;
+                    self.last_pos.y += pos_deviation.y;
                 }
 
                 self.wrap();
@@ -666,7 +668,7 @@ impl Body {
     pub fn handle_energy(
         &mut self,
         body_id: &BodyId,
-        removed_bodies: &mut HashSet<BodyId>,
+        removed_bodies: &mut HashMap<BodyId, Vec2>,
     ) -> bool {
         // The mass is proportional to the energy; to keep the mass up, energy is spent
         self.energy -= unsafe { ENERGY_SPENT_CONST_FOR_MASS }
@@ -684,7 +686,7 @@ impl Body {
 
         if self.energy <= 0.0 {
             self.status = Status::Cross;
-            removed_bodies.insert(*body_id);
+            removed_bodies.insert(*body_id, self.pos);
             true
         } else {
             false
@@ -708,7 +710,7 @@ impl Body {
         &mut self,
         body_id: &BodyId,
         new_bodies: &mut HashMap<BodyId, Self>,
-        removed_bodies: &mut HashSet<BodyId>,
+        removed_bodies: &mut HashMap<BodyId, Vec2>,
         rng: &mut StdRng,
     ) -> bool {
         if self.energy > self.division_threshold {
@@ -731,7 +733,7 @@ impl Body {
                 );
             }
 
-            removed_bodies.insert(*body_id);
+            removed_bodies.insert(*body_id, self.pos);
 
             true
         } else {
@@ -753,7 +755,7 @@ impl Body {
 
     /// Generate a random position until it suits certain creteria.
     pub fn randomly_spawn_body(
-        bodies: &mut HashMap<BodyId, Self>,
+        bodies: &mut [Vec<HashMap<BodyId, Self>>],
         eating_strategy: EatingStrategy,
         body_type: usize,
         rng: &mut StdRng,
@@ -768,10 +770,13 @@ impl Body {
                 || pos.x >= AREA_SIZE.x - OBJECT_RADIUS - MIN_GAP)
                 || (pos.y <= OBJECT_RADIUS + MIN_GAP
                     || pos.y >= AREA_SIZE.y - OBJECT_RADIUS - MIN_GAP)
-                || bodies.values().any(|body| {
-                    body.pos.distance(pos)
-                        < OBJECT_RADIUS * 2.0 + MIN_GAP
-                })
+                || {
+                    let Cell { i, j } = CELLS.get_cell_by_pos(pos);
+                    bodies[i][j].values().any(|body| {
+                        body.last_pos.distance(pos)
+                            < OBJECT_RADIUS * 2.0 + MIN_GAP
+                    })
+                }
         } {}
 
         // Make sure the color is different enough
@@ -797,19 +802,25 @@ impl Body {
             z: RED.b,
         };
 
-        while bodies.values().any(|body| {
-            let current_body_rgb = Vec3 {
-                x: body.color.r,
-                y: body.color.g,
-                z: body.color.b,
-            };
-            current_body_rgb.distance(green_rgb) < real_color_gap
-                || current_body_rgb.distance(red_rgb) < real_color_gap
-                || current_body_rgb.distance(Vec3 {
-                    x: color.r,
-                    y: color.g,
-                    z: color.b,
-                }) < real_color_gap
+        while bodies.iter().any(|row| {
+            row.iter().any(|column| {
+                column.values().any(|body| {
+                    let current_body_rgb = Vec3 {
+                        x: body.color.r,
+                        y: body.color.g,
+                        z: body.color.b,
+                    };
+                    current_body_rgb.distance(green_rgb)
+                        < real_color_gap
+                        || current_body_rgb.distance(red_rgb)
+                            < real_color_gap
+                        || current_body_rgb.distance(Vec3 {
+                            x: color.r,
+                            y: color.g,
+                            z: color.b,
+                        }) < real_color_gap
+                })
+            })
         }) {
             color = Color::from_rgba(
                 gen_range(COLOR_MIN, COLOR_MAX),
@@ -819,7 +830,9 @@ impl Body {
             )
         }
 
-        bodies.insert(
+        let Cell { i, j } = CELLS.get_cell_by_pos(pos);
+
+        bodies[i][j].insert(
             Instant::now(),
             Body::new(
                 pos,
@@ -841,12 +854,17 @@ impl Body {
         &mut self,
         status: Status,
         body_id: &BodyId,
-        bodies: &mut HashMap<BodyId, Self>,
+        bodies: &mut [Vec<HashMap<BodyId, Self>>],
         crosses: &mut [Vec<HashMap<CrossId, Cross>>],
         plants: &mut [Vec<HashMap<PlantId, Plant>>],
     ) {
         Body::followed_by_cleanup(
-            body_id, bodies, crosses, plants, None,
+            body_id,
+            &CELLS.get_cell_by_pos(self.pos),
+            bodies,
+            crosses,
+            plants,
+            None,
         );
         self.status = status;
     }
@@ -1122,7 +1140,8 @@ impl Body {
     #[inline(always)]
     pub fn followed_by_cleanup(
         body_id: &BodyId,
-        bodies: &mut HashMap<BodyId, Self>,
+        body_cell: &Cell,
+        bodies: &mut [Vec<HashMap<BodyId, Self>>],
         crosses: &mut [Vec<HashMap<CrossId, Cross>>],
         plants: &mut [Vec<HashMap<PlantId, Plant>>],
         food: Option<&FoodInfo>,
@@ -1131,7 +1150,10 @@ impl Body {
             target_id,
             target_pos,
             target_type,
-        ) = bodies.get(body_id).unwrap().status
+        ) = bodies[body_cell.i][body_cell.j]
+            .get(body_id)
+            .unwrap()
+            .status
         {
             if food.is_some_and(|food| food.id == target_id) {
                 return;
@@ -1141,7 +1163,7 @@ impl Body {
             match target_type {
                 ObjectType::Body => {
                     if let Some(target_body) =
-                        bodies.get_mut(&target_id)
+                        bodies[i][j].get_mut(&target_id)
                     {
                         target_body.followed_by.remove(body_id);
                     }

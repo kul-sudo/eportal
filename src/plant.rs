@@ -159,7 +159,7 @@ impl Plant {
     #[inline(always)]
     /// Spawn a plant to a random position on the field.
     pub fn randomly_spawn_plant(
-        bodies: &HashMap<BodyId, Body>,
+        bodies: &[Vec<HashMap<BodyId, Body>>],
         plants: &mut [Vec<HashMap<PlantId, Self>>],
         rng: &mut StdRng,
     ) {
@@ -182,10 +182,13 @@ impl Plant {
                 || pos.x >= AREA_SIZE.x - OBJECT_RADIUS - MIN_GAP)
                 || (pos.y <= OBJECT_RADIUS + MIN_GAP
                     || pos.y >= AREA_SIZE.y - OBJECT_RADIUS - MIN_GAP)
-                || bodies.values().any(|body| {
-                    body.pos.distance(pos)
-                        <= OBJECT_RADIUS * 2.0 + MIN_GAP
-                })
+                || {
+                    let Cell { i, j } = CELLS.get_cell_by_pos(pos);
+                    bodies[i][j].values().any(|body| {
+                        body.last_pos.distance(pos)
+                            <= OBJECT_RADIUS * 2.0 + MIN_GAP
+                    })
+                }
         } {}
 
         let Cell { i, j } = CELLS.get_cell_by_pos(pos);
