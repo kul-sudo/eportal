@@ -622,8 +622,8 @@ async fn main() {
         }
 
         for row in &mut crosses {
-            for plants in row {
-                plants.retain(|_, cross| {
+            for column in row {
+                column.retain(|_, cross| {
                     cross.timestamp.elapsed().as_secs()
                         <= unsafe { CROSS_LIFESPAN }
                 })
@@ -661,8 +661,8 @@ async fn main() {
 
         if is_draw_mode {
             for row in &crosses {
-                for crosses in row {
-                    for cross in crosses.values() {
+                for column in row {
+                    for cross in column.values() {
                         cross.draw(&zoom);
                     }
                 }
@@ -729,8 +729,8 @@ async fn main() {
                 }
 
                 for row in &plants {
-                    for plants in row {
-                        for plant in plants.values() {
+                    for column in row {
+                        for plant in column.values() {
                             plant.draw();
                         }
                     }

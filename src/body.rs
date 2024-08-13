@@ -323,7 +323,11 @@ impl Body {
         };
 
         // Applying the effect of the viruses
-        for virus in body.viruses.clone().keys() {
+        for virus in unsafe {
+            &(*(&body.viruses as *const HashMap<Virus, f32>))
+        }
+        .keys()
+        {
             body.apply_virus(*virus);
         }
 
@@ -1023,7 +1027,7 @@ impl Body {
             followed_by.iter().all(|(other_body_id, other_body)| {
                 other_body_id == body_id
                     || if other_body.body_type == self.body_type {
-                        other_body.lifespan < self.lifespan
+                        other_body.lifespan / self.lifespan >= 2.0
                     } else {
                         true
                     }
@@ -1033,6 +1037,7 @@ impl Body {
         }
     }
 
+    #[inline(always)]
     pub fn handle_will_arrive_first_cross(
         &self,
         body_id: &BodyId,
