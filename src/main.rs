@@ -733,13 +733,6 @@ async fn main() {
             bodies_n -= 1;
         }
 
-        for (new_body_id, new_body) in new_bodies {
-            let Cell { i, j } = CELLS.get_cell_by_pos(new_body.pos);
-
-            bodies[i][j].insert(new_body_id, new_body);
-            bodies_n += 1;
-        }
-
         let mut changed: Vec<(Instant, Vec2)> = Vec::new();
 
         for row in &mut bodies {
@@ -765,6 +758,13 @@ async fn main() {
             let Cell { i: new_i, j: new_j } =
                 CELLS.get_cell_by_pos(body.pos);
             bodies[new_i][new_j].insert(*body_id, body);
+        }
+
+        for (new_body_id, new_body) in new_bodies {
+            let Cell { i, j } = CELLS.get_cell_by_pos(new_body.pos);
+
+            bodies[i][j].insert(new_body_id, new_body);
+            bodies_n += 1;
         }
 
         for (plant_id, plant_pos) in &removed_plants {
