@@ -303,19 +303,7 @@ async fn main() {
                         || body_id.elapsed().as_secs_f32()
                             > body.lifespan
                     {
-                        body.set_status(
-                            Status::Cross,
-                            body_id,
-                            &mut bodies,
-                            unsafe {
-                                &mut (*(&mut crosses
-                                    as *mut Vec<
-                                        Vec<HashMap<Instant, Cross>>,
-                                    >))
-                            },
-                            &mut plants,
-                        );
-
+                        body.status = Status::Cross;
                         removed_bodies.insert(*body_id, body.pos);
 
                         continue;
@@ -752,22 +740,24 @@ async fn main() {
             bodies_n += 1;
         }
 
-        let mut changed: Vec<(Instant, Body)> = Vec::new();
+        let mut changed: Vec<(Instant, Vec2)> = Vec::new();
 
         for row in &mut bodies {
             for column in row.iter_mut() {
                 for (body_id, body) in column.iter_mut() {
                     if body.pos != body.last_pos {
-                        changed.push((*body_id, body.clone()));
+                        changed.push((*body_id, body.pos));
                     }
                 }
             }
         }
 
-        for (body_id, body) in changed.iter() {
-            let mut body = body.clone();
+        for (body_id, body_pos) in changed.iter() {
             let Cell { i: old_i, j: old_j } =
-                CELLS.get_cell_by_pos(body.pos);
+                CELLS.get_cell_by_pos(*body_pos);
+            let mut body =
+                bodies[old_i][old_j].get(body_id).unwrap().clone();
+
             bodies[old_i][old_j].remove(body_id);
 
             body.pos = body.last_pos;
