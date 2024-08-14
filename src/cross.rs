@@ -24,7 +24,7 @@ impl Cross {
             viruses:     body.viruses.clone(),
             color:       body.color,
             body_type:   body.body_type,
-            followed_by: body.followed_by.clone(),
+            followed_by: HashMap::new(),
         }
     }
 
