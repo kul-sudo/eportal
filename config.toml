@@ -2,12 +2,16 @@
 
 [body]
 # For the 1st generation
-bodies_n = 10000 # 800 (How many bodies are spawned on the field)
-passive_chance = 0.3 # 0.3 (The probability a body becomes passive)
+omnivorous_n = 400 # 400
+herbivorous_n = 400 # 400
+carnivorous_n = 400 # 400
+
 average_energy = 1500.0 # 1500.0
 average_speed = 1.5 # 1.5
 average_division_threshold = 2300.0 # 2300.0
 average_vision_distance = 100.0 # 100.0
+
+omnivorous_food_part = 0.5 # 0.7 (The part of the food's energy an omnivorous body gets)
 
 # All the time (1st generation included)
 skills_change_chance = 0.14 # 0.14 (The probability a body's child either gets or loses a skill)
@@ -23,10 +27,10 @@ plant_spawn_chance = 0.0000001 # 0.0000001 (The probability for a plant to be sp
 plant_die_chance = 0.0004 # 0.0004 (The probability for a plant to die)
 
 [energy]
-energy_spent_const_for_mass = 0.0002 # 0.0002 (Part of energy constantly spent on mass)
-energy_spent_const_for_skills = 0.04 # 0.04 (Part of energy constantly spent on one skill)
-energy_spent_const_for_vision_distance = 0.00005 # 0.00005 (Part of energy constantly spent on vision distancce)
-energy_spent_const_for_movement = 0.0006 # 0.0006 (Part of energy constantly spent on movement depending on the speed)
+energy_spent_const_for_mass = 0.0001 # 0.0002 (Part of energy constantly spent on mass)
+energy_spent_const_for_skills = 0.02 # 0.04 (Part of energy constantly spent on one skill)
+energy_spent_const_for_vision_distance = 0.000025 # 0.00005 (Part of energy constantly spent on vision distancce)
+energy_spent_const_for_movement = 0.0003 # 0.0006 (Part of energy constantly spent on movement depending on the speed)
 
 [viruses]
 # first_generation_infection_chance: the probability the 1st generation gets infected with the virus

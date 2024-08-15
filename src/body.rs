@@ -7,9 +7,9 @@ use crate::{
     CELLS,
 };
 use macroquad::prelude::{
-    draw_circle, draw_rectangle, draw_text, measure_text,
-    rand::gen_range, vec2, Circle, Color, Vec2, Vec3, GREEN, RED,
-    WHITE,
+    draw_circle, draw_rectangle, draw_rectangle_ex, draw_text,
+    measure_text, rand::gen_range, vec2, Circle, Color,
+    DrawRectangleParams, Vec2, Vec3, GREEN, RED, WHITE,
 };
 use rand::{random, rngs::StdRng, seq::IteratorRandom, Rng};
 use std::{
@@ -39,15 +39,14 @@ pub enum Status {
     EscapingBody(BodyId, u32),
     Walking(Vec2),
     Cross,
-    Idle,
+    Undefined,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum EatingStrategy {
-    /// When a body sees no food, it stands still.
-    Passive,
-    /// When a body sees no food, it walks in random directions, hoping to find it.
-    Active,
+    Omnivorous,
+    Herbivorous,
+    Carnivorous,
 }
 
 #[allow(dead_code)]
@@ -283,7 +282,7 @@ impl Body {
                 None => HashSet::with_capacity(Skill::ALL.len()),
             },
             color,
-            status: Status::Idle,
+            status: Status::Undefined,
             body_type,
             lifespan: unsafe { LIFESPAN },
             viruses: match viruses {
@@ -292,21 +291,25 @@ impl Body {
                     let mut viruses =
                         HashMap::with_capacity(Virus::ALL.len());
 
-                    for virus in Virus::ALL {
-                        let virus_chance = match virus {
-                            Virus::SpeedVirus => unsafe {
-                                SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE
-                            },
-                            Virus::VisionVirus => unsafe {
-                                VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE
-                            },
-                        };
+                    if eating_strategy != EatingStrategy::Herbivorous
+                    {
+                        for virus in Virus::ALL {
+                            let virus_chance = match virus {
+                                Virus::SpeedVirus => unsafe {
+                                    SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE
+                                },
+                                Virus::VisionVirus => unsafe {
+                                    VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE
+                                },
+                            };
 
-                        if virus_chance == 1.0
-                            || rng.gen_range(0.0..1.0) <= virus_chance
-                        {
-                            viruses.entry(virus).or_insert(
-                                rng.gen_range(
+                            if virus_chance == 1.0
+                                || rng.gen_range(0.0..1.0)
+                                    <= virus_chance
+                            {
+                                viruses
+                                    .entry(virus)
+                                    .or_insert(rng.gen_range(
                                     0.0..match virus {
                                         Virus::SpeedVirus => unsafe {
                                             SPEEDVIRUS_HEAL_ENERGY
@@ -315,8 +318,8 @@ impl Body {
                                             VISIONVIRUS_HEAL_ENERGY
                                         },
                                     },
-                                ),
-                            );
+                                ));
+                            }
                         }
                     }
 
@@ -359,7 +362,7 @@ impl Body {
         let side_length_half = OBJECT_RADIUS / SQRT_2;
 
         match self.eating_strategy {
-            EatingStrategy::Active => {
+            EatingStrategy::Omnivorous => {
                 let side_length = side_length_half * 2.0;
                 draw_rectangle(
                     self.pos.x - side_length_half,
@@ -369,12 +372,26 @@ impl Body {
                     self.color,
                 );
             }
-            EatingStrategy::Passive => draw_circle(
+            EatingStrategy::Herbivorous => draw_circle(
                 self.pos.x,
                 self.pos.y,
                 OBJECT_RADIUS,
                 self.color,
             ),
+            EatingStrategy::Carnivorous => {
+                let side_length = side_length_half * 2.0;
+                draw_rectangle_ex(
+                    self.pos.x,
+                    self.pos.y,
+                    side_length,
+                    side_length,
+                    DrawRectangleParams {
+                        offset:   vec2(0.5, 0.5),
+                        rotation: PI / 4.0,
+                        color:    self.color,
+                    },
+                );
+            }
         }
 
         if !self.viruses.is_empty() {
@@ -620,7 +637,7 @@ impl Body {
 
     #[inline(always)]
     /// Handle body-eaters walking and plant-eaters being idle.
-    pub fn handle_walking_idle(
+    pub fn handle_walking(
         &mut self,
         body_id: &BodyId,
         bodies: &mut [Vec<HashMap<BodyId, Self>>],
@@ -628,39 +645,25 @@ impl Body {
         plants: &mut [Vec<HashMap<PlantId, Plant>>],
         rng: &mut StdRng,
     ) {
-        match self.eating_strategy {
-            EatingStrategy::Active => {
-                if !matches!(self.status, Status::Walking(..)) {
-                    let walking_angle: f32 =
-                        rng.gen_range(0.0..2.0 * PI);
-                    let pos_deviation = vec2(
-                        self.speed * walking_angle.cos(),
-                        self.speed * walking_angle.sin(),
-                    );
+        if let Status::Walking(pos_deviation) = self.status {
+            self.last_pos.x += pos_deviation.x;
+            self.last_pos.y += pos_deviation.y;
 
-                    self.set_status(
-                        Status::Walking(pos_deviation),
-                        body_id,
-                        bodies,
-                        crosses,
-                        plants,
-                    );
-                }
+            self.wrap();
+        } else {
+            let walking_angle = rng.gen_range(0.0..2.0 * PI);
+            let pos_deviation = vec2(
+                self.speed * walking_angle.cos(),
+                self.speed * walking_angle.sin(),
+            );
 
-                if let Status::Walking(pos_deviation) = self.status {
-                    self.last_pos.x += pos_deviation.x;
-                    self.last_pos.y += pos_deviation.y;
-                }
-
-                self.wrap();
-            }
-            EatingStrategy::Passive => self.set_status(
-                Status::Idle,
+            self.set_status(
+                Status::Walking(pos_deviation),
                 body_id,
                 bodies,
                 crosses,
                 plants,
-            ),
+            );
         }
     }
 
@@ -677,13 +680,10 @@ impl Body {
             + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS }
                 * self.skills.len() as f32
             + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE }
-                * self.vision_distance.powi(2);
-
-        if self.status != Status::Idle {
-            self.energy -= unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT }
+                * self.vision_distance.powi(2)
+            + unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT }
                 * self.speed.powi(2)
                 * self.energy;
-        }
 
         if self.energy <= 0.0 {
             self.status = Status::Cross;
@@ -696,13 +696,11 @@ impl Body {
 
     #[inline(always)]
     pub fn handle_lifespan(&mut self) {
-        if self.status != Status::Idle {
-            self.lifespan = (self.lifespan
-                - unsafe { CONST_FOR_LIFESPAN }
-                    * self.speed.powi(2)
-                    * self.energy)
-                .max(0.0)
-        }
+        self.lifespan = (self.lifespan
+            - unsafe { CONST_FOR_LIFESPAN }
+                * self.speed.powi(2)
+                * self.energy)
+            .max(0.0)
     }
 
     #[inline(always)]
@@ -782,7 +780,10 @@ impl Body {
 
         // Make sure the color is different enough
         let real_color_gap = COLOR_GAP
-            / ((unsafe { BODIES_N } + 3) as f32).powf(1.0 / 3.0);
+            / ((unsafe {
+                OMNIVOROUS_N + HERBIVOROUS_N + CARNIVOROUS_N
+            } + 3) as f32)
+                .powf(1.0 / 3.0);
 
         let mut color = Color::from_rgba(
             gen_range(COLOR_MIN, COLOR_MAX),

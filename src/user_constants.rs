@@ -5,13 +5,16 @@ use std::{fs::read_to_string, ops::Range, process::exit};
 use toml::from_str;
 
 // Average spawn attributes
-pub static mut BODIES_N: usize = 0;
-pub static mut PASSIVE_CHANCE: f32 = 0.0;
+pub static mut OMNIVOROUS_N: usize = 0;
+pub static mut HERBIVOROUS_N: usize = 0;
+pub static mut CARNIVOROUS_N: usize = 0;
 
 pub static mut AVERAGE_ENERGY: f32 = 0.0;
 pub static mut AVERAGE_SPEED: f32 = 0.0;
 pub static mut AVERAGE_DIVISION_THRESHOLD: f32 = 0.0;
 pub static mut AVERAGE_VISION_DISTANCE: f32 = 0.0;
+
+pub static mut OMNIVOROUS_FOOD_PART: f32 = 0.0;
 
 pub static mut SKILLS_CHANGE_CHANCE: f32 = 0.0;
 pub static mut PLANTS_DENSITY: f32 = 0.0;
@@ -22,6 +25,7 @@ pub static mut MIN_ENERGY: f32 = 0.0;
 
 pub static mut PLANT_SPAWN_CHANCE: f32 = 0.0;
 pub static mut PLANT_DIE_CHANCE: f32 = 0.0;
+pub static mut CONST_FOR_LIFESPAN: f32 = 0.0;
 
 // Death
 pub static mut CROSS_LIFESPAN: u64 = 0;
@@ -31,7 +35,6 @@ pub static mut ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.0;
 pub static mut ENERGY_SPENT_CONST_FOR_SKILLS: f32 = 0.0;
 pub static mut ENERGY_SPENT_CONST_FOR_VISION_DISTANCE: f32 = 0.0;
 pub static mut ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.0;
-pub static mut CONST_FOR_LIFESPAN: f32 = 0.0;
 
 // SpeedVirus
 pub static mut SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE: f32 =
@@ -64,12 +67,14 @@ pub static mut SHOW_VIRUSES: bool = false;
 
 #[derive(Deserialize)]
 struct BodyField {
-    bodies_n:                   usize,
-    passive_chance:             f32,
+    omnivorous_n:               usize,
+    herbivorous_n:              usize,
+    carnivorous_n:              usize,
     average_energy:             f32,
     average_speed:              f32,
     average_division_threshold: f32,
     average_vision_distance:    f32,
+    omnivorous_food_part:       f32,
     skills_change_chance:       f32,
     deviation:                  f32,
     lifespan:                   f32,
@@ -167,12 +172,16 @@ pub fn config_setup(first_run: bool) {
 
     unsafe {
         // Body-related
-        BODIES_N = body.bodies_n;
-        PASSIVE_CHANCE = body.passive_chance;
+        OMNIVOROUS_N = body.omnivorous_n;
+        HERBIVOROUS_N = body.herbivorous_n;
+        CARNIVOROUS_N = body.carnivorous_n;
+
         AVERAGE_ENERGY = body.average_energy;
         AVERAGE_SPEED = body.average_speed;
         AVERAGE_DIVISION_THRESHOLD = body.average_division_threshold;
         AVERAGE_VISION_DISTANCE = body.average_vision_distance;
+
+        OMNIVOROUS_FOOD_PART = body.omnivorous_food_part;
         CONST_FOR_LIFESPAN = body.const_for_lifespan;
 
         SKILLS_CHANGE_CHANCE = body.skills_change_chance;

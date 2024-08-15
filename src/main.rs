@@ -146,16 +146,32 @@ async fn main() {
     let mut bodies_n = 0;
 
     // Spawn the bodies
-    for i in 0..unsafe { BODIES_N } {
+    for i in
+        0..unsafe { OMNIVOROUS_N + HERBIVOROUS_N + CARNIVOROUS_N }
+    {
         Body::randomly_spawn_body(
             &mut bodies,
-            if unsafe { PASSIVE_CHANCE } == 1.0
-                || rng.gen_range(0.0..1.0)
-                    <= unsafe { PASSIVE_CHANCE }
-            {
-                EatingStrategy::Passive
-            } else {
-                EatingStrategy::Active
+            unsafe {
+                match i {
+                    _ if (0..OMNIVOROUS_N).contains(&i) => {
+                        EatingStrategy::Omnivorous
+                    }
+                    _ if (OMNIVOROUS_N
+                        ..OMNIVOROUS_N + HERBIVOROUS_N)
+                        .contains(&i) =>
+                    {
+                        EatingStrategy::Herbivorous
+                    }
+                    _ if (OMNIVOROUS_N + HERBIVOROUS_N
+                        ..OMNIVOROUS_N
+                            + HERBIVOROUS_N
+                            + CARNIVOROUS_N)
+                        .contains(&i) =>
+                    {
+                        EatingStrategy::Carnivorous
+                    }
+                    _ => unreachable!(),
+                }
             },
             i + 1,
             &mut rng,
@@ -406,16 +422,22 @@ async fn main() {
                         &Cross,
                     > = HashMap::new();
 
-                    get_visible!(
-                        body,
-                        unsafe {
-                            &mut (*(&mut crosses
-                                as *mut Vec<
-                                    Vec<HashMap<CrossId, Cross>>,
-                                >))
-                        },
-                        visible_crosses
-                    );
+                    if body.eating_strategy
+                        == EatingStrategy::Omnivorous
+                        || body.eating_strategy
+                            == EatingStrategy::Carnivorous
+                    {
+                        get_visible!(
+                            body,
+                            unsafe {
+                                &mut (*(&mut crosses
+                                    as *mut Vec<
+                                        Vec<HashMap<CrossId, Cross>>,
+                                    >))
+                            },
+                            visible_crosses
+                        );
+                    }
 
                     // Find the closest cross
                     match visible_crosses
@@ -466,11 +488,16 @@ async fn main() {
                                 as usize,
                             );
 
-                            get_visible!(
-                                body,
-                                plants,
-                                visible_plants
-                            );
+                            if body.eating_strategy
+                            == EatingStrategy::Omnivorous
+                            || body.eating_strategy
+                            == EatingStrategy::Herbivorous {
+                                get_visible!(
+                                    body,
+                                    plants,
+                                    visible_plants
+                                );
+                            }
 
                             let filtered_visible_plants = visible_plants
                                 .iter()
@@ -524,22 +551,26 @@ async fn main() {
                                     &Body,
                                     > = HashMap::new();
 
-                                    get_visible!(
-                                        body,
-                                        unsafe {
-                                            &mut (*(&mut bodies
-                                            as *mut Vec<
-                                            Vec<
-                                            HashMap<
-                                            BodyId,
-                                            Body,
-                                            >,
-                                            >,
-                                            >))
-                                        },
-                                        visible_bodies
-                                    );
-
+                                    if body.eating_strategy
+                                    == EatingStrategy::Omnivorous
+                                    || body.eating_strategy
+                                    == EatingStrategy::Herbivorous {
+                                        get_visible!(
+                                            body,
+                                            unsafe {
+                                                &mut (*(&mut bodies
+                                                as *mut Vec<
+                                                Vec<
+                                                HashMap<
+                                                BodyId,
+                                                Body,
+                                                >,
+                                                >,
+                                                >))
+                                            },
+                                            visible_bodies
+                                        );
+                                    }
                                     // Find the closest body
                                     if let Some((closest_body_id, closest_body)) =  visible_bodies
                                         .iter()
@@ -594,7 +625,20 @@ async fn main() {
                         let distance_to_food =
                             body.pos.distance(food.pos);
                         if distance_to_food <= body.speed {
-                            body.energy += food.energy;
+                            body.energy += match body.eating_strategy
+                            {
+                                EatingStrategy::Omnivorous => {
+                                    food.energy
+                                        * unsafe {
+                                            OMNIVOROUS_FOOD_PART
+                                        }
+                                }
+                                EatingStrategy::Herbivorous
+                                | EatingStrategy::Carnivorous => {
+                                    food.energy
+                                }
+                            };
+
                             body.last_pos = food.pos;
 
                             match food.food_type {
@@ -621,25 +665,6 @@ async fn main() {
                                 }
                             }
                         } else {
-                            Body::followed_by_cleanup(
-                                body_id,
-                                &CELLS.get_cell_by_pos(body.pos),
-                                &mut bodies,
-                                unsafe {
-                                    &mut (*(&mut crosses
-                                        as *mut Vec<
-                                            Vec<
-                                                HashMap<
-                                                    CrossId,
-                                                    Cross,
-                                                >,
-                                            >,
-                                        >))
-                                },
-                                &mut plants,
-                                Some(&food),
-                            );
-
                             let Cell { i, j } =
                                 CELLS.get_cell_by_pos(food.pos);
 
@@ -680,11 +705,28 @@ async fn main() {
                                 }
                             }
 
-                            body.status = Status::FollowingTarget(
-                                food.id,
-                                food.pos,
-                                food.food_type,
+                            body.set_status(
+                                Status::FollowingTarget(
+                                    food.id,
+                                    food.pos,
+                                    food.food_type,
+                                ),
+                                body_id,
+                                &mut bodies,
+                                unsafe {
+                                    &mut (*(&mut crosses
+                                        as *mut Vec<
+                                            Vec<
+                                                HashMap<
+                                                    Instant,
+                                                    Cross,
+                                                >,
+                                            >,
+                                        >))
+                                },
+                                &mut plants,
                             );
+
                             body.last_pos.x += (food.pos.x
                                 - body.last_pos.x)
                                 * (body.speed / distance_to_food);
@@ -706,7 +748,7 @@ async fn main() {
                         continue;
                     }
 
-                    body.handle_walking_idle(
+                    body.handle_walking(
                         body_id,
                         &mut bodies,
                         &mut crosses,
