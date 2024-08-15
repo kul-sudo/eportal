@@ -59,7 +59,28 @@ pub static AREA_SIZE: LazyLock<Vec2> = LazyLock::new(|| {
         screen_height() * OBJECT_RADIUS,
     )
 });
-pub static CELLS: LazyLock<Cells> = LazyLock::new(generate_cells);
+pub static CELLS: LazyLock<Cells> = LazyLock::new(|| {
+    let mut cells = Cells::default();
+
+    let area_size_ratio = AREA_SIZE.x / AREA_SIZE.y;
+
+    // Get `k` out of PLANTS_N/k = DEFAULT_PLANTS/p
+    // where `k` is the real number of cells
+    // and `p` is the default number of cells.
+    cells.rows = ((DEFAULT_CELL_ROWS as f32
+        * (DEFAULT_AREA_SIZE_RATIO * unsafe { PLANTS_N } as f32
+            / (area_size_ratio * DEFAULT_PLANTS_N as f32))
+            .sqrt())
+    .round() as usize)
+        .clamp(50, 200);
+    cells.columns =
+        (cells.rows as f32 * area_size_ratio).round() as usize;
+
+    cells.cell_width = AREA_SIZE.x / cells.columns as f32;
+    cells.cell_height = AREA_SIZE.y / cells.rows as f32;
+
+    cells
+});
 
 #[macroquad::main(window_conf)]
 async fn main() {
@@ -115,8 +136,7 @@ async fn main() {
 
     let mut bodies: Vec<Vec<HashMap<BodyId, Body>>> = vec![
         vec![
-            HashMap::with_capacity(
-                unsafe { BODIES_N } / CELLS.rows * CELLS.columns
+            HashMap::new(
             );
             CELLS.columns
         ];

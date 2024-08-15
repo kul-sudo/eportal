@@ -29,14 +29,14 @@ pub const GRASS_ENERGY: f32 = 100.0;
 pub const BANANA_ENERGY: f32 = GRASS_ENERGY * 2.0;
 
 pub const MIN_GAP: f32 = 3.0;
-pub const COLOR_GAP: f32 = 0.3; // Depends on COLOR_MIN and COLOR_MAX
+pub const COLOR_GAP: f32 = 0.4; // Depends on COLOR_MIN and COLOR_MAX
 pub const PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 
 // Plants
 pub static mut PLANTS_N_FOR_ONE_STEP: usize = 0;
 
 // Conditions
-pub const RAIN_PLANTS_N_FOR_ONE_STEP_MULTIPLIER: f32 = 2.5;
+pub const RAIN_PLANTS_N_FOR_ONE_STEP_MULTIPLIER: f32 = 2.7;
 pub const DROUGHT_PLANT_DIE_CHANCE_MULTIPLIER: f32 = 1.2;
 
 // UI

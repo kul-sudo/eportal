@@ -97,6 +97,7 @@ pub type BodyId = Instant;
 /// https://github.com/kul-sudo/eportal/blob/main/README.md#properties
 pub struct Body {
     pub pos:                 Vec2,
+    /// Needed for cells: body.pos = body.last_pos after the loop.
     pub last_pos:            Vec2,
     pub energy:              f32,
     pub speed:               f32,
