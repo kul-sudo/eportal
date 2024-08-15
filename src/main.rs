@@ -134,14 +134,8 @@ async fn main() {
     let mut condition: Option<(Condition, (Instant, Duration))> =
         None;
 
-    let mut bodies: Vec<Vec<HashMap<BodyId, Body>>> = vec![
-        vec![
-            HashMap::new(
-            );
-            CELLS.columns
-        ];
-        CELLS.rows
-    ];
+    let mut bodies: Vec<Vec<HashMap<BodyId, Body>>> =
+        vec![vec![HashMap::new(); CELLS.columns]; CELLS.rows];
     let mut plants: Vec<Vec<HashMap<PlantId, Plant>>> =
         vec![vec![HashMap::new(); CELLS.columns]; CELLS.rows];
     let mut crosses: Vec<Vec<HashMap<CrossId, Cross>>> =

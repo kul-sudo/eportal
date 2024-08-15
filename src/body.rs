@@ -1048,7 +1048,7 @@ impl Body {
             followed_by.iter().all(|(other_body_id, other_body)| {
                 other_body_id == body_id
                     || if other_body.body_type == self.body_type {
-                        other_body.lifespan / self.lifespan < 2.0
+                        other_body.lifespan < self.lifespan
                     } else {
                         true
                     }
