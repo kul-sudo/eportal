@@ -40,7 +40,7 @@ use macroquad::prelude::{
     screen_height, screen_width, set_fullscreen, vec2, Camera2D,
     Conf, KeyCode, MouseButton, Rect, Vec2, WHITE,
 };
-use rand::{rngs::StdRng, seq::IteratorRandom, Rng, SeedableRng};
+use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 
 fn window_conf() -> Conf {
     Conf {
@@ -554,7 +554,7 @@ async fn main() {
                                     if body.eating_strategy
                                     == EatingStrategy::Omnivorous
                                     || body.eating_strategy
-                                    == EatingStrategy::Herbivorous {
+                                    == EatingStrategy::Carnivorous {
                                         get_visible!(
                                             body,
                                             unsafe {
