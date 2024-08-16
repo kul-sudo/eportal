@@ -414,212 +414,29 @@ async fn main() {
                     }
 
                     // Eating
-                    let mut food: Option<FoodInfo> = None;
-
-                    // Find the closest plant
-                    let mut visible_crosses: HashMap<
-                        &CrossId,
-                        &Cross,
-                    > = HashMap::new();
-
-                    if body.eating_strategy
-                        == EatingStrategy::Omnivorous
-                        || body.eating_strategy
-                            == EatingStrategy::Carnivorous
-                    {
-                        get_visible!(
-                            body,
-                            unsafe {
-                                &mut (*(&mut crosses
-                                    as *mut Vec<
-                                        Vec<HashMap<CrossId, Cross>>,
-                                    >))
-                            },
-                            visible_crosses
-                        );
-                    }
-
-                    // Find the closest cross
-                    match visible_crosses
-                        .iter()
-                        .filter(|(_, cross)| {
-                            body.handle_eat_crosses_of_my_type(cross)
-                            && body.handle_alive_when_arrived_cross(cross)
-                            && body.handle_profitable_when_arrived_cross(cross)
-                            && body.handle_avoid_new_viruses_cross(cross)
-                            && body.handle_will_arrive_first_cross(
-                                body_id, cross,
-                            )
-                            && body.handle_do_not_compete_with_relatives(
-                                body_id,
-                                &cross.followed_by,
-                            )
-                            && body.handle_do_not_compete_with_younger_relatives(
-                                body_id,
-                                &cross.followed_by,
-                            )
-                        })
-                        .min_by(|(_, a), (_, b)| {
-                            body.pos
-                                .distance(a.pos)
-                                .partial_cmp(
-                                    &body.pos.distance(b.pos),
-                                )
-                                .unwrap()
-                        }) {
-                        Some((closest_cross_id, closest_cross)) => {
-                            food = Some(FoodInfo {
-                                id:        **closest_cross_id,
-                                food_type: ObjectType::Cross,
-                                pos:       closest_cross.pos,
-                                energy:    closest_cross.energy,
-                                viruses:   Some(
-                                    &closest_cross.viruses,
-                                ),
-                            });
-                        }
-                        None => {
-                            let mut visible_plants: HashMap<
-                            &PlantId,
-                            &Plant,
-                            > = HashMap::with_capacity(
-                                (plants_n as f32
-                                * AVERAGE_PLANTS_PART_VISIBLE)
-                                as usize,
-                            );
-
-                            if body.eating_strategy
-                            == EatingStrategy::Omnivorous
-                            || body.eating_strategy
-                            == EatingStrategy::Herbivorous {
-                                get_visible!(
-                                    body,
-                                    plants,
-                                    visible_plants
-                                );
-                            }
-
-                            let filtered_visible_plants = visible_plants
-                                .iter()
-                                .filter(|(plant_id, plant)| {
-                                    !removed_plants.contains_key(plant_id)
-                                    && body.handle_alive_when_arrived_plant(plant)
-                                    && body.handle_profitable_when_arrived_plant(plant)
-                                    && body.handle_do_not_compete_with_relatives(
-                                        body_id,
-                                        &plant.followed_by
-                                    )
-                                    && body.handle_do_not_compete_with_younger_relatives(
-                                        body_id,
-                                        &plant.followed_by
-                                    )
-                                    && body.handle_will_arrive_first_plant(
-                                        body_id,
-                                        plant,
-                                    )
-                                }).collect::<Vec<_>>();
-
-                            match body
-                                .find_closest_plant(
-                                    &filtered_visible_plants,
-                                    PlantKind::Banana,
-                                )
-                                .or_else(|| {
-                                    body.find_closest_plant(
-                                        &filtered_visible_plants,
-                                        PlantKind::Grass,
-                                    )
-                                }) {
-                                Some((
-                                    closest_plant_id,
-                                    closest_plant,
-                                )) => {
-                                    food = Some(FoodInfo {
-                                        id:
-                                        ***closest_plant_id,
-                                        food_type: ObjectType::Plant,
-                                        pos:       closest_plant.pos,
-                                        energy:    closest_plant
-                                            .get_contained_energy(),
-                                        viruses:   None,
-                                    })
-                                }
-                                None => {
-                                    // Find the closest plant
-                                    let mut visible_bodies: HashMap<
-                                    &BodyId,
-                                    &Body,
-                                    > = HashMap::new();
-
-                                    if body.eating_strategy
-                                    == EatingStrategy::Omnivorous
-                                    || body.eating_strategy
-                                    == EatingStrategy::Carnivorous {
-                                        get_visible!(
-                                            body,
-                                            unsafe {
-                                                &mut (*(&mut bodies
-                                                as *mut Vec<
-                                                Vec<
-                                                HashMap<
-                                                BodyId,
-                                                Body,
-                                                >,
-                                                >,
-                                                >))
-                                            },
-                                            visible_bodies
-                                        );
-                                    }
-                                    // Find the closest body
-                                    if let Some((closest_body_id, closest_body)) =  visible_bodies
-                                        .iter()
-                                        .filter(|(other_body_id, other_body)| {
-                                            body.body_type != other_body.body_type &&
-                                            &&body_id != other_body_id
-                                            && body.energy > other_body.energy
-                                            && body.pos.distance(other_body.pos)
-                                            <= body.vision_distance
-                                            && !removed_bodies.contains_key(other_body_id)
-                                            && body.handle_alive_when_arrived_body(
-                                                other_body,
-                                            )
-                                            && body.handle_profitable_when_arrived_body(
-                                                other_body,
-                                            )
-                                            && body.handle_avoid_new_viruses_body(other_body)
-                                            && body.handle_will_arrive_first_body(
-                                                body_id,
-                                                other_body,
-                                            )
-                                            && body.handle_do_not_compete_with_relatives(
-                                                body_id,
-                                                &other_body.followed_by
-                                            )
-                                            && body.handle_do_not_compete_with_younger_relatives(
-                                                body_id,
-                                                &other_body.followed_by,
-                                            )
-                                        })
-                                        .min_by(|(_, a), (_, b)| {
-                                            body.pos
-                                                .distance(a.pos)
-                                                .partial_cmp(&body.pos.distance(b.pos))
-                                                .unwrap()
-                                        })
-                                    {
-                                        food = Some(FoodInfo {
-                                            id:        **closest_body_id,
-                                            food_type: ObjectType::Body,
-                                            pos:       closest_body.pos,
-                                            energy:    closest_body.energy,
-                                            viruses: Some(&closest_body.viruses)
-                                        })
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    let food: Option<FoodInfo> = body.find_food(
+                        &body_id,
+                        unsafe {
+                            &(*(&bodies
+                                as *const Vec<
+                                    Vec<HashMap<BodyId, Body>>,
+                                >))
+                        },
+                        unsafe {
+                            &(*(&plants
+                                as *const Vec<
+                                    Vec<HashMap<PlantId, Plant>>,
+                                >))
+                        },
+                        unsafe {
+                            &(*(&crosses
+                                as *const Vec<
+                                    Vec<HashMap<CrossId, Cross>>,
+                                >))
+                        },
+                        &removed_bodies,
+                        &removed_plants,
+                    );
 
                     if let Some(food) = food {
                         let distance_to_food =

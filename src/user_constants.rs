@@ -15,6 +15,7 @@ pub static mut AVERAGE_DIVISION_THRESHOLD: f32 = 0.0;
 pub static mut AVERAGE_VISION_DISTANCE: f32 = 0.0;
 
 pub static mut OMNIVOROUS_FOOD_PART: f32 = 0.0;
+pub static mut CARNIVOROUS_ENERGY_CONST: f32 = 0.0;
 
 pub static mut SKILLS_CHANGE_CHANCE: f32 = 0.0;
 pub static mut PLANTS_DENSITY: f32 = 0.0;
@@ -75,6 +76,7 @@ struct BodyField {
     average_division_threshold: f32,
     average_vision_distance:    f32,
     omnivorous_food_part:       f32,
+    carnivorous_energy_const:   f32,
     skills_change_chance:       f32,
     deviation:                  f32,
     lifespan:                   f32,
@@ -182,6 +184,8 @@ pub fn config_setup(first_run: bool) {
         AVERAGE_VISION_DISTANCE = body.average_vision_distance;
 
         OMNIVOROUS_FOOD_PART = body.omnivorous_food_part;
+        CARNIVOROUS_ENERGY_CONST = body.carnivorous_energy_const;
+
         CONST_FOR_LIFESPAN = body.const_for_lifespan;
 
         SKILLS_CHANGE_CHANCE = body.skills_change_chance;

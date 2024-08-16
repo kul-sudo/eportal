@@ -12,7 +12,6 @@ pub const DEFAULT_CELL_ROWS: usize = 129; // May be needed to be changed when th
 pub const DEFAULT_PLANTS_N: usize = 53914;
 pub static mut PLANTS_N: usize = 0;
 
-pub const AVERAGE_PLANTS_PART_VISIBLE: f32 = 0.00014;
 pub const AVERAGE_PLANTS_PART_DRAWN: f32 = 0.014;
 
 /// The recommended constants in config.toml have been detemined for this area space.

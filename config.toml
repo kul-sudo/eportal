@@ -11,7 +11,8 @@ average_speed = 1.5 # 1.5
 average_division_threshold = 2300.0 # 2300.0
 average_vision_distance = 100.0 # 100.0
 
-omnivorous_food_part = 0.5 # 0.7 (The part of the food's energy an omnivorous body gets)
+omnivorous_food_part = 0.5 # 0.5 (The part of the food's energy an omnivorous body gets)
+carnivorous_energy_const = 0.5 # 0.5 (The carnivorous body A chases the non-carnivorous body B if A.energy * const < B.energy)
 
 # All the time (1st generation included)
 skills_change_chance = 0.14 # 0.14 (The probability a body's child either gets or loses a skill)
