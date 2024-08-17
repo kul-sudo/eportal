@@ -325,6 +325,17 @@ async fn main() {
         } {
             for column in row {
                 for (body_id, body) in column {
+                    for (body_id, body_pos) in &removed_bodies {
+                        Body::followed_by_cleanup(
+                            body_id,
+                            &CELLS.get_cell_by_pos(*body_pos),
+                            &mut bodies,
+                            &mut crosses,
+                            &mut plants,
+                            None,
+                        );
+                    }
+
                     body.handle_viruses();
                     body.handle_lifespan();
 
@@ -361,12 +372,10 @@ async fn main() {
                     let mut chasers = body.followed_by.clone();
 
                     if !chasers.is_empty() {
-                        chasers.retain(
-                            |_, other_body| {
-                                body.pos.distance(other_body.pos)
-                                    <= body.vision_distance
-                            },
-                        );
+                        chasers.retain(|_, other_body| {
+                            body.pos.distance(other_body.pos)
+                                <= body.vision_distance
+                        });
 
                         if body
                             .skills
@@ -605,15 +614,6 @@ async fn main() {
         }
 
         for (body_id, body_pos) in &removed_bodies {
-            Body::followed_by_cleanup(
-                body_id,
-                &CELLS.get_cell_by_pos(*body_pos),
-                &mut bodies,
-                &mut crosses,
-                &mut plants,
-                None,
-            );
-
             let Cell { i, j } = CELLS.get_cell_by_pos(*body_pos);
             let body = bodies[i][j].get(body_id).unwrap();
 

@@ -4,7 +4,7 @@
 # For the 1st generation
 omnivorous_n = 500 # 400
 herbivorous_n = 500 # 400
-carnivorous_n = 2300 # 400
+carnivorous_n = 4300 # 400
 
 average_energy_omnivorous_herbivorous = 1500.0 # 1500.0
 average_energy_carnivorous = 1500.0 # 1500.0
