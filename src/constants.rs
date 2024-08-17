@@ -28,7 +28,7 @@ pub const GRASS_ENERGY: f32 = 100.0;
 pub const BANANA_ENERGY: f32 = GRASS_ENERGY * 2.0;
 
 pub const MIN_GAP: f32 = 3.0;
-pub const COLOR_GAP: f32 = 0.4; // Depends on COLOR_MIN and COLOR_MAX
+pub const COLOR_GAP: f32 = 0.45; // Depends on COLOR_MIN and COLOR_MAX
 pub const PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 
 // Plants

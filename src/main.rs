@@ -593,7 +593,7 @@ async fn main() {
                         continue;
                     }
 
-                    body.handle_walking(
+                    body.handle_walking_or_idle(
                         body_id,
                         &mut bodies,
                         &mut crosses,

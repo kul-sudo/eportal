@@ -2,19 +2,19 @@
 
 [body]
 # For the 1st generation
-omnivorous_n = 500 # 400
-herbivorous_n = 500 # 400
-carnivorous_n = 4300 # 400
+omnivorous_n = 400 # 400
+herbivorous_n = 400 # 400
+carnivorous_n = 4000 # 400
 
-average_energy_omnivorous_herbivorous = 1500.0 # 1500.0
-average_energy_carnivorous = 1500.0 # 1500.0
+average_energy_omnivorous_herbivorous = 2300.0 # 1500.0
+average_energy_carnivorous = 2500.0 # 1500.0
 average_speed = 1.5 # 1.5
 average_division_threshold_omnivorous_herbivorous = 2300.0 # 1500.0
-average_division_threshold_carnivorous = 2300.0 # 1500.0
+average_division_threshold_carnivorous = 3000.0 # 1500.0
 average_vision_distance = 100.0 # 100.0
 
-omnivorous_food_part = 0.5 # 0.5 (The part of the food's energy an omnivorous body gets)
-carnivorous_energy_const = 0.5 # 0.5 (The carnivorous body A chases the non-carnivorous body B if A.energy * const < B.energy)
+omnivorous_food_part = 0.77 # 0.5 (The part of the food's energy an omnivorous body gets)
+carnivorous_energy_const = 0.2 # 0.5 (The carnivorous body A chases the non-carnivorous body B if A.energy * const < B.energy)
 
 # All the time (1st generation included)
 skills_change_chance = 0.14 # 0.14 (The probability a body's child either gets or loses a skill)
@@ -65,7 +65,7 @@ show_division_threshold = false # The energy a body has to reach to be able to p
 show_body_type = false # The type ID the body is part of (can also be distinguished using colors)
 show_lifespan = false # How many seconds a body has left to live if it theoretically doesn't move at all
 
-show_skills = false # The skills of a body
+show_skills = true # The skills of a body
 # DoNotCompeteWithRelatives = 0
 # DoNotCompeteWithYoungerRelatives = 1
 # AliveWhenArrived = 2

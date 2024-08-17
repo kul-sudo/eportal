@@ -37,7 +37,7 @@ pub struct FoodInfo<'a> {
 pub enum Status {
     FollowingTarget(Instant, Vec2, ObjectType),
     EscapingBody(BodyId, u32),
-    Walking(Vec2),
+    WalkingOrIdle(Option<Vec2>),
     Cross,
     Undefined,
 }
@@ -656,7 +656,7 @@ impl Body {
 
     #[inline(always)]
     /// Handle body-eaters walking and plant-eaters being idle.
-    pub fn handle_walking(
+    pub fn handle_walking_or_idle(
         &mut self,
         body_id: &BodyId,
         bodies: &mut [Vec<HashMap<BodyId, Self>>],
@@ -664,25 +664,41 @@ impl Body {
         plants: &mut [Vec<HashMap<PlantId, Plant>>],
         rng: &mut StdRng,
     ) {
-        if let Status::Walking(pos_deviation) = self.status {
-            self.last_pos.x += pos_deviation.x;
-            self.last_pos.y += pos_deviation.y;
+        match self.eating_strategy {
+            EatingStrategy::Carnivorous => {
+                self.set_status(
+                    Status::WalkingOrIdle(None),
+                    body_id,
+                    bodies,
+                    crosses,
+                    plants,
+                );
+            }
+            EatingStrategy::Omnivorous
+            | EatingStrategy::Herbivorous => {
+                if let Status::WalkingOrIdle(pos_deviation) =
+                    self.status
+                {
+                    self.last_pos.x += pos_deviation.unwrap().x;
+                    self.last_pos.y += pos_deviation.unwrap().y;
 
-            self.wrap();
-        } else {
-            let walking_angle = rng.gen_range(0.0..2.0 * PI);
-            let pos_deviation = vec2(
-                self.speed * walking_angle.cos(),
-                self.speed * walking_angle.sin(),
-            );
+                    self.wrap();
+                } else {
+                    let walking_angle = rng.gen_range(0.0..2.0 * PI);
+                    let pos_deviation = vec2(
+                        self.speed * walking_angle.cos(),
+                        self.speed * walking_angle.sin(),
+                    );
 
-            self.set_status(
-                Status::Walking(pos_deviation),
-                body_id,
-                bodies,
-                crosses,
-                plants,
-            );
+                    self.set_status(
+                        Status::WalkingOrIdle(Some(pos_deviation)),
+                        body_id,
+                        bodies,
+                        crosses,
+                        plants,
+                    );
+                }
+            }
         }
     }
 
