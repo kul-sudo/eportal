@@ -4,13 +4,13 @@
 # For the 1st generation
 omnivorous_n = 500 # 400
 herbivorous_n = 500 # 400
-carnivorous_n = 8000 # 400
+carnivorous_n = 2300 # 400
 
 average_energy_omnivorous_herbivorous = 1500.0 # 1500.0
 average_energy_carnivorous = 1500.0 # 1500.0
 average_speed = 1.5 # 1.5
-average_division_threshold_omnivorous_herbivorous = 1500.0 # 1500.0
-average_division_threshold_carnivorous = 1500.0 # 1500.0
+average_division_threshold_omnivorous_herbivorous = 2300.0 # 1500.0
+average_division_threshold_carnivorous = 2300.0 # 1500.0
 average_vision_distance = 100.0 # 100.0
 
 omnivorous_food_part = 0.5 # 0.5 (The part of the food's energy an omnivorous body gets)
@@ -60,12 +60,12 @@ body_info_font_size = 17 # 17 (The font size of the info displayed over the bodi
 show_fps = false # Whether to show how many frames roughly happen per second
 
 # Properties of a body to show over it
-show_energy = false # The current energy
+show_energy = true # The current energy
 show_division_threshold = false # The energy a body has to reach to be able to procreate
 show_body_type = false # The type ID the body is part of (can also be distinguished using colors)
 show_lifespan = false # How many seconds a body has left to live if it theoretically doesn't move at all
 
-show_skills = true # The skills of a body
+show_skills = false # The skills of a body
 # DoNotCompeteWithRelatives = 0
 # DoNotCompeteWithYoungerRelatives = 1
 # AliveWhenArrived = 2

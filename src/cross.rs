@@ -1,4 +1,6 @@
 use crate::{constants::*, Body, BodyId, Virus, Zoom};
+use macroquad::prelude::draw_text;
+use macroquad::prelude::WHITE;
 use macroquad::prelude::{draw_circle, draw_line, Color, Vec2, RED};
 use std::{collections::HashMap, f32::consts::SQRT_2, time::Instant};
 
@@ -34,6 +36,14 @@ impl Cross {
         {
             return;
         }
+
+        //draw_text(
+        //    &self.followed_by.len().to_string(),
+        //    self.pos.x,
+        //    self.pos.y,
+        //    17.0,
+        //    WHITE,
+        //);
 
         let side_length_half = OBJECT_RADIUS / SQRT_2;
 

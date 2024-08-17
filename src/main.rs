@@ -20,12 +20,9 @@ use cells::*;
 use condition::*;
 use constants::*;
 use cross::*;
+use macroquad::prelude::draw_text;
 use plant::*;
 use smart_drawing::*;
-use user_constants::*;
-use utils::*;
-use zoom::*;
-
 use std::{
     collections::HashMap,
     intrinsics::unlikely,
@@ -33,6 +30,9 @@ use std::{
     sync::LazyLock,
     time::{Duration, Instant},
 };
+use user_constants::*;
+use utils::*;
+use zoom::*;
 
 use macroquad::prelude::{
     draw_circle_lines, draw_line, is_key_pressed,
@@ -333,7 +333,19 @@ async fn main() {
                         || body_id.elapsed().as_secs_f32()
                             > body.lifespan
                     {
-                        body.status = Status::Cross;
+                        body.set_status(
+                            Status::Cross,
+                            body_id,
+                            &mut bodies,
+                            unsafe {
+                                &mut (*(&mut crosses
+                                    as *mut Vec<
+                                        Vec<HashMap<Instant, Cross>>,
+                                    >))
+                            },
+                            &mut plants,
+                        );
+
                         removed_bodies.insert(*body_id, body.pos);
 
                         continue;
@@ -349,6 +361,13 @@ async fn main() {
                     let mut chasers = body.followed_by.clone();
 
                     if !chasers.is_empty() {
+                        chasers.retain(
+                            |_, other_body| {
+                                body.pos.distance(other_body.pos)
+                                    <= body.vision_distance
+                            },
+                        );
+
                         if body
                             .skills
                             .contains(&Skill::PrioritizeFasterChasers)
@@ -362,12 +381,6 @@ async fn main() {
                                 other_body.speed > body.speed
                             })
                         }
-
-                        chasers.retain(|_, other_body| {
-                            body.pos.distance(other_body.pos)
-                                <= body.vision_distance
-                        });
-
                         if let Some((
                             closest_chasing_body_id,
                             closest_chasing_body,
@@ -712,6 +725,33 @@ async fn main() {
                             if draw_body {
                                 body.draw();
                             }
+
+                            //if let Status::FollowingTarget(
+                            //    id,
+                            //    pos,
+                            //    type_,
+                            //) = body.status
+                            //{
+                            //    if type_ == ObjectType::Plant {
+                            //        let Cell { i, j } =
+                            //            CELLS.get_cell_by_pos(pos);
+                            //
+                            //        if let Some(plant) =
+                            //            &plants[i][j].get(&id)
+                            //        {
+                            //            draw_text(
+                            //                &plant
+                            //                    .followed_by
+                            //                    .len()
+                            //                    .to_string(),
+                            //                body.pos.x,
+                            //                body.pos.y,
+                            //                25.0,
+                            //                WHITE,
+                            //            );
+                            //        }
+                            //    }
+                            //}
 
                             if draw_vision_distance && info.body_info
                             {
