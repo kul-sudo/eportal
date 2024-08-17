@@ -129,10 +129,10 @@ macro_rules! get_visible {
         // within the rectangle around the circle. Some of those cells are unneeded.
         let i_min = ((b - r) / h).floor().max(0.0) as usize;
         let i_max =
-        ((b + r) / h).floor().min(n as f32 - 1.0) as usize;
+        ((b + r) / h).floor().min((n - 1) as f32) as usize;
         let j_min = ((a - r) / w).floor().max(0.0) as usize;
         let j_max =
-        ((a + r) / w).floor().min(m as f32 - 1.0) as usize;
+        ((a + r) / w).floor().min((m - 1) as f32) as usize;
 
         // Ditch the unneeded cells
         let Cell {
@@ -875,9 +875,9 @@ impl Body {
     pub fn find_food<'a>(
         &self,
         body_id: &BodyId,
-        bodies: &'a Vec<Vec<HashMap<BodyId, Body>>>,
-        plants: &'a Vec<Vec<HashMap<PlantId, Plant>>>,
-        crosses: &'a Vec<Vec<HashMap<CrossId, Cross>>>,
+        bodies: &'a [Vec<HashMap<BodyId, Body>>],
+        plants: &'a [Vec<HashMap<PlantId, Plant>>],
+        crosses: &'a [Vec<HashMap<CrossId, Cross>>],
         removed_bodies: &HashMap<Instant, Vec2>,
         removed_plants: &HashMap<Instant, Vec2>,
     ) -> Option<FoodInfo<'a>> {
@@ -1008,20 +1008,24 @@ impl Body {
                                 && self.pos.distance(other_body.pos)
                                 <= self.vision_distance
                                 && !removed_bodies.contains_key(other_body_id)
-                                && if self.eating_strategy == EatingStrategy::Carnivorous {
-                                    self.energy > match other_body.eating_strategy {
-                                        EatingStrategy::Carnivorous => other_body.energy,
-                                        EatingStrategy::Herbivorous
-                                        | EatingStrategy::Omnivorous => other_body.energy * unsafe {
-                                            CARNIVOROUS_ENERGY_CONST
+                                && match self.eating_strategy {
+                                    EatingStrategy::Carnivorous => {
+                                        self.energy > match other_body.eating_strategy {
+                                            EatingStrategy::Carnivorous => other_body.energy,
+                                            EatingStrategy::Herbivorous
+                                            | EatingStrategy::Omnivorous => other_body.energy * unsafe {
+                                                CARNIVOROUS_ENERGY_CONST
+                                            }
                                         }
                                     }
-                                } else {
-                                    other_body.energy < match other_body.eating_strategy {
-                                        EatingStrategy::Carnivorous => self.energy * unsafe { CARNIVOROUS_ENERGY_CONST },
-                                        EatingStrategy::Herbivorous
-                                        | EatingStrategy::Omnivorous => self.energy
+                                    EatingStrategy::Omnivorous => {
+                                        other_body.energy < match other_body.eating_strategy {
+                                            EatingStrategy::Carnivorous => self.energy * unsafe { CARNIVOROUS_ENERGY_CONST },
+                                            EatingStrategy::Herbivorous
+                                            | EatingStrategy::Omnivorous => self.energy
+                                        }
                                     }
+                                    _ => unreachable!()
                                 }
                                 && self.handle_alive_when_arrived_body(
                                     other_body,

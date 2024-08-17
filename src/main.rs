@@ -398,6 +398,7 @@ async fn main() {
                                 body.pos.distance(
                                     closest_chasing_body.pos,
                                 );
+
                             body.last_pos.x -= (closest_chasing_body.last_pos.x
                             - body.last_pos.x)
                             * (body.speed
@@ -414,8 +415,8 @@ async fn main() {
                     }
 
                     // Eating
-                    let food: Option<FoodInfo> = body.find_food(
-                        &body_id,
+                    let food = body.find_food(
+                        body_id,
                         unsafe {
                             &(*(&bodies
                                 as *const Vec<
@@ -482,6 +483,35 @@ async fn main() {
                                 }
                             }
                         } else {
+                            body.set_status(
+                                Status::FollowingTarget(
+                                    food.id,
+                                    food.pos,
+                                    food.food_type,
+                                ),
+                                body_id,
+                                &mut bodies,
+                                unsafe {
+                                    &mut (*(&mut crosses
+                                        as *mut Vec<
+                                            Vec<
+                                                HashMap<
+                                                    Instant,
+                                                    Cross,
+                                                >,
+                                            >,
+                                        >))
+                                },
+                                &mut plants,
+                            );
+
+                            body.last_pos.x += (food.pos.x
+                                - body.last_pos.x)
+                                * (body.speed / distance_to_food);
+                            body.last_pos.y += (food.pos.y
+                                - body.last_pos.y)
+                                * (body.speed / distance_to_food);
+
                             let Cell { i, j } =
                                 CELLS.get_cell_by_pos(food.pos);
 
@@ -521,35 +551,6 @@ async fn main() {
                                         .or_insert(body.clone());
                                 }
                             }
-
-                            body.set_status(
-                                Status::FollowingTarget(
-                                    food.id,
-                                    food.pos,
-                                    food.food_type,
-                                ),
-                                body_id,
-                                &mut bodies,
-                                unsafe {
-                                    &mut (*(&mut crosses
-                                        as *mut Vec<
-                                            Vec<
-                                                HashMap<
-                                                    Instant,
-                                                    Cross,
-                                                >,
-                                            >,
-                                        >))
-                                },
-                                &mut plants,
-                            );
-
-                            body.last_pos.x += (food.pos.x
-                                - body.last_pos.x)
-                                * (body.speed / distance_to_food);
-                            body.last_pos.y += (food.pos.y
-                                - body.last_pos.y)
-                                * (body.speed / distance_to_food);
 
                             continue;
                         }
@@ -609,7 +610,7 @@ async fn main() {
         let mut changed: Vec<(Instant, Vec2)> = Vec::new();
 
         for row in &mut bodies {
-            for column in row.iter_mut() {
+            for column in row {
                 for (body_id, body) in column.iter_mut() {
                     if body.pos != body.last_pos {
                         changed.push((*body_id, body.pos));
@@ -618,7 +619,7 @@ async fn main() {
             }
         }
 
-        for (body_id, body_pos) in changed.iter() {
+        for (body_id, body_pos) in &changed {
             let Cell { i: old_i, j: old_j } =
                 CELLS.get_cell_by_pos(*body_pos);
             let mut body =
