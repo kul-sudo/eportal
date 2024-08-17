@@ -2,13 +2,15 @@
 
 [body]
 # For the 1st generation
-omnivorous_n = 0 # 400
-herbivorous_n = 0 # 400
-carnivorous_n = 800 # 400
+omnivorous_n = 500 # 400
+herbivorous_n = 500 # 400
+carnivorous_n = 8000 # 400
 
-average_energy = 1500.0 # 1500.0
+average_energy_omnivorous_herbivorous = 1500.0 # 1500.0
+average_energy_carnivorous = 1500.0 # 1500.0
 average_speed = 1.5 # 1.5
-average_division_threshold = 2300.0 # 2300.0
+average_division_threshold_omnivorous_herbivorous = 1500.0 # 1500.0
+average_division_threshold_carnivorous = 1500.0 # 1500.0
 average_vision_distance = 100.0 # 100.0
 
 omnivorous_food_part = 0.5 # 0.5 (The part of the food's energy an omnivorous body gets)

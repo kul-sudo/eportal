@@ -9,9 +9,15 @@ pub static mut OMNIVOROUS_N: usize = 0;
 pub static mut HERBIVOROUS_N: usize = 0;
 pub static mut CARNIVOROUS_N: usize = 0;
 
-pub static mut AVERAGE_ENERGY: f32 = 0.0;
+pub static mut AVERAGE_ENERGY_OMNIVOROUS_HERBIVOROUS: f32 = 0.0;
+pub static mut AVERAGE_ENERGY_CARNIVOROUS: f32 = 0.0;
+
 pub static mut AVERAGE_SPEED: f32 = 0.0;
-pub static mut AVERAGE_DIVISION_THRESHOLD: f32 = 0.0;
+
+pub static mut AVERAGE_DIVISION_THRESHOLD_OMNIVOROUS_HERBIVOROUS:
+    f32 = 0.0;
+pub static mut AVERAGE_DIVISION_THRESHOLD_CARNIVOROUS: f32 = 0.0;
+
 pub static mut AVERAGE_VISION_DISTANCE: f32 = 0.0;
 
 pub static mut OMNIVOROUS_FOOD_PART: f32 = 0.0;
@@ -68,21 +74,23 @@ pub static mut SHOW_VIRUSES: bool = false;
 
 #[derive(Deserialize)]
 struct BodyField {
-    omnivorous_n:               usize,
-    herbivorous_n:              usize,
-    carnivorous_n:              usize,
-    average_energy:             f32,
-    average_speed:              f32,
-    average_division_threshold: f32,
-    average_vision_distance:    f32,
-    omnivorous_food_part:       f32,
-    carnivorous_energy_const:   f32,
-    skills_change_chance:       f32,
-    deviation:                  f32,
-    lifespan:                   f32,
-    min_energy:                 f32,
-    cross_lifespan:             u64,
-    const_for_lifespan:         f32,
+    omnivorous_n:                                      usize,
+    herbivorous_n:                                     usize,
+    carnivorous_n:                                     usize,
+    average_energy_omnivorous_herbivorous:             f32,
+    average_energy_carnivorous:                        f32,
+    average_speed:                                     f32,
+    average_division_threshold_omnivorous_herbivorous: f32,
+    average_division_threshold_carnivorous:            f32,
+    average_vision_distance:                           f32,
+    omnivorous_food_part:                              f32,
+    carnivorous_energy_const:                          f32,
+    skills_change_chance:                              f32,
+    deviation:                                         f32,
+    lifespan:                                          f32,
+    min_energy:                                        f32,
+    cross_lifespan:                                    u64,
+    const_for_lifespan:                                f32,
 }
 
 #[derive(Deserialize)]
@@ -178,9 +186,17 @@ pub fn config_setup(first_run: bool) {
         HERBIVOROUS_N = body.herbivorous_n;
         CARNIVOROUS_N = body.carnivorous_n;
 
-        AVERAGE_ENERGY = body.average_energy;
+        AVERAGE_ENERGY_OMNIVOROUS_HERBIVOROUS =
+            body.average_energy_omnivorous_herbivorous;
+        AVERAGE_ENERGY_CARNIVOROUS = body.average_energy_carnivorous;
+
         AVERAGE_SPEED = body.average_speed;
-        AVERAGE_DIVISION_THRESHOLD = body.average_division_threshold;
+
+        AVERAGE_DIVISION_THRESHOLD_OMNIVOROUS_HERBIVOROUS =
+            body.average_division_threshold_omnivorous_herbivorous;
+        AVERAGE_DIVISION_THRESHOLD_CARNIVOROUS =
+            body.average_division_threshold_carnivorous;
+
         AVERAGE_VISION_DISTANCE = body.average_vision_distance;
 
         OMNIVOROUS_FOOD_PART = body.omnivorous_food_part;

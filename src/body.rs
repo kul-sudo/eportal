@@ -112,7 +112,6 @@ pub struct Body {
     initial_speed:           f32,
     initial_vision_distance: f32,
     pub followed_by:         HashMap<BodyId, Self>,
-    pub cell:                Cell,
 }
 
 #[macro_export]
@@ -239,9 +238,20 @@ impl Body {
             last_pos: pos,
             energy: match energy {
                 Some(energy) => energy / 2.0,
-                None => {
-                    get_with_deviation(unsafe { AVERAGE_ENERGY }, rng)
-                }
+                None => get_with_deviation(
+                    unsafe {
+                        match eating_strategy {
+                            EatingStrategy::Carnivorous => {
+                                AVERAGE_ENERGY_CARNIVOROUS
+                            }
+                            EatingStrategy::Herbivorous
+                            | EatingStrategy::Omnivorous => {
+                                AVERAGE_ENERGY_OMNIVOROUS_HERBIVOROUS
+                            }
+                        }
+                    },
+                    rng,
+                ),
             },
             speed,
             initial_speed: speed,
@@ -251,7 +261,17 @@ impl Body {
             division_threshold: get_with_deviation(
                 match division_threshold {
                     Some(division_threshold) => division_threshold,
-                    None => unsafe { AVERAGE_DIVISION_THRESHOLD },
+                    None => unsafe {
+                        match eating_strategy {
+                            EatingStrategy::Carnivorous => {
+                                AVERAGE_DIVISION_THRESHOLD_CARNIVOROUS
+                            }
+                            EatingStrategy::Herbivorous
+                            | EatingStrategy::Omnivorous => {
+                                AVERAGE_DIVISION_THRESHOLD_OMNIVOROUS_HERBIVOROUS
+                            }
+                        }
+                    },
                 },
                 rng,
             ),
@@ -327,7 +347,6 @@ impl Body {
                 }
             },
             followed_by: HashMap::new(),
-            cell: CELLS.get_cell_by_pos(pos),
         };
 
         // Applying the effect of the viruses
