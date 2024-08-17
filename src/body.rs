@@ -1005,8 +1005,6 @@ impl Body {
                             .filter(|(other_body_id, other_body)| {
                                 self.body_type != other_body.body_type &&
                                 &&body_id != other_body_id
-                                && self.pos.distance(other_body.pos)
-                                <= self.vision_distance
                                 && !removed_bodies.contains_key(other_body_id)
                                 && match self.eating_strategy {
                                     EatingStrategy::Carnivorous => {

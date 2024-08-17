@@ -363,6 +363,11 @@ async fn main() {
                             })
                         }
 
+                        chasers.retain(|_, other_body| {
+                            body.pos.distance(other_body.pos)
+                                <= body.vision_distance
+                        });
+
                         if let Some((
                             closest_chasing_body_id,
                             closest_chasing_body,

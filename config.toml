@@ -4,7 +4,7 @@
 # For the 1st generation
 omnivorous_n = 0 # 400
 herbivorous_n = 0 # 400
-carnivorous_n = 8000 # 400
+carnivorous_n = 800 # 400
 
 average_energy = 1500.0 # 1500.0
 average_speed = 1.5 # 1.5
@@ -39,7 +39,7 @@ energy_spent_const_for_movement = 0.0003 # 0.0006 (Part of energy constantly spe
 # energy_spent_for_healing: part of energy spent on healing from the virus
 # heal_energy: how much energy needs to be spent to get rid of the virus
 
-speedvirus_first_generation_infection_chance = 0.12 # 0.12
+speedvirus_first_generation_infection_chance = 0.0 # 0.12
 speedvirus_speed_decrease = 0.7 # 0.7
 speedvirus_energy_spent_for_healing = 0.02 # 0.02
 speedvirus_heal_energy = 500.0 # 500.0
