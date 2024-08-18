@@ -17,7 +17,7 @@ use std::{
     f32::consts::SQRT_2, time::Instant,
 };
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum ObjectType {
     Body,
     Plant,
@@ -33,7 +33,7 @@ pub struct FoodInfo<'a> {
     pub viruses:   Option<&'a HashMap<Virus, f32>>,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Status {
     FollowingTarget(Instant, Vec2, ObjectType),
     EscapingBody(BodyId, u32),
@@ -95,23 +95,23 @@ pub type BodyId = Instant;
 #[derive(Clone, PartialEq)]
 /// https://github.com/kul-sudo/eportal/blob/main/README.md#properties
 pub struct Body {
-    pub pos:                 Vec2,
+    pub pos:                    Vec2,
     /// Needed for cells: body.pos = body.last_pos after the loop.
-    pub last_pos:            Vec2,
-    pub energy:              f32,
-    pub speed:               f32,
-    pub vision_distance:     f32,
-    pub eating_strategy:     EatingStrategy,
-    pub division_threshold:  f32,
-    pub skills:              HashSet<Skill>,
-    pub viruses:             HashMap<Virus, f32>,
-    pub color:               Color,
-    pub status:              Status,
-    pub body_type:           u32,
-    pub lifespan:            f32,
-    initial_speed:           f32,
-    initial_vision_distance: f32,
-    pub followed_by:         HashMap<BodyId, Self>,
+    pub last_pos:               Vec2,
+    pub energy:                 f32,
+    pub speed:                  f32,
+    pub vision_distance:        f32,
+    pub eating_strategy:        EatingStrategy,
+    pub division_threshold:     f32,
+    pub skills:                 HashSet<Skill>,
+    pub viruses:                HashMap<Virus, f32>,
+    pub color:                  Color,
+    pub status:                 Status,
+    pub body_type:              u32,
+    pub lifespan:               f32,
+    initial_speed:              f32,
+    initial_vision_distance:    f32,
+    pub spend_energy_on_vision: bool,
 }
 
 #[macro_export]
@@ -346,7 +346,11 @@ impl Body {
                     viruses
                 }
             },
-            followed_by: HashMap::new(),
+            spend_energy_on_vision: match eating_strategy {
+                EatingStrategy::Carnivorous => false,
+                EatingStrategy::Omnivorous
+                | EatingStrategy::Herbivorous => true,
+            },
         };
 
         // Applying the effect of the viruses
@@ -421,6 +425,18 @@ impl Body {
     #[inline(always)]
     pub fn draw_info(&self) {
         let mut to_display_components = Vec::new();
+
+        //draw_text(
+        //    &format!(
+        //        "{:?} {:?}",
+        //        self.status,
+        //        self.followed_by.len()
+        //    ),
+        //    self.pos.x,
+        //    self.pos.y - 10.0,
+        //    17.0,
+        //    WHITE,
+        //);
 
         if unsafe { SHOW_ENERGY } {
             to_display_components
@@ -656,23 +672,17 @@ impl Body {
 
     #[inline(always)]
     /// Handle body-eaters walking and plant-eaters being idle.
-    pub fn handle_walking_or_idle(
-        &mut self,
-        body_id: &BodyId,
-        bodies: &mut [Vec<HashMap<BodyId, Self>>],
-        crosses: &mut [Vec<HashMap<CrossId, Cross>>],
-        plants: &mut [Vec<HashMap<PlantId, Plant>>],
-        rng: &mut StdRng,
-    ) {
+    pub fn handle_walking_or_idle(&mut self, rng: &mut StdRng) {
         match self.eating_strategy {
             EatingStrategy::Carnivorous => {
-                self.set_status(
-                    Status::WalkingOrIdle(None),
-                    body_id,
-                    bodies,
-                    crosses,
-                    plants,
-                );
+                self.status = Status::WalkingOrIdle(None);
+                //self.set_status(
+                //    Status::WalkingOrIdle(None),
+                //    body_id,
+                //    bodies,
+                //    crosses,
+                //    plants,
+                //);
             }
             EatingStrategy::Omnivorous
             | EatingStrategy::Herbivorous => {
@@ -690,13 +700,8 @@ impl Body {
                         self.speed * walking_angle.sin(),
                     );
 
-                    self.set_status(
-                        Status::WalkingOrIdle(Some(pos_deviation)),
-                        body_id,
-                        bodies,
-                        crosses,
-                        plants,
-                    );
+                    self.status =
+                        Status::WalkingOrIdle(Some(pos_deviation));
                 }
             }
         }
@@ -714,8 +719,12 @@ impl Body {
             * self.energy
             + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS }
                 * self.skills.len() as f32
-            + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE }
-                * self.vision_distance.powi(2)
+            + if self.spend_energy_on_vision {
+                (unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE })
+                    * self.vision_distance.powi(2)
+            } else {
+                0.0
+            }
             + unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT }
                 * self.speed.powi(2)
                 * self.energy;
@@ -775,7 +784,6 @@ impl Body {
         }
     }
 
-    #[inline(always)]
     pub fn get_spent_energy(&self, time: f32) -> f32 {
         time * unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT }
             * self.speed.powi(2)
@@ -887,28 +895,9 @@ impl Body {
         );
     }
 
-    pub fn set_status(
-        &mut self,
-        status: Status,
-        body_id: &BodyId,
-        bodies: &mut [Vec<HashMap<BodyId, Self>>],
-        crosses: &mut [Vec<HashMap<CrossId, Cross>>],
-        plants: &mut [Vec<HashMap<PlantId, Plant>>],
-    ) {
-        Body::followed_by_cleanup(
-            body_id,
-            &CELLS.get_cell_by_pos(self.pos),
-            bodies,
-            crosses,
-            plants,
-            None,
-        );
-        self.status = status;
-    }
-
     #[inline(always)]
     pub fn find_food<'a>(
-        &self,
+        &mut self,
         body_id: &BodyId,
         bodies: &'a [Vec<HashMap<BodyId, Body>>],
         plants: &'a [Vec<HashMap<PlantId, Plant>>],
@@ -925,25 +914,65 @@ impl Body {
             get_visible!(self, crosses, visible_crosses);
         }
 
+        // Find the closest plant
+        let mut visible_bodies: HashMap<&BodyId, &Body> =
+            HashMap::new();
+
+        get_visible!(self, bodies, visible_bodies);
+
+        visible_bodies.remove(body_id);
+
+        let filtered_visible_bodies = visible_bodies
+            .iter()
+            .filter(|(other_body_id, _)| {
+                !removed_bodies.contains_key(other_body_id)
+            })
+            .collect::<HashMap<_, _>>();
+
+        let visible_bodies_of_my_type = filtered_visible_bodies
+            .iter()
+            .filter(|(_, other_body)| {
+                other_body.body_type == self.body_type
+            })
+            .collect::<HashMap<_, _>>();
+
         let closest_cross = visible_crosses
             .iter()
-            .filter(|(_, cross)| {
+            .filter(|(cross_id, cross)| {
+                let same_target_visible_bodies =
+                    filtered_visible_bodies
+                        .iter()
+                        .filter(|(_, other_body)| {
+                            if let Status::FollowingTarget(
+                                other_body_target_id,
+                                _,
+                                _,
+                            ) = other_body.status
+                            {
+                                &&&other_body_target_id == cross_id
+                            } else {
+                                false
+                            }
+                        })
+                        .collect::<HashMap<_, _>>();
+
                 self.handle_eat_crosses_of_my_type(cross)
                     && self.handle_alive_when_arrived_cross(cross)
                     && self
                         .handle_profitable_when_arrived_cross(cross)
                     && self.handle_avoid_new_viruses_cross(cross)
                     && self.handle_will_arrive_first_cross(
-                        body_id, cross,
+                        cross,
+                        &same_target_visible_bodies,
                     )
                     && self.handle_do_not_compete_with_relatives(
-                        body_id,
-                        &cross.followed_by,
+                        &cross_id,
+                        &visible_bodies_of_my_type,
                     )
                     && self
                         .handle_do_not_compete_with_younger_relatives(
-                            body_id,
-                            &cross.followed_by,
+                            &cross_id,
+                            &visible_bodies_of_my_type,
                         )
             })
             .min_by(|(_, a), (_, b)| {
@@ -978,20 +1007,38 @@ impl Body {
                 let filtered_visible_plants = visible_plants
                     .iter()
                     .filter(|(plant_id, plant)| {
+                        let same_target_visible_bodies =
+                        filtered_visible_bodies
+                            .iter()
+                            .filter(|(_, other_body)| {
+                                if let Status::FollowingTarget(
+                                    other_body_target_id,
+                                    _,
+                                    _,
+                                ) = other_body.status
+                                {
+                                    &&&other_body_target_id == plant_id
+                                } else {
+                                    false
+                                }
+                            })
+                            .collect::<HashMap<_, _>>();
+
                         !removed_plants.contains_key(plant_id)
                         && self.handle_alive_when_arrived_plant(plant)
                         && self.handle_profitable_when_arrived_plant(plant)
                         && self.handle_do_not_compete_with_relatives(
-                            body_id,
-                            &plant.followed_by
+                            &plant_id,
+                            &visible_bodies_of_my_type
                         )
                         && self.handle_do_not_compete_with_younger_relatives(
-                            body_id,
-                            &plant.followed_by
+                            &plant_id,
+                            &visible_bodies_of_my_type
                         )
                         && self.handle_will_arrive_first_plant(
-                            body_id,
                             plant,
+
+                            &same_target_visible_bodies
                         )
                     }).collect::<Vec<_>>();
 
@@ -1017,89 +1064,113 @@ impl Body {
                         })
                     }
                     None => {
-                        // Find the closest plant
-                        let mut visible_bodies: HashMap<
-                            &BodyId,
-                            &Body,
-                        > = HashMap::new();
+                        if let EatingStrategy::Carnivorous =
+                            self.eating_strategy
+                        {
+                            self.spend_energy_on_vision =
+                                !visible_bodies.is_empty();
+                        }
 
+                        // Find the closest plant
                         if self.eating_strategy
                             == EatingStrategy::Omnivorous
                             || self.eating_strategy
                                 == EatingStrategy::Carnivorous
                         {
-                            get_visible!(
-                                self,
-                                bodies,
-                                visible_bodies
-                            );
-                        }
+                            let visible_bodies_of_other_types =
+                                filtered_visible_bodies
+                                    .iter()
+                                    .filter(|(_, other_body)| {
+                                        self.body_type
+                                            != other_body.body_type
+                                    })
+                                    .collect::<HashMap<_, _>>();
 
-                        let closest_body = visible_bodies
-                            .iter()
-                            .filter(|(other_body_id, other_body)| {
-                                self.body_type != other_body.body_type &&
-                                &&body_id != other_body_id
-                                && !removed_bodies.contains_key(other_body_id)
-                                && match self.eating_strategy {
-                                    EatingStrategy::Carnivorous => {
-                                        self.energy > match other_body.eating_strategy {
-                                            EatingStrategy::Carnivorous => other_body.energy,
-                                            EatingStrategy::Herbivorous
-                                            | EatingStrategy::Omnivorous => other_body.energy * unsafe {
-                                                CARNIVOROUS_ENERGY_CONST
+                            let closest_body = visible_bodies_of_other_types
+                                .iter()
+                                .filter(|(other_body_id, other_body)| {
+                                    let same_target_visible_bodies =
+                                    filtered_visible_bodies
+                                        .iter()
+                                        .filter(|(_, other_body)| {
+                                            if let Status::FollowingTarget(
+                                                other_body_target_id,
+                                                _,
+                                                _,
+                                            ) = other_body.status
+                                            {
+                                                &&&&&other_body_target_id == other_body_id
+                                            } else {
+                                                false
+                                            }
+                                        })
+                                        .collect::<HashMap<_, _>>();
+
+                                    (match self.eating_strategy {
+                                        EatingStrategy::Carnivorous => {
+                                            self.energy > match other_body.eating_strategy {
+                                                EatingStrategy::Carnivorous => other_body.energy,
+                                                EatingStrategy::Herbivorous
+                                                | EatingStrategy::Omnivorous => other_body.energy * unsafe {
+                                                    CARNIVOROUS_ENERGY_CONST
+                                                }
                                             }
                                         }
-                                    }
-                                    EatingStrategy::Omnivorous => {
-                                        other_body.energy < match other_body.eating_strategy {
-                                            EatingStrategy::Carnivorous => self.energy * unsafe { CARNIVOROUS_ENERGY_CONST },
-                                            EatingStrategy::Herbivorous
-                                            | EatingStrategy::Omnivorous => self.energy
+                                        EatingStrategy::Omnivorous => {
+                                            other_body.energy < match other_body.eating_strategy {
+                                                EatingStrategy::Carnivorous => self.energy * unsafe { CARNIVOROUS_ENERGY_CONST },
+                                                EatingStrategy::Herbivorous
+                                                | EatingStrategy::Omnivorous => self.energy
+                                            }
                                         }
-                                    }
-                                    _ => unreachable!()
-                                }
-                                && self.handle_alive_when_arrived_body(
-                                    other_body,
-                                )
-                                && self.handle_profitable_when_arrived_body(
-                                    other_body,
-                                )
-                                && self.handle_avoid_new_viruses_body(other_body)
-                                && self.handle_will_arrive_first_body(
-                                    body_id,
-                                    other_body,
-                                )
-                                && self.handle_do_not_compete_with_relatives(
-                                    body_id,
-                                    &other_body.followed_by
-                                )
-                                && self.handle_do_not_compete_with_younger_relatives(
-                                    body_id,
-                                    &other_body.followed_by,
-                                )
-                            })
-                            .min_by(|(_, a), (_, b)| {
-                                self.pos
-                                    .distance(a.pos)
-                                    .partial_cmp(&self.pos.distance(b.pos))
-                                    .unwrap()
-                            });
+                                        _ => unreachable!()
+                                    })
+                                    && self.handle_alive_when_arrived_body(
+                                        other_body,
+                                    )
+                                    && self.handle_profitable_when_arrived_body(
+                                        other_body,
+                                    )
+                                    && self.handle_avoid_new_viruses_body(other_body)
+                                    && self.handle_will_arrive_first_body(
+                                        other_body,
+                                        &same_target_visible_bodies
+                                    )
+                                    && self.handle_do_not_compete_with_relatives(
+                                        &other_body_id,
+                                        &
+                                        visible_bodies_of_my_type
 
-                        // Find the closest body
-                        if let Some((closest_body_id, closest_body)) =
-                            closest_body
-                        {
-                            return Some(FoodInfo {
-                                id:        **closest_body_id,
-                                food_type: ObjectType::Body,
-                                pos:       closest_body.pos,
-                                energy:    closest_body.energy,
-                                viruses:   Some(
-                                    &closest_body.viruses,
-                                ),
-                            });
+                                    )
+                                    && self.handle_do_not_compete_with_younger_relatives(
+                                        &other_body_id,
+                                        &
+                                        visible_bodies_of_my_type
+                                    )
+                                })
+                                .min_by(|(_, a), (_, b)| {
+                                    self.pos
+                                        .distance(a.pos)
+                                        .partial_cmp(&self.pos.distance(b.pos))
+                                        .unwrap()
+                                });
+
+                            // Find the closest body
+                            if let Some((
+                                closest_body_id,
+                                closest_body,
+                            )) = closest_body
+                            {
+                                return Some(FoodInfo {
+                                    id:        ****closest_body_id,
+                                    food_type: ObjectType::Body,
+                                    pos:       closest_body.pos,
+                                    energy:    closest_body.energy,
+                                    viruses:   Some(
+                                        &closest_body.viruses,
+                                    ),
+                                });
+                            }
                         }
                     }
                 }
@@ -1261,13 +1332,21 @@ impl Body {
     #[inline(always)]
     pub fn handle_do_not_compete_with_relatives(
         &self,
-        body_id: &BodyId,
-        followed_by: &HashMap<BodyId, Self>,
+        target_id: &Instant,
+        visible_bodies_of_my_type: &HashMap<&&&BodyId, &&&Self>,
     ) -> bool {
         if self.skills.contains(&Skill::DoNotCompeteWithRelatives) {
-            followed_by.iter().all(|(other_body_id, other_body)| {
-                other_body_id == body_id
-                    || other_body.body_type != self.body_type
+            visible_bodies_of_my_type.iter().all(|(_, other_body)| {
+                if let Status::FollowingTarget(
+                    other_body_target_id,
+                    _,
+                    _,
+                ) = other_body.status
+                {
+                    &other_body_target_id != target_id
+                } else {
+                    true
+                }
             })
         } else {
             true
@@ -1277,20 +1356,28 @@ impl Body {
     #[inline(always)]
     pub fn handle_do_not_compete_with_younger_relatives(
         &self,
-        body_id: &BodyId,
-        followed_by: &HashMap<BodyId, Self>,
+        target_id: &Instant,
+        visible_bodies_of_my_type: &HashMap<&&&BodyId, &&&Self>,
     ) -> bool {
         if self
             .skills
             .contains(&Skill::DoNotCompeteWithYoungerRelatives)
         {
-            followed_by.iter().all(|(other_body_id, other_body)| {
-                other_body_id == body_id
-                    || if other_body.body_type == self.body_type {
-                        other_body.lifespan < self.lifespan
+            visible_bodies_of_my_type.iter().all(|(_, relative)| {
+                if let Status::FollowingTarget(
+                    relative_target_id,
+                    _,
+                    _,
+                ) = relative.status
+                {
+                    if &relative_target_id == target_id {
+                        relative.lifespan < self.lifespan
                     } else {
                         true
                     }
+                } else {
+                    true
+                }
             })
         } else {
             true
@@ -1300,18 +1387,18 @@ impl Body {
     #[inline(always)]
     pub fn handle_will_arrive_first_cross(
         &self,
-        body_id: &BodyId,
         cross: &Cross,
+        same_target_visible_bodies: &HashMap<&&&BodyId, &&&Self>,
     ) -> bool {
         if self.skills.contains(&Skill::WillArriveFirst) {
             let time = self.pos.distance(cross.pos) / self.speed;
 
-            cross.followed_by.iter().all(|(chaser_id, chaser)| {
-                chaser_id == body_id
-                    || time
-                        < chaser.pos.distance(cross.pos)
-                            / chaser.speed
-            })
+            same_target_visible_bodies.iter().all(
+                |(_, other_body)| {
+                    time < other_body.pos.distance(cross.pos)
+                        / other_body.speed
+                },
+            )
         } else {
             true
         }
@@ -1320,8 +1407,8 @@ impl Body {
     #[inline(always)]
     pub fn handle_will_arrive_first_body(
         &self,
-        body_id: &BodyId,
         other_body: &Self,
+        same_target_visible_bodies: &HashMap<&&&BodyId, &&&Self>,
     ) -> bool {
         if self.skills.contains(&Skill::WillArriveFirst) {
             let delta = self.speed - other_body.speed;
@@ -1330,17 +1417,15 @@ impl Body {
             }
 
             let time = self.pos.distance(other_body.pos) / delta;
-            other_body.followed_by.iter().all(
-                |(chaser_id, chaser)| {
-                    chaser_id == body_id || {
-                        let chaser_delta =
-                            chaser.speed - other_body.speed;
+            same_target_visible_bodies.iter().all(
+                |(_, other_body)| {
+                    let chaser_delta =
+                        other_body.speed - other_body.speed;
 
-                        chaser_delta > 0.0
-                            && time
-                                < chaser.pos.distance(other_body.pos)
-                                    / chaser_delta
-                    }
+                    chaser_delta > 0.0
+                        && time
+                            < other_body.pos.distance(other_body.pos)
+                                / chaser_delta
                 },
             )
         } else {
@@ -1351,18 +1436,18 @@ impl Body {
     #[inline(always)]
     pub fn handle_will_arrive_first_plant(
         &self,
-        body_id: &BodyId,
         plant: &Plant,
+        same_target_visible_bodies: &HashMap<&&&BodyId, &&&Self>,
     ) -> bool {
         if self.skills.contains(&Skill::WillArriveFirst) {
             let time = self.pos.distance(plant.pos) / self.speed;
 
-            plant.followed_by.iter().all(|(chaser_id, chaser)| {
-                chaser_id == body_id
-                    || time
-                        < chaser.pos.distance(plant.pos)
-                            / chaser.speed
-            })
+            same_target_visible_bodies.iter().all(
+                |(_, other_body)| {
+                    time < other_body.pos.distance(plant.pos)
+                        / other_body.speed
+                },
+            )
         } else {
             true
         }
@@ -1375,54 +1460,5 @@ impl Body {
     ) -> bool {
         self.body_type != cross.body_type
             || self.skills.contains(&Skill::EatCrossesOfMyType)
-    }
-
-    #[inline(always)]
-    pub fn followed_by_cleanup(
-        body_id: &BodyId,
-        body_cell: &Cell,
-        bodies: &mut [Vec<HashMap<BodyId, Self>>],
-        crosses: &mut [Vec<HashMap<CrossId, Cross>>],
-        plants: &mut [Vec<HashMap<PlantId, Plant>>],
-        food: Option<&FoodInfo>,
-    ) {
-        if let Status::FollowingTarget(
-            target_id,
-            target_pos,
-            target_type,
-        ) = bodies[body_cell.i][body_cell.j]
-            .get(body_id)
-            .unwrap()
-            .status
-        {
-            if food.is_some_and(|food| food.id == target_id) {
-                return;
-            }
-
-            let Cell { i, j } = CELLS.get_cell_by_pos(target_pos);
-            match target_type {
-                ObjectType::Body => {
-                    if let Some(target_body) =
-                        bodies[i][j].get_mut(&target_id)
-                    {
-                        target_body.followed_by.remove(body_id);
-                    }
-                }
-                ObjectType::Cross => {
-                    if let Some(target_cross) =
-                        crosses[i][j].get_mut(&target_id)
-                    {
-                        target_cross.followed_by.remove(body_id);
-                    }
-                }
-                ObjectType::Plant => {
-                    if let Some(target_plant) =
-                        plants[i][j].get_mut(&target_id)
-                    {
-                        target_plant.followed_by.remove(body_id);
-                    }
-                }
-            }
-        }
     }
 }

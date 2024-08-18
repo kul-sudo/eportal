@@ -25,9 +25,8 @@ impl PlantKind {
 
 #[derive(PartialEq, Clone)]
 pub struct Plant {
-    pub pos:         Vec2,
-    pub kind:        PlantKind,
-    pub followed_by: HashMap<BodyId, Body>,
+    pub pos:  Vec2,
+    pub kind: PlantKind,
 }
 
 pub type PlantId = Instant;
@@ -197,7 +196,6 @@ impl Plant {
             Self {
                 pos,
                 kind: *PlantKind::ALL.iter().choose(rng).unwrap(),
-                followed_by: HashMap::new(),
             },
         );
     }

@@ -236,8 +236,10 @@ pub fn config_setup(first_run: bool) {
             energy.energy_spent_const_for_mass;
         ENERGY_SPENT_CONST_FOR_SKILLS =
             energy.energy_spent_const_for_skills;
+
         ENERGY_SPENT_CONST_FOR_VISION_DISTANCE =
             energy.energy_spent_const_for_vision_distance;
+
         ENERGY_SPENT_CONST_FOR_MOVEMENT =
             energy.energy_spent_const_for_movement;
 

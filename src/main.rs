@@ -20,16 +20,8 @@ use cells::*;
 use condition::*;
 use constants::*;
 use cross::*;
-use macroquad::prelude::draw_text;
 use plant::*;
 use smart_drawing::*;
-use std::{
-    collections::HashMap,
-    intrinsics::unlikely,
-    mem::variant_count,
-    sync::LazyLock,
-    time::{Duration, Instant},
-};
 use user_constants::*;
 use utils::*;
 use zoom::*;
@@ -41,6 +33,13 @@ use macroquad::prelude::{
     Conf, KeyCode, MouseButton, Rect, Vec2, WHITE,
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
+use std::{
+    collections::HashMap,
+    intrinsics::unlikely,
+    mem::variant_count,
+    sync::LazyLock,
+    time::{Duration, Instant},
+};
 
 fn window_conf() -> Conf {
     Conf {
@@ -325,15 +324,8 @@ async fn main() {
         } {
             for column in row {
                 for (body_id, body) in column {
-                    for (body_id, body_pos) in &removed_bodies {
-                        Body::followed_by_cleanup(
-                            body_id,
-                            &CELLS.get_cell_by_pos(*body_pos),
-                            &mut bodies,
-                            &mut crosses,
-                            &mut plants,
-                            None,
-                        );
+                    if removed_bodies.contains_key(body_id) {
+                        continue;
                     }
 
                     body.handle_viruses();
@@ -344,18 +336,19 @@ async fn main() {
                         || body_id.elapsed().as_secs_f32()
                             > body.lifespan
                     {
-                        body.set_status(
-                            Status::Cross,
-                            body_id,
-                            &mut bodies,
-                            unsafe {
-                                &mut (*(&mut crosses
-                                    as *mut Vec<
-                                        Vec<HashMap<Instant, Cross>>,
-                                    >))
-                            },
-                            &mut plants,
-                        );
+                        body.status = Status::Cross;
+                        //body.set_status(
+                        //    Status::Cross,
+                        //    body_id,
+                        //    &mut bodies,
+                        //    unsafe {
+                        //        &mut (*(&mut crosses
+                        //            as *mut Vec<
+                        //                Vec<HashMap<Instant, Cross>>,
+                        //            >))
+                        //    },
+                        //    &mut plants,
+                        //);
 
                         removed_bodies.insert(*body_id, body.pos);
 
@@ -369,14 +362,30 @@ async fn main() {
                     }
 
                     // Escape
-                    let mut chasers = body.followed_by.clone();
+                    let mut visible_bodies: HashMap<&BodyId, &Body> =
+                        HashMap::new();
+
+                    get_visible!(body, bodies, visible_bodies);
+
+                    visible_bodies.remove(body_id);
+
+                    let chasers = &mut visible_bodies;
+
+                    chasers.retain(|other_body_id, other_body| {
+                        !removed_bodies.contains_key(other_body_id)
+                            && if let Status::FollowingTarget(
+                                target_id,
+                                _,
+                                _,
+                            ) = other_body.status
+                            {
+                                &target_id == body_id
+                            } else {
+                                false
+                            }
+                    });
 
                     if !chasers.is_empty() {
-                        chasers.retain(|_, other_body| {
-                            body.pos.distance(other_body.pos)
-                                <= body.vision_distance
-                        });
-
                         if body
                             .skills
                             .contains(&Skill::PrioritizeFasterChasers)
@@ -390,6 +399,7 @@ async fn main() {
                                 other_body.speed > body.speed
                             })
                         }
+
                         if let Some((
                             closest_chasing_body_id,
                             closest_chasing_body,
@@ -400,25 +410,9 @@ async fn main() {
                                 )
                             })
                         {
-                            body.set_status(
-                                Status::EscapingBody(
-                                    *closest_chasing_body_id,
-                                    closest_chasing_body.body_type,
-                                ),
-                                body_id,
-                                &mut bodies,
-                                unsafe {
-                                    &mut (*(&mut crosses
-                                        as *mut Vec<
-                                            Vec<
-                                                HashMap<
-                                                    Instant,
-                                                    Cross,
-                                                >,
-                                            >,
-                                        >))
-                                },
-                                &mut plants,
+                            body.status = Status::EscapingBody(
+                                **closest_chasing_body_id,
+                                closest_chasing_body.body_type,
                             );
 
                             let distance_to_closest_chasing_body =
@@ -509,78 +503,23 @@ async fn main() {
                                     plants_n -= 1;
                                 }
                             }
-                        } else {
-                            body.set_status(
-                                Status::FollowingTarget(
-                                    food.id,
-                                    food.pos,
-                                    food.food_type,
-                                ),
-                                body_id,
-                                &mut bodies,
-                                unsafe {
-                                    &mut (*(&mut crosses
-                                        as *mut Vec<
-                                            Vec<
-                                                HashMap<
-                                                    Instant,
-                                                    Cross,
-                                                >,
-                                            >,
-                                        >))
-                                },
-                                &mut plants,
-                            );
 
+                            body.status = Status::Undefined;
+                        } else {
+                            body.status = Status::FollowingTarget(
+                                food.id,
+                                food.pos,
+                                food.food_type,
+                            );
                             body.last_pos.x += (food.pos.x
                                 - body.last_pos.x)
                                 * (body.speed / distance_to_food);
                             body.last_pos.y += (food.pos.y
                                 - body.last_pos.y)
                                 * (body.speed / distance_to_food);
-
-                            let Cell { i, j } =
-                                CELLS.get_cell_by_pos(food.pos);
-
-                            match food.food_type {
-                                ObjectType::Body => {
-                                    (unsafe {
-                                        &mut (*(&mut bodies
-                                            as *mut Vec<
-                                                Vec<
-                                                    HashMap<
-                                                        BodyId,
-                                                        Body,
-                                                    >,
-                                                >,
-                                            >))
-                                    })[i][j]
-                                        .get_mut(&food.id)
-                                        .unwrap()
-                                        .followed_by
-                                        .entry(*body_id)
-                                        .or_insert(body.clone());
-                                }
-                                ObjectType::Cross => {
-                                    crosses[i][j]
-                                        .get_mut(&food.id)
-                                        .unwrap()
-                                        .followed_by
-                                        .entry(*body_id)
-                                        .or_insert(body.clone());
-                                }
-                                ObjectType::Plant => {
-                                    plants[i][j]
-                                        .get_mut(&food.id)
-                                        .unwrap()
-                                        .followed_by
-                                        .entry(*body_id)
-                                        .or_insert(body.clone());
-                                }
-                            }
-
-                            continue;
                         }
+
+                        continue;
                     }
 
                     // Procreate
@@ -593,13 +532,7 @@ async fn main() {
                         continue;
                     }
 
-                    body.handle_walking_or_idle(
-                        body_id,
-                        &mut bodies,
-                        &mut crosses,
-                        &mut plants,
-                        &mut rng,
-                    );
+                    body.handle_walking_or_idle(&mut rng);
                 }
             }
         }
@@ -725,33 +658,6 @@ async fn main() {
                             if draw_body {
                                 body.draw();
                             }
-
-                            //if let Status::FollowingTarget(
-                            //    id,
-                            //    pos,
-                            //    type_,
-                            //) = body.status
-                            //{
-                            //    if type_ == ObjectType::Plant {
-                            //        let Cell { i, j } =
-                            //            CELLS.get_cell_by_pos(pos);
-                            //
-                            //        if let Some(plant) =
-                            //            &plants[i][j].get(&id)
-                            //        {
-                            //            draw_text(
-                            //                &plant
-                            //                    .followed_by
-                            //                    .len()
-                            //                    .to_string(),
-                            //                body.pos.x,
-                            //                body.pos.y,
-                            //                25.0,
-                            //                WHITE,
-                            //            );
-                            //        }
-                            //    }
-                            //}
 
                             if draw_vision_distance && info.body_info
                             {

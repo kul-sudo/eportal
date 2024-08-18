@@ -1,6 +1,4 @@
-use crate::{constants::*, Body, BodyId, Virus, Zoom};
-use macroquad::prelude::draw_text;
-use macroquad::prelude::WHITE;
+use crate::{constants::*, Body, Virus, Zoom};
 use macroquad::prelude::{draw_circle, draw_line, Color, Vec2, RED};
 use std::{collections::HashMap, f32::consts::SQRT_2, time::Instant};
 
@@ -8,25 +6,23 @@ pub type CrossId = Instant;
 
 #[derive(Clone, PartialEq)]
 pub struct Cross {
-    pub pos:         Vec2,
-    pub timestamp:   Instant,
-    pub energy:      f32,
-    pub viruses:     HashMap<Virus, f32>,
-    pub color:       Color,
-    pub body_type:   u32,
-    pub followed_by: HashMap<BodyId, Body>,
+    pub pos:       Vec2,
+    pub timestamp: Instant,
+    pub energy:    f32,
+    pub viruses:   HashMap<Virus, f32>,
+    pub color:     Color,
+    pub body_type: u32,
 }
 
 impl Cross {
     pub fn new(body: &Body) -> Self {
         Self {
-            pos:         body.pos,
-            timestamp:   Instant::now(),
-            energy:      body.energy,
-            viruses:     body.viruses.clone(),
-            color:       body.color,
-            body_type:   body.body_type,
-            followed_by: HashMap::new(),
+            pos:       body.pos,
+            timestamp: Instant::now(),
+            energy:    body.energy,
+            viruses:   body.viruses.clone(),
+            color:     body.color,
+            body_type: body.body_type,
         }
     }
 
