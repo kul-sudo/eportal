@@ -1039,7 +1039,6 @@ impl Body {
                         )
                         && self.handle_will_arrive_first_plant(
                             plant,
-
                             &same_target_visible_bodies
                         )
                     }).collect::<Vec<_>>();
@@ -1144,14 +1143,12 @@ impl Body {
                                     )
                                     && self.handle_do_not_compete_with_relatives(
                                         &other_body_id,
-                                        &
-                                        visible_bodies_of_my_type
+                                        &visible_bodies_of_my_type
 
                                     )
                                     && self.handle_do_not_compete_with_younger_relatives(
                                         &other_body_id,
-                                        &
-                                        visible_bodies_of_my_type
+                                        &visible_bodies_of_my_type
                                     )
                                 })
                                 .min_by(|(_, a), (_, b)| {
