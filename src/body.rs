@@ -37,7 +37,8 @@ pub struct FoodInfo<'a> {
 pub enum Status {
     FollowingTarget(Instant, Vec2, ObjectType),
     EscapingBody(BodyId, u32),
-    WalkingOrIdle(Option<Vec2>),
+    Walking(Vec2),
+    Idle,
     Cross,
     Undefined,
 }
@@ -675,7 +676,7 @@ impl Body {
     pub fn handle_walking_or_idle(&mut self, rng: &mut StdRng) {
         match self.eating_strategy {
             EatingStrategy::Carnivorous => {
-                self.status = Status::WalkingOrIdle(None);
+                self.status = Status::Idle;
                 //self.set_status(
                 //    Status::WalkingOrIdle(None),
                 //    body_id,
@@ -686,11 +687,9 @@ impl Body {
             }
             EatingStrategy::Omnivorous
             | EatingStrategy::Herbivorous => {
-                if let Status::WalkingOrIdle(pos_deviation) =
-                    self.status
-                {
-                    self.last_pos.x += pos_deviation.unwrap().x;
-                    self.last_pos.y += pos_deviation.unwrap().y;
+                if let Status::Walking(pos_deviation) = self.status {
+                    self.last_pos.x += pos_deviation.x;
+                    self.last_pos.y += pos_deviation.y;
 
                     self.wrap();
                 } else {
@@ -700,8 +699,7 @@ impl Body {
                         self.speed * walking_angle.sin(),
                     );
 
-                    self.status =
-                        Status::WalkingOrIdle(Some(pos_deviation));
+                    self.status = Status::Walking(pos_deviation);
                 }
             }
         }
@@ -725,9 +723,13 @@ impl Body {
             } else {
                 0.0
             }
-            + unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT }
-                * self.speed.powi(2)
-                * self.energy;
+            + if let Status::Walking(_) = self.status {
+                (unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT })
+                    * self.speed.powi(2)
+                    * self.energy
+            } else {
+                0.0
+            };
 
         if self.energy <= 0.0 {
             self.status = Status::Cross;
@@ -908,8 +910,8 @@ impl Body {
         let mut visible_crosses: HashMap<&CrossId, &Cross> =
             HashMap::new();
 
-        if self.eating_strategy == EatingStrategy::Omnivorous
-            || self.eating_strategy == EatingStrategy::Carnivorous
+        if let EatingStrategy::Omnivorous
+        | EatingStrategy::Carnivorous = self.eating_strategy
         {
             get_visible!(self, crosses, visible_crosses);
         }
@@ -997,9 +999,9 @@ impl Body {
                 let mut visible_plants: HashMap<&PlantId, &Plant> =
                     HashMap::new();
 
-                if self.eating_strategy == EatingStrategy::Omnivorous
-                    || self.eating_strategy
-                        == EatingStrategy::Herbivorous
+                if let EatingStrategy::Omnivorous
+                | EatingStrategy::Herbivorous =
+                    self.eating_strategy
                 {
                     get_visible!(self, plants, visible_plants);
                 }
@@ -1068,14 +1070,18 @@ impl Body {
                             self.eating_strategy
                         {
                             self.spend_energy_on_vision =
-                                !visible_bodies.is_empty();
+                                visible_bodies.values().any(
+                                    |other_body| {
+                                        other_body.body_type
+                                            != self.body_type
+                                    },
+                                );
                         }
 
                         // Find the closest plant
-                        if self.eating_strategy
-                            == EatingStrategy::Omnivorous
-                            || self.eating_strategy
-                                == EatingStrategy::Carnivorous
+                        if let EatingStrategy::Omnivorous
+                        | EatingStrategy::Carnivorous =
+                            self.eating_strategy
                         {
                             let visible_bodies_of_other_types =
                                 filtered_visible_bodies

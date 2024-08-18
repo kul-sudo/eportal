@@ -4,13 +4,13 @@
 # For the 1st generation
 omnivorous_n = 400 # 400
 herbivorous_n = 400 # 400
-carnivorous_n = 4000 # 400
+carnivorous_n = 400 # 400
 
-average_energy_omnivorous_herbivorous = 2300.0 # 1500.0
-average_energy_carnivorous = 2500.0 # 1500.0
+average_energy_omnivorous_herbivorous = 1500.0 # 1500.0
+average_energy_carnivorous = 1500.0 # 1500.0
 average_speed = 1.5 # 1.5
-average_division_threshold_omnivorous_herbivorous = 2300.0 # 1500.0
-average_division_threshold_carnivorous = 3000.0 # 1500.0
+average_division_threshold_omnivorous_herbivorous = 4000.0 # 1500.0
+average_division_threshold_carnivorous = 8000.0 # 1500.0
 average_vision_distance = 100.0 # 100.0
 
 omnivorous_food_part = 0.77 # 0.5 (The part of the food's energy an omnivorous body gets)
@@ -31,9 +31,9 @@ plant_die_chance = 0.0004 # 0.0004 (The probability for a plant to die)
 
 [energy]
 energy_spent_const_for_mass = 0.0001 # 0.0002 (Part of energy constantly spent on mass)
-energy_spent_const_for_skills = 0.02 # 0.04 (Part of energy constantly spent on one skill)
-energy_spent_const_for_vision_distance = 0.000025 # 0.00005 (Part of energy constantly spent on vision distance)
-energy_spent_const_for_movement = 0.0003 # 0.0006 (Part of energy constantly spent on movement depending on the speed)
+energy_spent_const_for_skills = 0.04 # 0.04 (Part of energy constantly spent on one skill)
+energy_spent_const_for_vision_distance = 0.00005 # 0.00005 (Part of energy constantly spent on vision distancce)
+energy_spent_const_for_movement = 0.0006 # 0.0006 (Part of energy constantly spent on movement depending on the speed)
 
 [viruses]
 # first_generation_infection_chance: the probability the 1st generation gets infected with the virus
@@ -60,7 +60,7 @@ body_info_font_size = 17 # 17 (The font size of the info displayed over the bodi
 show_fps = false # Whether to show how many frames roughly happen per second
 
 # Properties of a body to show over it
-show_energy = false # The current energy
+show_energy = true # The current energy
 show_division_threshold = false # The energy a body has to reach to be able to procreate
 show_body_type = false # The type ID the body is part of (can also be distinguished using colors)
 show_lifespan = false # How many seconds a body has left to live if it theoretically doesn't move at all
