@@ -147,8 +147,8 @@ Every omnivorous or carnivorous body can be infected (a red dot is shown on top 
 2. `Vision virus`: The virus steals specific part of the body's vision distance the moment the body gets infected with the virus.
 
 The body gets infected with a virus:
-- At the start of the evolution.
-- Throughout the evolution by eating infected living or dead bodies.
+- At the start of the evolution
+- Throughout the evolution by eating infected living or dead bodies
 
 The body spends energy on healing from the virus. However, if the body has got rid of the virus, the effects
 of the virus stay on.
@@ -202,4 +202,4 @@ Especially:
 1. Better organizing the code
 2. Documentantion in the code and in the README (what you're reading right now)
 3. Adding more viruses and skills
-4. Handle values in `config.toml` leading to crashes.
+4. Handle values in `config.toml` leading to crashes
