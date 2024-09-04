@@ -12,10 +12,10 @@ use macroquad::prelude::{
     DrawRectangleParams, Vec2, Vec3, GREEN, RED, WHITE,
 };
 use rand::{random, rngs::StdRng, seq::IteratorRandom, Rng};
-use std::{
-    collections::HashMap, collections::HashSet, f32::consts::PI,
-    f32::consts::SQRT_2, time::Instant,
+use rustc_hash::{
+    FxBuildHasher, FxHashMap as HashMap, FxHashSet as HashSet,
 };
+use std::{f32::consts::PI, f32::consts::SQRT_2, time::Instant};
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum ObjectType {
@@ -282,12 +282,16 @@ impl Body {
                         <= unsafe { SKILLS_CHANGE_CHANCE }
                     {
                         if random::<bool>() {
-                            if let Some(random_skill) =
-                                HashSet::from(Skill::ALL)
-                                    .difference(&skills)
-                                    .collect::<HashSet<_>>()
-                                    .iter()
-                                    .choose(rng)
+                            let mut skills = HashSet::default();
+                            for skill in Skill::ALL {
+                                skills.insert(skill);
+                            }
+
+                            if let Some(random_skill) = skills
+                                .difference(&skills)
+                                .collect::<HashSet<_>>()
+                                .iter()
+                                .choose(rng)
                             {
                                 skills.insert(**random_skill);
                             }
@@ -300,7 +304,10 @@ impl Body {
 
                     skills
                 }
-                None => HashSet::with_capacity(Skill::ALL.len()),
+                None => HashSet::with_capacity_and_hasher(
+                    Skill::ALL.len(),
+                    FxBuildHasher,
+                ),
             },
             color,
             status: Status::Undefined,
@@ -310,7 +317,10 @@ impl Body {
                 Some(viruses) => viruses,
                 None => {
                     let mut viruses =
-                        HashMap::with_capacity(Virus::ALL.len());
+                        HashMap::with_capacity_and_hasher(
+                            Virus::ALL.len(),
+                            FxBuildHasher,
+                        );
 
                     if eating_strategy != EatingStrategy::Herbivorous
                     {
@@ -324,11 +334,11 @@ impl Body {
                                 },
                             };
 
-                            if virus_chance == 1.0
-                                || rng.gen_range(0.0..1.0)
-                                    <= virus_chance
-                            {
-                                viruses
+                                if virus_chance > 0.0 && (virus_chance == 1.0
+                                    || rng.gen_range(0.0..1.0)
+                                        <= virus_chance)
+                                {
+                                    viruses
                                     .entry(virus)
                                     .or_insert(rng.gen_range(
                                     0.0..match virus {
@@ -340,7 +350,7 @@ impl Body {
                                         },
                                     },
                                 ));
-                            }
+                                }
                         }
                     }
 
@@ -569,9 +579,11 @@ impl Body {
             if let Status::FollowingTarget(_, target_pos, _) =
                 self.status
             {
-                let mut rectangle_sides = HashMap::with_capacity(
-                    RectangleCorner::ALL.len(),
-                );
+                let mut rectangle_sides =
+                    HashMap::with_capacity_and_hasher(
+                        RectangleCorner::ALL.len(),
+                        FxBuildHasher,
+                    );
                 for corner in RectangleCorner::ALL {
                     let (i, j) = match corner {
                         RectangleCorner::TopRight => (1.0, 1.0),
@@ -677,13 +689,6 @@ impl Body {
         match self.eating_strategy {
             EatingStrategy::Carnivorous => {
                 self.status = Status::Idle;
-                //self.set_status(
-                //    Status::WalkingOrIdle(None),
-                //    body_id,
-                //    bodies,
-                //    crosses,
-                //    plants,
-                //);
             }
             EatingStrategy::Omnivorous
             | EatingStrategy::Herbivorous => {
@@ -907,8 +912,7 @@ impl Body {
         removed_bodies: &HashMap<Instant, Vec2>,
         removed_plants: &HashMap<Instant, Vec2>,
     ) -> Option<FoodInfo<'a>> {
-        let mut visible_crosses: HashMap<&CrossId, &Cross> =
-            HashMap::new();
+        let mut visible_crosses = HashMap::default();
 
         if let EatingStrategy::Omnivorous
         | EatingStrategy::Carnivorous = self.eating_strategy
@@ -917,8 +921,7 @@ impl Body {
         }
 
         // Find the closest plant
-        let mut visible_bodies: HashMap<&BodyId, &Body> =
-            HashMap::new();
+        let mut visible_bodies = HashMap::default();
 
         get_visible!(self, bodies, visible_bodies);
 
@@ -968,12 +971,12 @@ impl Body {
                         &same_target_visible_bodies,
                     )
                     && self.handle_do_not_compete_with_relatives(
-                        &cross_id,
+                        cross_id,
                         &visible_bodies_of_my_type,
                     )
                     && self
                         .handle_do_not_compete_with_younger_relatives(
-                            &cross_id,
+                            cross_id,
                             &visible_bodies_of_my_type,
                         )
             })
@@ -996,8 +999,7 @@ impl Body {
                 })
             }
             None => {
-                let mut visible_plants: HashMap<&PlantId, &Plant> =
-                    HashMap::new();
+                let mut visible_plants = HashMap::default();
 
                 if let EatingStrategy::Omnivorous
                 | EatingStrategy::Herbivorous =
@@ -1030,11 +1032,11 @@ impl Body {
                         && self.handle_alive_when_arrived_plant(plant)
                         && self.handle_profitable_when_arrived_plant(plant)
                         && self.handle_do_not_compete_with_relatives(
-                            &plant_id,
+                            plant_id,
                             &visible_bodies_of_my_type
                         )
                         && self.handle_do_not_compete_with_younger_relatives(
-                            &plant_id,
+                            plant_id,
                             &visible_bodies_of_my_type
                         )
                         && self.handle_will_arrive_first_plant(
@@ -1142,12 +1144,12 @@ impl Body {
                                         &same_target_visible_bodies
                                     )
                                     && self.handle_do_not_compete_with_relatives(
-                                        &other_body_id,
+                                        other_body_id,
                                         &visible_bodies_of_my_type
 
                                     )
                                     && self.handle_do_not_compete_with_younger_relatives(
-                                        &other_body_id,
+                                        other_body_id,
                                         &visible_bodies_of_my_type
                                     )
                                 })
@@ -1421,14 +1423,18 @@ impl Body {
 
             let time = self.pos.distance(other_body.pos) / delta;
             same_target_visible_bodies.iter().all(
-                |(_, other_body)| {
+                |(_, other_chaser)| {
                     let chaser_delta =
-                        other_body.speed - other_body.speed;
+                        other_chaser.speed - other_body.speed;
 
-                    chaser_delta > 0.0
-                        && time
-                            < other_body.pos.distance(other_body.pos)
-                                / chaser_delta
+                    if chaser_delta > 0.0 {
+                        time < other_chaser
+                            .pos
+                            .distance(other_body.pos)
+                            / chaser_delta
+                    } else {
+                        true
+                    }
                 },
             )
         } else {

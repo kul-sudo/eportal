@@ -20,15 +20,15 @@ pub static DEFAULT_AREA_SIZE_RATIO: f32 =
 
 pub const OBJECT_RADIUS: f32 = 10.0;
 /// Used for `get_with_deviation`.
-pub const COLOR_MIN: u8 = 50;
-pub const COLOR_MAX: u8 = 250;
+pub const COLOR_MIN: u8 = 80;
+pub const COLOR_MAX: u8 = 255;
 
 // Evolution process
 pub const GRASS_ENERGY: f32 = 100.0;
 pub const BANANA_ENERGY: f32 = GRASS_ENERGY * 2.0;
 
 pub const MIN_GAP: f32 = 3.0;
-pub const COLOR_GAP: f32 = 0.45; // Depends on COLOR_MIN and COLOR_MAX
+pub const COLOR_GAP: f32 = 0.6; // Depends on COLOR_MIN and COLOR_MAX
 pub const PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 
 // Plants

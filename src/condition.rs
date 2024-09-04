@@ -23,9 +23,10 @@ impl Condition {
                 }
             }
             None => {
-                if unsafe { CONDITION_CHANCE } == 1.0
-                    || rng.gen_range(0.0..1.0)
-                        <= unsafe { CONDITION_CHANCE }
+                if unsafe { CONDITION_CHANCE } > 0.0
+                    && (unsafe { CONDITION_CHANCE } == 1.0
+                        || rng.gen_range(0.0..1.0)
+                            <= unsafe { CONDITION_CHANCE })
                 {
                     *condition = Some((
                         *Condition::ALL.iter().choose(rng).unwrap(),

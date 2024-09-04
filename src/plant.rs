@@ -8,10 +8,8 @@ use macroquad::{
     shapes::{draw_triangle, draw_triangle_lines},
 };
 use rand::{prelude::IteratorRandom, rngs::StdRng, Rng};
-use std::{
-    collections::HashMap,
-    time::{Duration, Instant},
-};
+use rustc_hash::FxHashMap as HashMap;
+use std::time::{Duration, Instant};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum PlantKind {
@@ -167,7 +165,7 @@ impl Plant {
         let starting_point = Instant::now();
 
         // Make sure the position is far enough from the rest of the plants and bodies and the borders of the area
-        while {
+        loop {
             // Make sure finding a suitable position doesn't exceed a specific time limit
             if starting_point.elapsed().as_nanos()
                 >= Duration::from_millis(PLANT_SPAWN_TIME_LIMIT)
@@ -175,20 +173,25 @@ impl Plant {
             {
                 return;
             }
+
             pos.x = rng.gen_range(0.0..AREA_SIZE.x);
             pos.y = rng.gen_range(0.0..AREA_SIZE.y);
-            (pos.x <= OBJECT_RADIUS + MIN_GAP
-                || pos.x >= AREA_SIZE.x - OBJECT_RADIUS - MIN_GAP)
-                || (pos.y <= OBJECT_RADIUS + MIN_GAP
-                    || pos.y >= AREA_SIZE.y - OBJECT_RADIUS - MIN_GAP)
+
+            if (pos.x > OBJECT_RADIUS + MIN_GAP
+                || pos.x < AREA_SIZE.x - OBJECT_RADIUS - MIN_GAP)
+                || (pos.y > OBJECT_RADIUS + MIN_GAP
+                    || pos.y < AREA_SIZE.y - OBJECT_RADIUS - MIN_GAP)
                 || {
                     let Cell { i, j } = CELLS.get_cell_by_pos(pos);
                     bodies[i][j].values().any(|body| {
                         body.last_pos.distance(pos)
-                            <= OBJECT_RADIUS * 2.0 + MIN_GAP
+                            > OBJECT_RADIUS * 2.0 + MIN_GAP
                     })
                 }
-        } {}
+            {
+                break;
+            }
+        }
 
         let Cell { i, j } = CELLS.get_cell_by_pos(pos);
         plants[i][j].insert(

@@ -1,6 +1,7 @@
 use crate::{constants::*, Body, Virus, Zoom};
 use macroquad::prelude::{draw_circle, draw_line, Color, Vec2, RED};
-use std::{collections::HashMap, f32::consts::SQRT_2, time::Instant};
+use rustc_hash::FxHashMap as HashMap;
+use std::{f32::consts::SQRT_2, time::Instant};
 
 pub type CrossId = Instant;
 

@@ -11,6 +11,7 @@ edition = "2021"
 [dependencies]
 macroquad = "0.4.5"
 rand = { version = "0.8.5", features = ["std_rng"] }
+rustc-hash = "2.0.0"
 serde = "1.0.203"
 serde_derive = "1.0.203"
 toml = "0.8.14"
