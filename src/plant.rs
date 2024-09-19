@@ -8,8 +8,10 @@ use macroquad::{
     shapes::{draw_triangle, draw_triangle_lines},
 };
 use rand::{prelude::IteratorRandom, rngs::StdRng, Rng};
-use rustc_hash::FxHashMap as HashMap;
-use std::time::{Duration, Instant};
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum PlantKind {

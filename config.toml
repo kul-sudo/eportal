@@ -61,7 +61,7 @@ show_fps = false # Whether to show how many frames roughly happen per second
 
 # Properties of a body to show over it
 show_energy = true # The current energy
-show_division_threshold = false # The energy a body has to reach to be able to procreate
+show_division_threshold = true # The energy a body has to reach to be able to procreate
 show_body_type = false # The type ID the body is part of (can also be distinguished using colors)
 show_lifespan = false # How many seconds a body has left to live if it theoretically doesn't move at all
 

@@ -12,9 +12,8 @@ use macroquad::prelude::{
     DrawRectangleParams, Vec2, Vec3, GREEN, RED, WHITE,
 };
 use rand::{random, rngs::StdRng, seq::IteratorRandom, Rng};
-use rustc_hash::{
-    FxBuildHasher, FxHashMap as HashMap, FxHashSet as HashSet,
-};
+use std::collections::{HashMap, HashSet};
+use std::sync::LazyLock;
 use std::{f32::consts::PI, f32::consts::SQRT_2, time::Instant};
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -76,6 +75,16 @@ pub enum Skill {
     EatCrossesOfMyType,
     AvoidInfectedCrosses,
 }
+
+static SKILLS_HASHMAP: LazyLock<HashSet<Skill>> =
+    LazyLock::new(|| {
+        let mut all_skills = HashSet::new();
+        for skill in Skill::ALL {
+            all_skills.insert(skill);
+        }
+
+        all_skills
+    });
 
 impl Skill {
     pub const ALL: [Self; 9] = [
@@ -282,12 +291,7 @@ impl Body {
                         <= unsafe { SKILLS_CHANGE_CHANCE }
                     {
                         if random::<bool>() {
-                            let mut skills = HashSet::default();
-                            for skill in Skill::ALL {
-                                skills.insert(skill);
-                            }
-
-                            if let Some(random_skill) = skills
+                            if let Some(random_skill) = SKILLS_HASHMAP
                                 .difference(&skills)
                                 .collect::<HashSet<_>>()
                                 .iter()
@@ -304,10 +308,7 @@ impl Body {
 
                     skills
                 }
-                None => HashSet::with_capacity_and_hasher(
-                    Skill::ALL.len(),
-                    FxBuildHasher,
-                ),
+                None => HashSet::with_capacity(Skill::ALL.len()),
             },
             color,
             status: Status::Undefined,
@@ -317,10 +318,7 @@ impl Body {
                 Some(viruses) => viruses,
                 None => {
                     let mut viruses =
-                        HashMap::with_capacity_and_hasher(
-                            Virus::ALL.len(),
-                            FxBuildHasher,
-                        );
+                        HashMap::with_capacity(Virus::ALL.len());
 
                     if eating_strategy != EatingStrategy::Herbivorous
                     {
@@ -334,11 +332,12 @@ impl Body {
                                 },
                             };
 
-                                if virus_chance > 0.0 && (virus_chance == 1.0
+                            if virus_chance > 0.0
+                                && (virus_chance == 1.0
                                     || rng.gen_range(0.0..1.0)
                                         <= virus_chance)
-                                {
-                                    viruses
+                            {
+                                viruses
                                     .entry(virus)
                                     .or_insert(rng.gen_range(
                                     0.0..match virus {
@@ -350,7 +349,7 @@ impl Body {
                                         },
                                     },
                                 ));
-                                }
+                            }
                         }
                     }
 
@@ -579,11 +578,10 @@ impl Body {
             if let Status::FollowingTarget(_, target_pos, _) =
                 self.status
             {
-                let mut rectangle_sides =
-                    HashMap::with_capacity_and_hasher(
-                        RectangleCorner::ALL.len(),
-                        FxBuildHasher,
-                    );
+                let mut rectangle_sides = HashMap::with_capacity(
+                    RectangleCorner::ALL.len(),
+                );
+
                 for corner in RectangleCorner::ALL {
                     let (i, j) = match corner {
                         RectangleCorner::TopRight => (1.0, 1.0),
@@ -912,7 +910,7 @@ impl Body {
         removed_bodies: &HashMap<Instant, Vec2>,
         removed_plants: &HashMap<Instant, Vec2>,
     ) -> Option<FoodInfo<'a>> {
-        let mut visible_crosses = HashMap::default();
+        let mut visible_crosses = HashMap::new();
 
         if let EatingStrategy::Omnivorous
         | EatingStrategy::Carnivorous = self.eating_strategy
@@ -921,7 +919,7 @@ impl Body {
         }
 
         // Find the closest plant
-        let mut visible_bodies = HashMap::default();
+        let mut visible_bodies = HashMap::new();
 
         get_visible!(self, bodies, visible_bodies);
 
@@ -999,7 +997,7 @@ impl Body {
                 })
             }
             None => {
-                let mut visible_plants = HashMap::default();
+                let mut visible_plants = HashMap::new();
 
                 if let EatingStrategy::Omnivorous
                 | EatingStrategy::Herbivorous =

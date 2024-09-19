@@ -33,8 +33,8 @@ use macroquad::prelude::{
     Conf, KeyCode, MouseButton, Rect, Vec2, WHITE,
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
-use rustc_hash::FxHashMap as HashMap;
 use std::{
+    collections::HashMap,
     intrinsics::unlikely,
     mem::variant_count,
     sync::LazyLock,
@@ -134,11 +134,11 @@ async fn main() {
         None;
 
     let mut bodies: Vec<Vec<HashMap<BodyId, Body>>> =
-        vec![vec![HashMap::default(); CELLS.columns]; CELLS.rows];
+        vec![vec![HashMap::new(); CELLS.columns]; CELLS.rows];
     let mut plants: Vec<Vec<HashMap<PlantId, Plant>>> =
-        vec![vec![HashMap::default(); CELLS.columns]; CELLS.rows];
+        vec![vec![HashMap::new(); CELLS.columns]; CELLS.rows];
     let mut crosses: Vec<Vec<HashMap<CrossId, Cross>>> =
-        vec![vec![HashMap::default(); CELLS.columns]; CELLS.rows];
+        vec![vec![HashMap::new(); CELLS.columns]; CELLS.rows];
 
     // Need to be handled manually to avoid extracting all out of the cells
     let mut plants_n = 0;
@@ -247,13 +247,12 @@ async fn main() {
             }
         }
 
-        let mut new_bodies: HashMap<BodyId, Body> =
-            HashMap::default();
+        let mut new_bodies: HashMap<BodyId, Body> = HashMap::new();
 
         let mut removed_plants: HashMap<PlantId, Vec2> =
-            HashMap::default();
+            HashMap::new();
         let mut removed_bodies: HashMap<BodyId, Vec2> =
-            HashMap::default();
+            HashMap::new();
 
         Condition::update_condition(&mut condition, &mut rng);
 
@@ -363,7 +362,7 @@ async fn main() {
                     }
 
                     // Escape
-                    let mut visible_bodies = HashMap::default();
+                    let mut visible_bodies = HashMap::new();
 
                     get_visible!(body, bodies, visible_bodies);
 
