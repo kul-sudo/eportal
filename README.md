@@ -82,7 +82,7 @@ The body gets energy by eating food:
 - `living bodies`: Living bodies give their current energy.
 - `dead bodies`: Dead bodies give the energy they had the moment they died.
 
-[Omnivorous bodies](#bodies) only get certain part of the food's energy they eat, unlike carnivorous
+[Omnivorous bodies](#bodies) only get certain part of energy of the food they eat, unlike carnivorous
 and herbivorous bodies.
 
 The body constantly spends energy on:
