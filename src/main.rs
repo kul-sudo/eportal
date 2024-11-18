@@ -90,12 +90,8 @@ async fn main() {
 
     config_setup(true);
 
-    // A workaround for Linux
-    if cfg!(target_os = "linux") {
-        set_fullscreen(true);
-        std::thread::sleep(Duration::from_secs(1));
-        next_frame().await;
-    }
+    set_fullscreen(true);
+    next_frame().await;
 
     // Needed for randomness
     let mut rng = StdRng::from_rng(&mut rand::thread_rng()).unwrap();
