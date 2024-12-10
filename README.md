@@ -195,7 +195,9 @@ https://github.com/kul-sudo/eportal/releases
 
 # How to help the project?
 ## Financially
-Even small donations are appreciated: https://paypal.me/rustprogramming
+Even small donations are appreciated:
+- Monero: 89cGT7422X4HPdJB8Xcb9SNoqSHe75xYSEZXPM83AiNsK3WafD1YEoYFQWQt8D1yUH97NhfT69yLrWfSqMF1J9DmJTEtGfB
+- PayPal: https://paypal.me/rustprogramming
 
 ## Contributions
 Especially:
