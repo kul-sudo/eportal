@@ -8,8 +8,8 @@ use crate::{
 };
 use macroquad::prelude::{
     draw_circle, draw_rectangle, draw_rectangle_ex, draw_text,
-    measure_text, rand::gen_range, vec2, Circle, Color,
-    DrawRectangleParams, Vec2, Vec3, GREEN, RED, WHITE,
+    measure_text, rand::gen_range, vec2, vec3, Circle, Color,
+    DrawRectangleParams, Vec2, GREEN, RED, WHITE,
 };
 use rand::{random, rngs::StdRng, seq::IteratorRandom, Rng};
 use std::collections::{HashMap, HashSet};
@@ -840,35 +840,25 @@ impl Body {
             255,
         );
 
-        let green_rgb = Vec3 {
-            x: GREEN.r,
-            y: GREEN.g,
-            z: GREEN.b,
-        };
+        let green_rgb = vec3(GREEN.r, GREEN.g, GREEN.b);
 
-        let red_rgb = Vec3 {
-            x: RED.r,
-            y: RED.g,
-            z: RED.b,
-        };
+        let red_rgb = vec3(RED.r, RED.g, RED.b);
 
         while bodies.iter().any(|row| {
             row.iter().any(|column| {
                 column.values().any(|body| {
-                    let current_body_rgb = Vec3 {
-                        x: body.color.r,
-                        y: body.color.g,
-                        z: body.color.b,
-                    };
+                    let current_body_rgb = vec3(
+                        body.color.r,
+                        body.color.g,
+                        body.color.b,
+                    );
                     current_body_rgb.distance(green_rgb)
                         < real_color_gap
                         || current_body_rgb.distance(red_rgb)
                             < real_color_gap
-                        || current_body_rgb.distance(Vec3 {
-                            x: color.r,
-                            y: color.g,
-                            z: color.b,
-                        }) < real_color_gap
+                        || current_body_rgb
+                            .distance(vec3(color.r, color.g, color.b))
+                            < real_color_gap
                 })
             })
         }) {
