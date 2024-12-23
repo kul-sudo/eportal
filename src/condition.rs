@@ -1,4 +1,4 @@
-use crate::{CONDITION_CHANCE, CONDITION_LIFETIME};
+use crate::USER_CONSTANTS;
 use rand::{prelude::IteratorRandom, rngs::StdRng, Rng};
 use std::time::{Duration, Instant};
 
@@ -23,18 +23,24 @@ impl Condition {
                 }
             }
             None => {
-                if unsafe { CONDITION_CHANCE } > 0.0
-                    && (unsafe { CONDITION_CHANCE } == 1.0
+                let user_constants = USER_CONSTANTS.read().unwrap();
+
+                if user_constants.condition_chance > 0.0
+                    && (user_constants.condition_chance == 1.0
                         || rng.gen_range(0.0..1.0)
-                            <= unsafe { CONDITION_CHANCE })
+                            <= user_constants.condition_chance)
                 {
                     *condition = Some((
-                        *Condition::ALL.iter().choose(rng).unwrap(),
+                        *Self::ALL.iter().choose(rng).unwrap(),
                         (
                             Instant::now(),
-                            Duration::from_secs(rng.gen_range(
-                                unsafe { CONDITION_LIFETIME.clone() },
-                            )),
+                            Duration::from_secs(
+                                rng.gen_range(
+                                    user_constants
+                                        .condition_lifetime
+                                        .clone(),
+                                ),
+                            ),
                         ),
                     ));
                 }

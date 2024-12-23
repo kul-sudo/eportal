@@ -1,4 +1,7 @@
-use std::f32::consts::SQRT_3;
+use std::{
+    f32::consts::SQRT_3,
+    sync::{LazyLock, RwLock},
+};
 
 pub const DEFAULT_SCREEN_WIDTH: f32 = 1920.0;
 pub const DEFAULT_SCREEN_HEIGHT: f32 = 1080.0;
@@ -10,7 +13,8 @@ pub const CONFIG_FILE_NAME: &str = "config.toml";
 pub const DEFAULT_CELL_ROWS: usize = 129; // May be needed to be changed when the perfect values for the
                                           // evolution process have been determined
 pub const DEFAULT_PLANTS_N: usize = 53914;
-pub static mut PLANTS_N: usize = 0;
+pub static PLANTS_N: LazyLock<RwLock<usize>> =
+    LazyLock::new(|| RwLock::new(0));
 
 pub const AVERAGE_PLANTS_PART_DRAWN: f32 = 0.014;
 
@@ -32,7 +36,8 @@ pub const COLOR_GAP: f32 = 0.6; // Depends on COLOR_MIN and COLOR_MAX
 pub const PLANT_SPAWN_TIME_LIMIT: u64 = 5; // In millis
 
 // Plants
-pub static mut PLANTS_N_FOR_ONE_STEP: usize = 0;
+pub static PLANTS_N_FOR_ONE_STEP: LazyLock<RwLock<usize>> =
+    LazyLock::new(|| RwLock::new(0));
 
 // Conditions
 pub const RAIN_PLANTS_N_FOR_ONE_STEP_MULTIPLIER: f32 = 2.7;

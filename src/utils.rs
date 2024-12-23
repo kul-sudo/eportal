@@ -201,6 +201,8 @@ pub fn adjusted_pos(pos: Vec2) -> Vec2 {
 /// Used for getting specific values with deviations.
 #[inline(always)]
 pub fn get_with_deviation(value: f32, rng: &mut StdRng) -> f32 {
-    let part = value * unsafe { DEVIATION };
+    let user_constants = USER_CONSTANTS.read().unwrap();
+
+    let part = value * user_constants.deviation;
     rng.gen_range(value - part..value + part)
 }

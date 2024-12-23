@@ -67,7 +67,8 @@ pub static CELLS: LazyLock<Cells> = LazyLock::new(|| {
     // where `k` is the real number of cells
     // and `p` is the default number of cells.
     cells.rows = ((DEFAULT_CELL_ROWS as f32
-        * (DEFAULT_AREA_SIZE_RATIO * unsafe { PLANTS_N } as f32
+        * (DEFAULT_AREA_SIZE_RATIO
+            * *PLANTS_N.read().unwrap() as f32
             / (area_size_ratio * DEFAULT_PLANTS_N as f32))
             .sqrt())
     .round() as usize)
@@ -99,11 +100,13 @@ async fn main() {
     // Calculations
     let area_space = AREA_SIZE.x * AREA_SIZE.y;
 
-    unsafe {
-        PLANTS_N = (PLANTS_DENSITY * area_space).round() as usize;
-        PLANTS_N_FOR_ONE_STEP =
-            (PLANT_SPAWN_CHANCE * area_space).round() as usize;
-    }
+    let user_constants = USER_CONSTANTS.read().unwrap();
+
+    *PLANTS_N.write().unwrap() =
+        (user_constants.plants_density * area_space).round() as usize;
+    *PLANTS_N_FOR_ONE_STEP.write().unwrap() =
+        (user_constants.plant_spawn_chance * area_space).round()
+            as usize;
 
     // Camera
     let mut camera = Camera2D::from_display_rect(Rect::new(
@@ -141,32 +144,35 @@ async fn main() {
     let mut bodies_n = 0;
 
     // Spawn the bodies
-    for i in
-        0..unsafe { OMNIVOROUS_N + HERBIVOROUS_N + CARNIVOROUS_N }
+    for i in 0..user_constants.omnivorous_n
+        + user_constants.herbivorous_n
+        + user_constants.carnivorous_n
     {
         Body::randomly_spawn_body(
             &mut bodies,
-            unsafe {
-                match i {
-                    _ if (0..OMNIVOROUS_N).contains(&i) => {
-                        EatingStrategy::Omnivorous
-                    }
-                    _ if (OMNIVOROUS_N
-                        ..OMNIVOROUS_N + HERBIVOROUS_N)
-                        .contains(&i) =>
-                    {
-                        EatingStrategy::Herbivorous
-                    }
-                    _ if (OMNIVOROUS_N + HERBIVOROUS_N
-                        ..OMNIVOROUS_N
-                            + HERBIVOROUS_N
-                            + CARNIVOROUS_N)
-                        .contains(&i) =>
-                    {
-                        EatingStrategy::Carnivorous
-                    }
-                    _ => unreachable!(),
+            match i {
+                _ if (0..user_constants.omnivorous_n)
+                    .contains(&i) =>
+                {
+                    EatingStrategy::Omnivorous
                 }
+                _ if (user_constants.omnivorous_n
+                    ..user_constants.omnivorous_n
+                        + user_constants.herbivorous_n)
+                    .contains(&i) =>
+                {
+                    EatingStrategy::Herbivorous
+                }
+                _ if (user_constants.omnivorous_n
+                    + user_constants.herbivorous_n
+                    ..user_constants.omnivorous_n
+                        + user_constants.herbivorous_n
+                        + user_constants.carnivorous_n)
+                    .contains(&i) =>
+                {
+                    EatingStrategy::Carnivorous
+                }
+                _ => unreachable!(),
             },
             i + 1,
             &mut rng,
@@ -176,7 +182,7 @@ async fn main() {
     }
 
     // Spawn the plants
-    for _ in 0..unsafe { PLANTS_N } {
+    for _ in 0..*PLANTS_N.read().unwrap() {
         Plant::randomly_spawn_plant(&bodies, &mut plants, &mut rng);
 
         plants_n += 1;
@@ -254,11 +260,11 @@ async fn main() {
 
         // Remove plants
         let n_to_remove = (plants_n as f32
-            * (unsafe { PLANT_DIE_CHANCE }
+            * (USER_CONSTANTS.read().unwrap().plant_die_chance
                 + if condition.is_some_and(|(condition, _)| {
                     condition == Condition::Drought
                 }) {
-                    (unsafe { PLANT_DIE_CHANCE })
+                    (USER_CONSTANTS.read().unwrap().plant_die_chance)
                         * DROUGHT_PLANT_DIE_CHANCE_MULTIPLIER
                 } else {
                     0.0
@@ -289,11 +295,11 @@ async fn main() {
         }
 
         // Spawn a plant in a random place with a specific chance
-        let n_to_add = unsafe { PLANTS_N_FOR_ONE_STEP }
+        let n_to_add = *PLANTS_N_FOR_ONE_STEP.read().unwrap()
             + if condition.is_some_and(|(condition, _)| {
                 condition == Condition::Rain
             }) {
-                (unsafe { PLANTS_N_FOR_ONE_STEP } as f32
+                (*PLANTS_N_FOR_ONE_STEP.read().unwrap() as f32
                     * RAIN_PLANTS_N_FOR_ONE_STEP_MULTIPLIER)
                     as usize
             } else {
@@ -328,23 +334,12 @@ async fn main() {
                     body.handle_lifespan();
 
                     // Handle if dead to become a cross
-                    if body.energy < unsafe { MIN_ENERGY }
+                    if body.energy
+                        < USER_CONSTANTS.read().unwrap().min_energy
                         || body_id.elapsed().as_secs_f32()
                             > body.lifespan
                     {
                         body.status = Status::Cross;
-                        //body.set_status(
-                        //    Status::Cross,
-                        //    body_id,
-                        //    &mut bodies,
-                        //    unsafe {
-                        //        &mut (*(&mut crosses
-                        //            as *mut Vec<
-                        //                Vec<HashMap<Instant, Cross>>,
-                        //            >))
-                        //    },
-                        //    &mut plants,
-                        //);
 
                         removed_bodies.insert(*body_id, body.pos);
 
@@ -463,9 +458,10 @@ async fn main() {
                             {
                                 EatingStrategy::Omnivorous => {
                                     food.energy
-                                        * unsafe {
-                                            OMNIVOROUS_FOOD_PART
-                                        }
+                                        * USER_CONSTANTS
+                                            .read()
+                                            .unwrap()
+                                            .omnivorous_food_part
                                 }
                                 EatingStrategy::Herbivorous
                                 | EatingStrategy::Carnivorous => {
@@ -536,7 +532,10 @@ async fn main() {
             for column in row {
                 column.retain(|_, cross| {
                     cross.timestamp.elapsed().as_secs()
-                        <= unsafe { CROSS_LIFESPAN }
+                        <= USER_CONSTANTS
+                            .read()
+                            .unwrap()
+                            .cross_lifespan
                 })
             }
         }
@@ -687,7 +686,7 @@ async fn main() {
                 );
             }
 
-            if unsafe { SHOW_FPS } {
+            if USER_CONSTANTS.read().unwrap().show_fps {
                 show_fps(&zoom);
             }
         }

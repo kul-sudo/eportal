@@ -1,76 +1,63 @@
 use crate::constants::*;
 use macroquad::prelude::*;
 use serde_derive::Deserialize;
-use std::{fs::read_to_string, ops::Range, process::exit};
+use std::{
+    fs::read_to_string,
+    ops::Range,
+    process::exit,
+    sync::{LazyLock, RwLock},
+};
 use toml::from_str;
 
+#[derive(Default, Debug)]
 // Average spawn attributes
-pub static mut OMNIVOROUS_N: usize = 0;
-pub static mut HERBIVOROUS_N: usize = 0;
-pub static mut CARNIVOROUS_N: usize = 0;
+pub struct UserConstants {
+    pub omnivorous_n:                                      usize,
+    pub herbivorous_n:                                     usize,
+    pub carnivorous_n:                                     usize,
+    pub average_energy_omnivorous_herbivorous:             f32,
+    pub average_energy_carnivorous:                        f32,
+    pub average_speed:                                     f32,
+    pub average_division_threshold_omnivorous_herbivorous: f32,
+    pub average_division_threshold_carnivorous:            f32,
+    pub average_vision_distance:                           f32,
+    pub omnivorous_food_part:                              f32,
+    pub carnivorous_energy_const:                          f32,
+    pub skills_change_chance:                              f32,
+    pub plants_density:                                    f32,
+    pub deviation:                                         f32,
+    pub lifespan:                                          f32,
+    pub min_energy:                                        f32,
+    pub plant_spawn_chance:                                f32,
+    pub plant_die_chance:                                  f32,
+    pub const_for_lifespan:                                f32,
+    pub cross_lifespan:                                    u64,
+    pub energy_spent_const_for_mass:                       f32,
+    pub energy_spent_const_for_skills:                     f32,
+    pub energy_spent_const_for_vision_distance:            f32,
+    pub energy_spent_const_for_movement:                   f32,
+    pub speedvirus_first_generation_infection_chance:      f32,
+    pub speedvirus_speed_decrease:                         f32,
+    pub speedvirus_energy_spent_for_healing:               f32,
+    pub speedvirus_heal_energy:                            f32,
+    pub visionvirus_first_generation_infection_chance:     f32,
+    pub visionvirus_vision_distance_decrease:              f32,
+    pub visionvirus_energy_spent_for_healing:              f32,
+    pub visionvirus_heal_energy:                           f32,
+    pub condition_chance:                                  f32,
+    pub condition_lifetime:                                Range<u64>,
+    pub body_info_font_size:                               u16,
+    pub show_fps:                                          bool,
+    pub show_energy:                                       bool,
+    pub show_division_threshold:                           bool,
+    pub show_body_type:                                    bool,
+    pub show_lifespan:                                     bool,
+    pub show_skills:                                       bool,
+    pub show_viruses:                                      bool,
+}
 
-pub static mut AVERAGE_ENERGY_OMNIVOROUS_HERBIVOROUS: f32 = 0.0;
-pub static mut AVERAGE_ENERGY_CARNIVOROUS: f32 = 0.0;
-
-pub static mut AVERAGE_SPEED: f32 = 0.0;
-
-pub static mut AVERAGE_DIVISION_THRESHOLD_OMNIVOROUS_HERBIVOROUS:
-    f32 = 0.0;
-pub static mut AVERAGE_DIVISION_THRESHOLD_CARNIVOROUS: f32 = 0.0;
-
-pub static mut AVERAGE_VISION_DISTANCE: f32 = 0.0;
-
-pub static mut OMNIVOROUS_FOOD_PART: f32 = 0.0;
-pub static mut CARNIVOROUS_ENERGY_CONST: f32 = 0.0;
-
-pub static mut SKILLS_CHANGE_CHANCE: f32 = 0.0;
-pub static mut PLANTS_DENSITY: f32 = 0.0;
-
-pub static mut DEVIATION: f32 = 0.0;
-pub static mut LIFESPAN: f32 = 0.0;
-pub static mut MIN_ENERGY: f32 = 0.0;
-
-pub static mut PLANT_SPAWN_CHANCE: f32 = 0.0;
-pub static mut PLANT_DIE_CHANCE: f32 = 0.0;
-pub static mut CONST_FOR_LIFESPAN: f32 = 0.0;
-
-// Death
-pub static mut CROSS_LIFESPAN: u64 = 0;
-
-// Spending energy
-pub static mut ENERGY_SPENT_CONST_FOR_MASS: f32 = 0.0;
-pub static mut ENERGY_SPENT_CONST_FOR_SKILLS: f32 = 0.0;
-pub static mut ENERGY_SPENT_CONST_FOR_VISION_DISTANCE: f32 = 0.0;
-pub static mut ENERGY_SPENT_CONST_FOR_MOVEMENT: f32 = 0.0;
-
-// SpeedVirus
-pub static mut SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE: f32 =
-    0.0;
-pub static mut SPEEDVIRUS_SPEED_DECREASE: f32 = 0.0;
-pub static mut SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING: f32 = 0.0;
-pub static mut SPEEDVIRUS_HEAL_ENERGY: f32 = 0.0;
-
-// VisionVirus
-pub static mut VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE: f32 =
-    0.0;
-pub static mut VISIONVIRUS_VISION_DISTANCE_DECREASE: f32 = 0.0;
-pub static mut VISIONVIRUS_ENERGY_SPENT_FOR_HEALING: f32 = 0.0;
-pub static mut VISIONVIRUS_HEAL_ENERGY: f32 = 0.0;
-
-// Condition
-pub static mut CONDITION_CHANCE: f32 = 0.0;
-pub static mut CONDITION_LIFETIME: Range<u64> = 0..0;
-
-// UI
-pub static mut BODY_INFO_FONT_SIZE: u16 = 0;
-pub static mut SHOW_FPS: bool = false;
-
-pub static mut SHOW_ENERGY: bool = false;
-pub static mut SHOW_DIVISION_THRESHOLD: bool = false;
-pub static mut SHOW_BODY_TYPE: bool = false;
-pub static mut SHOW_LIFESPAN: bool = false;
-pub static mut SHOW_SKILLS: bool = false;
-pub static mut SHOW_VIRUSES: bool = false;
+pub static USER_CONSTANTS: LazyLock<RwLock<UserConstants>> =
+    LazyLock::new(|| RwLock::new(Default::default()));
 
 #[derive(Deserialize)]
 struct BodyField {
@@ -180,83 +167,88 @@ pub fn config_setup(first_run: bool) {
     let condition = config.condition;
     let ui = config.ui;
 
-    unsafe {
-        // Body-related
-        OMNIVOROUS_N = body.omnivorous_n;
-        HERBIVOROUS_N = body.herbivorous_n;
-        CARNIVOROUS_N = body.carnivorous_n;
+    let mut user_constants = USER_CONSTANTS.write().unwrap();
+    *user_constants = UserConstants {
+        omnivorous_n:                                      body
+            .omnivorous_n,
+        herbivorous_n:                                     body
+            .herbivorous_n,
+        carnivorous_n:                                     body
+            .carnivorous_n,
+        average_energy_omnivorous_herbivorous:             body
+            .average_energy_omnivorous_herbivorous,
+        average_energy_carnivorous:                        body
+            .average_energy_carnivorous,
+        average_speed:                                     body
+            .average_speed,
+        average_division_threshold_omnivorous_herbivorous: body
+            .average_division_threshold_omnivorous_herbivorous,
+        average_division_threshold_carnivorous:            body
+            .average_division_threshold_carnivorous,
+        average_vision_distance:                           body
+            .average_vision_distance,
+        omnivorous_food_part:                              body
+            .omnivorous_food_part,
 
-        AVERAGE_ENERGY_OMNIVOROUS_HERBIVOROUS =
-            body.average_energy_omnivorous_herbivorous;
-        AVERAGE_ENERGY_CARNIVOROUS = body.average_energy_carnivorous;
-
-        AVERAGE_SPEED = body.average_speed;
-
-        AVERAGE_DIVISION_THRESHOLD_OMNIVOROUS_HERBIVOROUS =
-            body.average_division_threshold_omnivorous_herbivorous;
-        AVERAGE_DIVISION_THRESHOLD_CARNIVOROUS =
-            body.average_division_threshold_carnivorous;
-
-        AVERAGE_VISION_DISTANCE = body.average_vision_distance;
-
-        OMNIVOROUS_FOOD_PART = body.omnivorous_food_part;
-        CARNIVOROUS_ENERGY_CONST = body.carnivorous_energy_const;
-
-        CONST_FOR_LIFESPAN = body.const_for_lifespan;
-
-        SKILLS_CHANGE_CHANCE = body.skills_change_chance;
-        DEVIATION = body.deviation;
-        LIFESPAN = body.lifespan;
-        MIN_ENERGY = body.min_energy;
-        CROSS_LIFESPAN = body.cross_lifespan;
-
-        // Plants-related
-        PLANTS_DENSITY = plants.plants_density;
-        PLANT_SPAWN_CHANCE = plants.plant_spawn_chance;
-        PLANT_DIE_CHANCE = plants.plant_die_chance;
-
-        // Virus-related
-        SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE =
-            viruses.speedvirus_first_generation_infection_chance;
-        SPEEDVIRUS_SPEED_DECREASE = viruses.speedvirus_speed_decrease;
-        SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING =
-            viruses.speedvirus_energy_spent_for_healing;
-        SPEEDVIRUS_HEAL_ENERGY = viruses.speedvirus_heal_energy;
-
-        VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE =
-            viruses.visionvirus_first_generation_infection_chance;
-        VISIONVIRUS_VISION_DISTANCE_DECREASE =
-            viruses.visionvirus_vision_distance_decrease;
-        VISIONVIRUS_ENERGY_SPENT_FOR_HEALING =
-            viruses.visionvirus_energy_spent_for_healing;
-        VISIONVIRUS_HEAL_ENERGY = viruses.visionvirus_heal_energy;
-
-        // Energy-related
-        ENERGY_SPENT_CONST_FOR_MASS =
-            energy.energy_spent_const_for_mass;
-        ENERGY_SPENT_CONST_FOR_SKILLS =
-            energy.energy_spent_const_for_skills;
-
-        ENERGY_SPENT_CONST_FOR_VISION_DISTANCE =
-            energy.energy_spent_const_for_vision_distance;
-
-        ENERGY_SPENT_CONST_FOR_MOVEMENT =
-            energy.energy_spent_const_for_movement;
-
-        // Condition
-        CONDITION_CHANCE = condition.condition_chance;
-        CONDITION_LIFETIME = condition.condition_lifetime[0]
-            ..condition.condition_lifetime[1];
-
-        // UI-related
-        BODY_INFO_FONT_SIZE = ui.body_info_font_size;
-        SHOW_FPS = ui.show_fps;
-
-        SHOW_ENERGY = ui.show_energy;
-        SHOW_DIVISION_THRESHOLD = ui.show_division_threshold;
-        SHOW_BODY_TYPE = ui.show_body_type;
-        SHOW_LIFESPAN = ui.show_lifespan;
-        SHOW_SKILLS = ui.show_skills;
-        SHOW_VIRUSES = ui.show_viruses;
+        carnivorous_energy_const:                      body
+            .carnivorous_energy_const,
+        const_for_lifespan:                            body
+            .const_for_lifespan,
+        skills_change_chance:                          body
+            .skills_change_chance,
+        deviation:                                     body.deviation,
+        lifespan:                                      body.lifespan,
+        min_energy:                                    body
+            .min_energy,
+        cross_lifespan:                                body
+            .cross_lifespan,
+        plants_density:                                plants
+            .plants_density,
+        plant_spawn_chance:                            plants
+            .plant_spawn_chance,
+        plant_die_chance:                              plants
+            .plant_die_chance,
+        speedvirus_first_generation_infection_chance:  viruses
+            .speedvirus_first_generation_infection_chance,
+        speedvirus_speed_decrease:                     viruses
+            .speedvirus_speed_decrease,
+        speedvirus_energy_spent_for_healing:           viruses
+            .speedvirus_energy_spent_for_healing,
+        speedvirus_heal_energy:                        viruses
+            .speedvirus_heal_energy,
+        visionvirus_first_generation_infection_chance: viruses
+            .visionvirus_first_generation_infection_chance,
+        visionvirus_vision_distance_decrease:          viruses
+            .visionvirus_vision_distance_decrease,
+        visionvirus_energy_spent_for_healing:          viruses
+            .visionvirus_energy_spent_for_healing,
+        visionvirus_heal_energy:                       viruses
+            .visionvirus_heal_energy,
+        energy_spent_const_for_mass:                   energy
+            .energy_spent_const_for_mass,
+        energy_spent_const_for_skills:                 energy
+            .energy_spent_const_for_skills,
+        energy_spent_const_for_vision_distance:        energy
+            .energy_spent_const_for_vision_distance,
+        energy_spent_const_for_movement:               energy
+            .energy_spent_const_for_movement,
+        condition_chance:                              condition
+            .condition_chance,
+        condition_lifetime:                            condition
+            .condition_lifetime[0]
+            ..condition.condition_lifetime[1],
+        body_info_font_size:                           ui
+            .body_info_font_size,
+        show_fps:                                      ui.show_fps,
+        show_energy:                                   ui.show_energy,
+        show_division_threshold:                       ui
+            .show_division_threshold,
+        show_body_type:                                ui
+            .show_body_type,
+        show_lifespan:                                 ui
+            .show_lifespan,
+        show_skills:                                   ui.show_skills,
+        show_viruses:                                  ui
+            .show_viruses,
     };
 }

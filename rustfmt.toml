@@ -1,2 +1,4 @@
 struct_field_align_threshold = 99
 max_width = 70
+format_strings = true
+unstable_features = true

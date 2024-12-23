@@ -225,10 +225,12 @@ impl Body {
         initial_vision_distance: Option<f32>,
         rng: &mut StdRng,
     ) -> Self {
+        let user_constants = USER_CONSTANTS.read().unwrap();
+
         let speed = get_with_deviation(
             match initial_speed {
                 Some(initial_speed) => initial_speed,
-                None => unsafe { AVERAGE_SPEED },
+                None => user_constants.average_speed,
             },
             rng,
         );
@@ -238,7 +240,7 @@ impl Body {
                 Some(initial_vision_distance) => {
                     initial_vision_distance
                 }
-                None => unsafe { AVERAGE_VISION_DISTANCE },
+                None => user_constants.average_vision_distance,
             },
             rng,
         );
@@ -249,15 +251,14 @@ impl Body {
             energy: match energy {
                 Some(energy) => energy / 2.0,
                 None => get_with_deviation(
-                    unsafe {
-                        match eating_strategy {
-                            EatingStrategy::Carnivorous => {
-                                AVERAGE_ENERGY_CARNIVOROUS
-                            }
-                            EatingStrategy::Herbivorous
-                            | EatingStrategy::Omnivorous => {
-                                AVERAGE_ENERGY_OMNIVOROUS_HERBIVOROUS
-                            }
+                    match eating_strategy {
+                        EatingStrategy::Carnivorous => {
+                            user_constants.average_energy_carnivorous
+                        }
+                        EatingStrategy::Herbivorous
+                        | EatingStrategy::Omnivorous => {
+                            user_constants
+                                .average_energy_omnivorous_herbivorous
                         }
                     },
                     rng,
@@ -271,16 +272,14 @@ impl Body {
             division_threshold: get_with_deviation(
                 match division_threshold {
                     Some(division_threshold) => division_threshold,
-                    None => unsafe {
-                        match eating_strategy {
+                    None => match eating_strategy {
                             EatingStrategy::Carnivorous => {
-                                AVERAGE_DIVISION_THRESHOLD_CARNIVOROUS
+                                user_constants.average_division_threshold_carnivorous
                             }
                             EatingStrategy::Herbivorous
                             | EatingStrategy::Omnivorous => {
-                                AVERAGE_DIVISION_THRESHOLD_OMNIVOROUS_HERBIVOROUS
+                                user_constants.average_division_threshold_omnivorous_herbivorous
                             }
-                        }
                     },
                 },
                 rng,
@@ -288,7 +287,7 @@ impl Body {
             skills: match skills {
                 Some(mut skills) => {
                     if rng.gen_range(0.0..1.0)
-                        <= unsafe { SKILLS_CHANGE_CHANCE }
+                        <= user_constants.skills_change_chance
                     {
                         if random::<bool>() {
                             if let Some(random_skill) = SKILLS_HASHMAP
@@ -313,7 +312,7 @@ impl Body {
             color,
             status: Status::Undefined,
             body_type,
-            lifespan: unsafe { LIFESPAN },
+            lifespan: user_constants.lifespan,
             viruses: match viruses {
                 Some(viruses) => viruses,
                 None => {
@@ -324,12 +323,10 @@ impl Body {
                     {
                         for virus in Virus::ALL {
                             let virus_chance = match virus {
-                                Virus::SpeedVirus => unsafe {
-                                    SPEEDVIRUS_FIRST_GENERATION_INFECTION_CHANCE
-                                },
-                                Virus::VisionVirus => unsafe {
-                                    VISIONVIRUS_FIRST_GENERATION_INFECTION_CHANCE
-                                },
+                                Virus::SpeedVirus => user_constants.speedvirus_first_generation_infection_chance
+                                ,
+                                Virus::VisionVirus => user_constants.visionvirus_first_generation_infection_chance
+                                ,
                             };
 
                             if virus_chance > 0.0
@@ -341,12 +338,10 @@ impl Body {
                                     .entry(virus)
                                     .or_insert(rng.gen_range(
                                     0.0..match virus {
-                                        Virus::SpeedVirus => unsafe {
-                                            SPEEDVIRUS_HEAL_ENERGY
-                                        },
-                                        Virus::VisionVirus => unsafe {
-                                            VISIONVIRUS_HEAL_ENERGY
-                                        },
+                                        Virus::SpeedVirus =>    user_constants.speedvirus_heal_energy
+                                        ,
+                                        Virus::VisionVirus =>user_constants.visionvirus_heal_energy
+                                        ,
                                     },
                                 ));
                             }
@@ -434,45 +429,35 @@ impl Body {
 
     #[inline(always)]
     pub fn draw_info(&self) {
+        let user_constants = USER_CONSTANTS.read().unwrap();
+
         let mut to_display_components = Vec::new();
 
-        //draw_text(
-        //    &format!(
-        //        "{:?} {:?}",
-        //        self.status,
-        //        self.followed_by.len()
-        //    ),
-        //    self.pos.x,
-        //    self.pos.y - 10.0,
-        //    17.0,
-        //    WHITE,
-        //);
-
-        if unsafe { SHOW_ENERGY } {
+        if user_constants.show_energy {
             to_display_components
                 .push(format!("energy = {}", self.energy as usize));
         }
 
-        if unsafe { SHOW_DIVISION_THRESHOLD } {
+        if user_constants.show_division_threshold {
             to_display_components.push(format!(
                 "dt = {}",
                 self.division_threshold as usize
             ));
         }
 
-        if unsafe { SHOW_BODY_TYPE } {
+        if user_constants.show_body_type {
             to_display_components
                 .push(format!("body type = {}", self.body_type));
         }
 
-        if unsafe { SHOW_LIFESPAN } {
+        if user_constants.show_lifespan {
             to_display_components.push(format!(
                 "lifespan = {}",
                 self.lifespan as usize
             ));
         }
 
-        if unsafe { SHOW_SKILLS } {
+        if user_constants.show_skills {
             to_display_components.push(format!(
                 "skills = {:?}",
                 self.skills
@@ -482,7 +467,7 @@ impl Body {
             ));
         }
 
-        if unsafe { SHOW_VIRUSES } {
+        if user_constants.show_viruses {
             to_display_components.push(format!(
                 "viruses = {:?}",
                 self.viruses
@@ -500,13 +485,13 @@ impl Body {
                     - measure_text(
                         &to_display,
                         None,
-                        unsafe { BODY_INFO_FONT_SIZE },
+                        user_constants.body_info_font_size,
                         1.0,
                     )
                     .width
                         / 2.0,
                 self.pos.y - OBJECT_RADIUS - MIN_GAP,
-                unsafe { BODY_INFO_FONT_SIZE } as f32,
+                user_constants.body_info_font_size as f32,
                 WHITE,
             );
         }
@@ -526,14 +511,17 @@ impl Body {
     #[inline(always)]
     /// Make a virus do its job.
     pub fn apply_virus(&mut self, virus: Virus) {
+        let user_constants = USER_CONSTANTS.read().unwrap();
+
         match virus {
             Virus::SpeedVirus => {
-                self.speed -=
-                    self.speed * unsafe { SPEEDVIRUS_SPEED_DECREASE }
+                self.speed -= self.speed
+                    * user_constants.speedvirus_speed_decrease
             }
             Virus::VisionVirus => {
                 self.vision_distance -= self.vision_distance
-                    * unsafe { VISIONVIRUS_VISION_DISTANCE_DECREASE }
+                    * user_constants
+                        .visionvirus_vision_distance_decrease
             }
         };
     }
@@ -643,27 +631,25 @@ impl Body {
     #[inline(always)]
     /// Heal from the viruses the body has and spend energy on it.
     pub fn handle_viruses(&mut self) {
+        let user_constants = USER_CONSTANTS.read().unwrap();
+
         for (virus, energy_spent_for_healing) in &mut self.viruses {
             match virus {
                 Virus::SpeedVirus => {
                     self.energy = (self.energy
-                        - unsafe {
-                            SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING
-                        })
-                    .max(0.0);
-                    *energy_spent_for_healing += unsafe {
-                        SPEEDVIRUS_ENERGY_SPENT_FOR_HEALING
-                    };
+                        - user_constants
+                            .speedvirus_energy_spent_for_healing)
+                        .max(0.0);
+                    *energy_spent_for_healing += user_constants
+                        .speedvirus_energy_spent_for_healing;
                 }
                 Virus::VisionVirus => {
                     self.energy = (self.energy
-                        - unsafe {
-                            VISIONVIRUS_ENERGY_SPENT_FOR_HEALING
-                        })
-                    .max(0.0);
-                    *energy_spent_for_healing += unsafe {
-                        VISIONVIRUS_ENERGY_SPENT_FOR_HEALING
-                    };
+                        - user_constants
+                            .visionvirus_energy_spent_for_healing)
+                        .max(0.0);
+                    *energy_spent_for_healing += user_constants
+                        .visionvirus_energy_spent_for_healing;
                 }
             }
         }
@@ -671,12 +657,12 @@ impl Body {
         self.viruses.retain(|virus, energy_spent_for_healing| {
             *energy_spent_for_healing
                 <= match virus {
-                    Virus::SpeedVirus => unsafe {
-                        SPEEDVIRUS_HEAL_ENERGY
-                    },
-                    Virus::VisionVirus => unsafe {
-                        VISIONVIRUS_HEAL_ENERGY
-                    },
+                    Virus::SpeedVirus => {
+                        user_constants.speedvirus_heal_energy
+                    }
+                    Virus::VisionVirus => {
+                        user_constants.visionvirus_heal_energy
+                    }
                 }
         });
     }
@@ -715,19 +701,22 @@ impl Body {
         body_id: &BodyId,
         removed_bodies: &mut HashMap<BodyId, Vec2>,
     ) -> bool {
+        let user_constants = USER_CONSTANTS.read().unwrap();
+
         // The mass is proportional to the energy; to keep the mass up, energy is spent
-        self.energy -= unsafe { ENERGY_SPENT_CONST_FOR_MASS }
+        self.energy -= user_constants.energy_spent_const_for_mass
             * self.energy
-            + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS }
+            + user_constants.energy_spent_const_for_skills
                 * self.skills.len() as f32
             + if self.spend_energy_on_vision {
-                (unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE })
+                (user_constants
+                    .energy_spent_const_for_vision_distance)
                     * self.vision_distance.powi(2)
             } else {
                 0.0
             }
             + if let Status::Walking(_) = self.status {
-                (unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT })
+                (user_constants.energy_spent_const_for_movement)
                     * self.speed.powi(2)
                     * self.energy
             } else {
@@ -745,8 +734,10 @@ impl Body {
 
     #[inline(always)]
     pub fn handle_lifespan(&mut self) {
+        let user_constants = USER_CONSTANTS.read().unwrap();
+
         self.lifespan = (self.lifespan
-            - unsafe { CONST_FOR_LIFESPAN }
+            - user_constants.const_for_lifespan
                 * self.speed.powi(2)
                 * self.energy)
             .max(0.0)
@@ -790,13 +781,15 @@ impl Body {
     }
 
     pub fn get_spent_energy(&self, time: f32) -> f32 {
-        time * unsafe { ENERGY_SPENT_CONST_FOR_MOVEMENT }
+        let user_constants = USER_CONSTANTS.read().unwrap();
+
+        time * user_constants.energy_spent_const_for_movement
             * self.speed.powi(2)
             * self.energy
-            + unsafe { ENERGY_SPENT_CONST_FOR_MASS } * self.energy
-            + unsafe { ENERGY_SPENT_CONST_FOR_SKILLS }
+            + user_constants.energy_spent_const_for_mass * self.energy
+            + user_constants.energy_spent_const_for_skills
                 * self.skills.len() as f32
-            + unsafe { ENERGY_SPENT_CONST_FOR_VISION_DISTANCE }
+            + user_constants.energy_spent_const_for_vision_distance
                 * self.vision_distance.powi(2)
     }
 
@@ -826,11 +819,14 @@ impl Body {
                 }
         } {}
 
+        let user_constants = USER_CONSTANTS.read().unwrap();
+
         // Make sure the color is different enough
         let real_color_gap = COLOR_GAP
-            / ((unsafe {
-                OMNIVOROUS_N + HERBIVOROUS_N + CARNIVOROUS_N
-            } + 3) as f32)
+            / ((user_constants.omnivorous_n
+                + user_constants.herbivorous_n
+                + user_constants.carnivorous_n
+                + 3) as f32)
                 .powf(1.0 / 3.0);
 
         let mut color = Color::from_rgba(
@@ -1067,6 +1063,9 @@ impl Body {
                                 );
                         }
 
+                        let user_constants =
+                            USER_CONSTANTS.read().unwrap();
+
                         // Find the closest plant
                         if let EatingStrategy::Omnivorous
                         | EatingStrategy::Carnivorous =
@@ -1106,14 +1105,12 @@ impl Body {
                                             self.energy > match other_body.eating_strategy {
                                                 EatingStrategy::Carnivorous => other_body.energy,
                                                 EatingStrategy::Herbivorous
-                                                | EatingStrategy::Omnivorous => other_body.energy * unsafe {
-                                                    CARNIVOROUS_ENERGY_CONST
-                                                }
+                                                | EatingStrategy::Omnivorous => other_body.energy * user_constants.carnivorous_energy_const
                                             }
                                         }
                                         EatingStrategy::Omnivorous => {
                                             other_body.energy < match other_body.eating_strategy {
-                                                EatingStrategy::Carnivorous => self.energy * unsafe { CARNIVOROUS_ENERGY_CONST },
+                                                EatingStrategy::Carnivorous => self.energy * user_constants.carnivorous_energy_const ,
                                                 EatingStrategy::Herbivorous
                                                 | EatingStrategy::Omnivorous => self.energy
                                             }
@@ -1243,12 +1240,14 @@ impl Body {
         &self,
         cross: &Cross,
     ) -> bool {
+        let user_constants = USER_CONSTANTS.read().unwrap();
+
         if self.skills.contains(&Skill::AliveWhenArrived) {
             self.energy
                 - self.get_spent_energy(
                     self.pos.distance(cross.pos) / self.speed,
                 )
-                > unsafe { MIN_ENERGY }
+                > user_constants.min_energy
         } else {
             true
         }
@@ -1259,6 +1258,8 @@ impl Body {
         &self,
         other_body: &Self,
     ) -> bool {
+        let user_constants = USER_CONSTANTS.read().unwrap();
+
         if self.skills.contains(&Skill::AliveWhenArrived) {
             let divisor = self.speed - other_body.speed;
 
@@ -1270,7 +1271,7 @@ impl Body {
                 - self.get_spent_energy(
                     self.pos.distance(other_body.pos) / divisor,
                 )
-                > unsafe { MIN_ENERGY }
+                > user_constants.min_energy
         } else {
             true
         }
@@ -1281,12 +1282,14 @@ impl Body {
         &self,
         plant: &Plant,
     ) -> bool {
+        let user_constants = USER_CONSTANTS.read().unwrap();
+
         if self.skills.contains(&Skill::AliveWhenArrived) {
             self.energy
                 - self.get_spent_energy(
                     self.pos.distance(plant.pos) / self.speed,
                 )
-                > unsafe { MIN_ENERGY }
+                > user_constants.min_energy
         } else {
             true
         }
