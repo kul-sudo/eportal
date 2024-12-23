@@ -330,7 +330,7 @@ impl Body {
                             };
 
                             if virus_chance > 0.0
-                                && (virus_chance == 1.0
+                                && (virus_chance as usize == 1
                                     || rng.gen_range(0.0..1.0)
                                         <= virus_chance)
                             {
@@ -359,11 +359,7 @@ impl Body {
         };
 
         // Applying the effect of the viruses
-        for virus in unsafe {
-            &(*(&body.viruses as *const HashMap<Virus, f32>))
-        }
-        .keys()
-        {
+        for virus in body.viruses.clone().keys() {
             body.apply_virus(*virus);
         }
 

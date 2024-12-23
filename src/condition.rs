@@ -26,7 +26,7 @@ impl Condition {
                 let user_constants = USER_CONSTANTS.read().unwrap();
 
                 if user_constants.condition_chance > 0.0
-                    && (user_constants.condition_chance == 1.0
+                    && (user_constants.condition_chance as usize == 1
                         || rng.gen_range(0.0..1.0)
                             <= user_constants.condition_chance)
                 {
