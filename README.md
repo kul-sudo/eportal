@@ -193,7 +193,6 @@ git clone https://github.com/kul-sudo/eportal; cd eportal; RUSTFLAGS='-C target-
 https://github.com/kul-sudo/eportal/releases
 
 # Contributions
-Especially:
 1. Better organizing the code
 2. Documentantion in the code and in the README (what you're reading right now)
 3. Adding more viruses and skills
