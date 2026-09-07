@@ -192,9 +192,7 @@ git clone https://github.com/kul-sudo/eportal; cd eportal; RUSTFLAGS='-C target-
 ### Get a Linux or Windows binary from the releases
 https://github.com/kul-sudo/eportal/releases
 
-
-# How to help the project?
-## Contributions
+# Contributions
 Especially:
 1. Better organizing the code
 2. Documentantion in the code and in the README (what you're reading right now)
